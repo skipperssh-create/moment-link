@@ -1,0 +1,82 @@
+{
+  "adjustments": {
+    "brightness": 1.02,
+    "saturation": 1.015,
+    "redMultiplier": 1.003,
+    "blueMultiplier": 0.997
+  },
+  "assets": [
+    {
+      "id": "2528a814-4911-483b-893e-1126c7b771d0",
+      "file": "heli-01.webp",
+      "alt": "착륙장에 정지한 흰색 헬기 외관",
+      "sha256": "04744e02c2c2a80c63e1ae571c8d7ab9d4d5fe348949d9a3187fe2d802e27d1e",
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "id": "98ed4d16-e298-4083-8c5c-c646929e1d9d",
+      "file": "heli-02.webp",
+      "alt": "푸른 하늘 아래 흰색 헬기와 조종석",
+      "sha256": "62ebe49bb06ed19e6dd226fe16999523897450a1f3d5d229627b97eba0e93938",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "6322bde6-7b62-4cc4-ae84-ef0d871406d4",
+      "file": "heli-03.webp",
+      "alt": "착륙장의 노란색 헬기와 흰색 헬기",
+      "sha256": "574a2d331519aaee1b9a4d0c9c8cc5c30555d329bd882c84c954cbf64e865620",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "3297312d-d53f-46cd-9c08-9495bc068b28",
+      "file": "heli-04.webp",
+      "alt": "탑승문을 연 흰색 헬기와 좌석",
+      "sha256": "5a3891f2890e69c7e77ab711d09a2ad0ffa27b78bbdd05e01b4afec03845193d",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "bd955f4a-c7c0-459e-b8a1-c6c8da843618",
+      "file": "heli-05.webp",
+      "alt": "착륙장과 흰색 헬기의 정면 모습",
+      "sha256": "9d0fa3a543d4b2cbae5f3716538d359b52ad56b28bbb076d68af80c8fad66d00",
+      "width": 1600,
+      "height": 1200
+    },
+    {
+      "id": "7d6b91ae-5a4d-4a35-bdd0-6c158406a8f8",
+      "file": "heli-06.webp",
+      "alt": "착륙장에 정지한 헬기와 주변 풍경",
+      "sha256": "53906c3b72518d3d3db08b78282662bb704510be4ca436ef254a02bf516803e4",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "203ed2b6-2f21-41fb-a26e-4dee601a95b8",
+      "file": "heli-07.webp",
+      "alt": "헬기 조종석에서 바라본 들판과 하늘",
+      "sha256": "7f7a70489abd9bc886af2cc60956423ac34b8d54d795d0694a7fbba9b2431b27",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "2edb1064-da6e-43c7-9cb3-6238c9cfaa22",
+      "file": "heli-08.webp",
+      "alt": "잔디 위 노란색 헬기와 해질녘 하늘",
+      "sha256": "626b8d40297969380aa770f8405268c45410cf9de27f810fe9132535e455f03d",
+      "width": 1200,
+      "height": 1600
+    },
+    {
+      "id": "098d8c16-62c3-449a-96ee-c4fade822306",
+      "file": "heli-09.webp",
+      "alt": "헬기 조종석에서 바라본 노을",
+      "sha256": "77bce37941c0c226b5ff5dc82f7c5a265f0d493e4c7192ac2022ee759380a334",
+      "width": 901,
+      "height": 1600
+    }
+  ]
+}
