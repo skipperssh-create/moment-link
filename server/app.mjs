@@ -3,7 +3,7 @@ import {z} from 'zod';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
-import {text,parse,catalogSchema,consultationSchema,validatePreferences,validDate,passwordSchema} from './validation.mjs';
+import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration} from './jobs.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
@@ -37,7 +37,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const ip=env.VERCEL?request.headers.get('x-vercel-forwarded-for')||'unknown':'local';
    await rateLimit(db,'intake-ip:'+ip,60,600);
    const key=request.headers.get('idempotency-key');if(!key||!/^[-a-zA-Z0-9]{20,100}$/.test(key))fail(400,'IDEMPOTENCY_KEY','접수 식별자가 필요합니다.');
-   const data=parse(consultationSchema,await body(request));validatePreferences(data.preferences);
+   const data=parse(consultationSchema,await body(request));validatePreferences(data.preferences);validateConsultationTimes(data.category,data.preferences);
    const payloadHash=hash(JSON.stringify(data)),idemHash=hash(key);
    const result=await db.transaction(async tx=>{
     await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[idemHash]);

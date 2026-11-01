@@ -54,3 +54,5 @@ SOLAPI 공식 계약: https://solapi.com/developers/api/msg-groups-getGroupInfo 
 접수에 expires_at을 동의 당시 보유기간으로 계산합니다. 만료 접수는 조회에서 제외합니다. DELETE /api/admin/consultations/:id 는 관리자·CSRF 확인 후 즉시 만료 처리, POST /api/admin/retention은 만료 상담과 종속 메모/작업/감사 내용을 정리합니다. GET /api/admin/retention은 최근 정리 시각을 확인합니다. GET /api/cron/retention은 32자 이상 CRON_SECRET의 정확한 Bearer 인증이 필요합니다. 일일 스케줄과 관리자 수동 정리를 제공합니다.
 
 패키지 options[{id,name,amount}]를 관리자에서 구성하고 고객은 optionIds만 제출합니다. 서버가 유효성과 중복을 검사하고 기본/특정일 가격에 합산하여 스냅샷에 저장합니다. 미정 가격(null)은 0원으로 바꾸지 않습니다. 개인정보 고지 변경에는 새 consentVersion이 필요합니다.
+
+헬기 고객 접수의 preferences.time은 오전/오후/시간 무관만 허용합니다(시간 무관은 주간 범위). 저녁 및 직접 시각 입력은 HELI_DAYTIME_ONLY 400으로 거절합니다. 두 순위와 상담 후 추천에도 적용하며, 정확한 출발 시간은 상담에서 확정합니다. 다른 상품의 저녁·HH:mm 입력은 유지합니다.

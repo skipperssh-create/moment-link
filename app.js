@@ -82,7 +82,8 @@ function footer(buttonText,action,disabled=false,note=''){return `<div class="ac
 function scheduleFields(n){
  const d=n===1?state.firstDate:state.secondDate,t=n===1?state.firstTime:state.secondTime;
  const id=n===1?'firstDate':'secondDate';
- return `<div class="sectionlabel">${n}순위 희망 날짜 ${n===1?'· 필수':'· 선택'}</div><input aria-label="${n}순위 희망 날짜" id="${id}" class="field" type="date" min="${localToday()}" value="${escapeHTML(d)}"/><div class="times">${['오전','오후','저녁','시간 무관'].map(x=>`<button type="button" class="time ${t===x?'active':''}" data-time="${n}:${x}" aria-pressed="${t===x}">${x}</button>`).join('')}</div><details class="exact-time" ${/^\d{2}:\d{2}$/.test(t)?'open':''}><summary>정확한 시간을 정하고 싶어요</summary><label class="micro" for="exactTime${n}">희망 시간 ${n===1?'(선택)':'(2순위)'}</label><input type="time" class="field" id="exactTime${n}" value="${/^\d{2}:\d{2}$/.test(t)?t:''}"></details>`;
+ const heli=state.category==='heli',times=heli?['오전','오후','시간 무관']:['오전','오후','저녁','시간 무관'];
+ return `<div class="sectionlabel">${n}순위 희망 날짜 ${n===1?'· 필수':'· 선택'}</div><input aria-label="${n}순위 희망 날짜" id="${id}" class="field" type="date" min="${localToday()}" value="${escapeHTML(d)}"/><div class="times">${times.map(x=>`<button type="button" class="time ${t===x?'active':''}" data-time="${n}:${x}" aria-pressed="${t===x}">${heli&&x==='시간 무관'?'주간 시간 무관':x}</button>`).join('')}</div>${heli?'<p class="micro">헬기는 주간에만 운항합니다. 정확한 출발 시간은 상담 후 안내합니다.</p>':`<details class="exact-time" ${/^\d{2}:\d{2}$/.test(t)?'open':''}><summary>정확한 시간을 정하고 싶어요</summary><label class="micro" for="exactTime${n}">희망 시간 ${n===1?'(선택)':'(2순위)'}</label><input type="time" class="field" id="exactTime${n}" value="${/^\d{2}:\d{2}$/.test(t)?t:''}"></details>`}`;
 }
 function customer(){let s=`<main class="layout"><div class="page">${progress()}`;
 if(state.step==='welcome')s+=`<section class="hero-card"><div class="eyebrow">PROPOSE CONSULTING</div><h1 class="page-title">특별한 순간을<br>간편하게 준비하세요.</h1><p class="muted">원하시는 상품과 희망 날짜를 선택해 주세요.<br>담당자가 내용을 확인한 후 상담을 도와드립니다.</p><div class="info"><strong>모먼트링크 프로포즈 상담 안내</strong><div class="muted">회원가입 없이 상품·가격을 비교하고 신청할 수 있습니다.</div></div>${footer('간편 상담 시작하기','start')}</section>`;
@@ -141,7 +142,7 @@ async function submit(){
 document.addEventListener('click',async ev=>{
  if(location.hash.startsWith('#admin'))return;
  const btn=ev.target.closest('button');if(!btn||submitting)return;
- if(btn.dataset.category){state.category=btn.dataset.category;state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
+ if(btn.dataset.category){state.category=btn.dataset.category;if(state.category==='heli')for(const key of ['firstTime','secondTime'])if(!['오전','오후','시간 무관'].includes(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
  if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;render();return;}
  if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;render();return;}
  if(btn.dataset.time){capture();const[i,t]=btn.dataset.time.split(':');if(i==='1')state.firstTime=t;else state.secondTime=t;render();return;}

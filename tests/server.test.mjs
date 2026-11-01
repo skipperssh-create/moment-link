@@ -121,6 +121,20 @@ test('cron cleanup requires a strong exact bearer and policy edits require a new
  assert.equal((await request('admin/settings',{auth:true,method:'PUT',data:{version:s.version,data:{...s.data,retentionDays:30}}})).status,409);
 });
 
+test('helicopter intake only accepts daytime preferences in both slots, including recommendation',async()=>{
+ const version=(await request('catalog')).data.version;
+ const heli={...payload(),catalogVersion:version,productId:'heli',packageId:'basic',category:'heli',phone:'01000000008'};
+ for(const time of ['저녁','19:00','15:00']){
+  for(const preferences of [[{date:'2099-11-01',time}],[{date:'2099-11-01',time:'오전'},{date:'2099-11-02',time}]]){
+   const result=await request('consultations',{method:'POST',data:{...heli,preferences},headers:{'Idempotency-Key':randomUUID()}});assert.equal(result.status,400);assert.equal(result.data.error,'HELI_DAYTIME_ONLY');
+  }
+ }
+ const recommend=await request('consultations',{method:'POST',data:{...heli,productId:'recommend',packageId:'recommend',preferences:[{date:'2099-11-01',time:'저녁'}]},headers:{'Idempotency-Key':randomUUID()}});assert.equal(recommend.data.error,'HELI_DAYTIME_ONLY');
+ for(const time of ['오전','오후','시간 무관'])assert.equal((await request('consultations',{method:'POST',data:{...heli,preferences:[{date:'2099-11-01',time}]},headers:{'Idempotency-Key':randomUUID()}})).status,201);
+ const yacht={...payload(),catalogVersion:version,phone:'01000000009'};
+ for(const time of ['저녁','19:00'])assert.equal((await request('consultations',{method:'POST',data:{...yacht,preferences:[{date:'2099-11-01',time}]},headers:{'Idempotency-Key':randomUUID()}})).status,201);
+});
+
 test('new staff can start with eight characters and complete first-login password change',async()=>{
  const data={username:'eight-char-staff',password:'Start8!x',role:'counselor'};
  assert.equal((await request('admin/users',{auth:true,method:'POST',data:{...data,password:'Short7!'}})).status,400);
