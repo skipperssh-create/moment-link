@@ -83,9 +83,16 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
   if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
   if(path==='/api/auth/password'&&method==='POST'){
-   csrf(request,user);const d=parse(z.object({current:z.string().max(128),password:z.string().min(12).max(128)}).strict(),await body(request));
-   await rateLimit(db,'password:'+user.id,5,900);const u=(await db.query('SELECT password_hash FROM moment_link.admin_users WHERE id=$1',[user.id])).rows[0];if(!await verifyPassword(d.current,u.password_hash))fail(403,'PASSWORD','현재 비밀번호를 확인해 주세요.');
-   await db.transaction(async tx=>{await tx.query('UPDATE moment_link.admin_users SET password_hash=$1,must_change_password=false WHERE id=$2',[await passwordHash(d.password),user.id]);await tx.query('DELETE FROM moment_link.sessions WHERE user_id=$1',[user.id]);await audit(tx,user.id,'auth.password.changed',user.id);});return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
+   csrf(request,user);const d=parse(z.object({current:z.string().max(128),username:text(40,3).optional(),password:z.string().min(8).max(128)}).strict(),await body(request));
+   await rateLimit(db,'password:'+user.id,5,900);
+   try{await db.transaction(async tx=>{
+    const u=(await tx.query('SELECT username,password_hash FROM moment_link.admin_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+    if(!u||!await verifyPassword(d.current,u.password_hash))fail(403,'PASSWORD','현재 비밀번호를 확인해 주세요.');
+    await tx.query('UPDATE moment_link.admin_users SET username=$1,password_hash=$2,must_change_password=false WHERE id=$3',[d.username??u.username,await passwordHash(d.password),user.id]);
+    await tx.query('DELETE FROM moment_link.sessions WHERE user_id=$1',[user.id]);
+    await audit(tx,user.id,'auth.password.changed',user.id,{usernameChanged:d.username!==undefined&&d.username!==u.username});
+   });}catch(e){if(e.code==='23505')fail(409,'USERNAME_TAKEN','이미 사용 중인 아이디입니다.');throw e;}
+   return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
   if(path==='/api/admin/consultations'&&method==='GET'){

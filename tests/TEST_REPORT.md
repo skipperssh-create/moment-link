@@ -1,6 +1,7 @@
 # v4.1 실제 검증 결과 · 2026-11-01
 
-- node --test tests/server.test.mjs: 28/28 통과. 실제 PGlite PostgreSQL과 서버 핸들러 사용. 외부 공급자는 test double.
+- node --test tests/server.test.mjs: 29/29 통과. 실제 PGlite PostgreSQL과 서버 핸들러 사용. 외부 공급자는 test double.
+- 추가 계정 검증: 8자 비밀번호·아이디 원자적 변경, 짧은 비밀번호·잘못된 현재 암호 거절, 중복 아이디 롤백, 기존 세션 전체 회수, 기존 계정 ID/권한 유지. 실제 비밀번호는 공개 소스·보고서에 포함하지 않음.
 - 기존 인증/권한/CSRF/중복/가격/카탈로그/발송 OFF/불명 결과 복구 24개 + 옵션 합산·위조 거절, PushSubscription JSON 호환, 만료 조회 차단·연쇄 삭제, cron 인증·고지 버전 변경 4개.
 - app.js/admin.js 문법 검사, 정적 빌드 12파일 통과. styles.css SHA256 원본 유지.
 - 로컬 브라우저: 출장 올인원+USB → 358,000원 → 2026-12-15 오후 → 합성 입력 → ML-289A2E85A3014C → 인증 관리자 접수함에서 동일 번호 확인.

@@ -9,7 +9,7 @@
 | POST /api/auth/login | username/password → user/CSRF + Secure HttpOnly SameSite=Strict 쿠키 (8시간) |
 | GET /api/auth/session | 세션 조회, 비로그인은 user:null |
 | POST /api/auth/logout | 현재 서버 세션 회수 |
-| POST /api/auth/password | current/password(12자 이상). 모든 자기 세션 회수 |
+| POST /api/auth/password | current/password(8자 이상), username?(3~40자). 현재 암호 확인 후 아이디·비밀번호 원자적 변경, 중복 아이디 409. 모든 자기 세션 회수 |
 | GET /api/admin/consultations?q=&offset= | 관리자 전체 / 상담자 배정 건만. 최대 50개 |
 | GET /api/admin/consultations/:id | 요청·스냅샷·메모·이력. 권한 없으면 404 |
 | PATCH /api/admin/consultations/:id | version, status?, assignee?, contacted?, read?. 담당 변경은 관리자만 |

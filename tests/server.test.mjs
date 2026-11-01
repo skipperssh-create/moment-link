@@ -120,3 +120,19 @@ test('cron cleanup requires a strong exact bearer and policy edits require a new
  const s=(await request('admin/settings',{auth:true})).data.settings;
  assert.equal((await request('admin/settings',{auth:true,method:'PUT',data:{version:s.version,data:{...s.data,retentionDays:30}}})).status,409);
 });
+
+test('account rename with eight-character password is atomic and revokes prior sessions',async()=>{
+ const original='Synthetic-password-123!',next='Test8!xy';
+ assert.equal((await request('auth/password',{auth:true,method:'POST',data:{current:original,password:'Short7!'}})).status,400);
+ assert.equal((await request('auth/password',{auth:true,method:'POST',data:{current:'incorrect',username:'renamed-admin',password:next}})).status,403);
+ assert.equal((await request('auth/password',{auth:true,method:'POST',data:{current:original,username:'counselor',password:next}})).status,409);
+ const unchanged=await request('auth/login',{method:'POST',data:{username:'admin',password:original}});assert.equal(unchanged.status,200);
+ const secondCookie=unchanged.headers.get('set-cookie').split(';')[0];
+ const changed=await request('auth/password',{auth:true,method:'POST',data:{current:original,username:'renamed-admin',password:next}});assert.equal(changed.status,200);
+ assert.equal((await request('admin/consultations',{auth:true})).status,401);
+ assert.equal((await request('admin/consultations',{headers:{Cookie:secondCookie}})).status,401);
+ assert.equal((await request('auth/login',{method:'POST',data:{username:'admin',password:original}})).status,401);
+ const loggedIn=await request('auth/login',{method:'POST',data:{username:'renamed-admin',password:next}});assert.equal(loggedIn.status,200);assert.equal(loggedIn.data.user.id,adminId);
+ assert.equal(loggedIn.data.user.role,'admin');assert.equal(loggedIn.data.user.mustChangePassword,false);
+ assert.ok(!JSON.stringify((await db.query('SELECT * FROM moment_link.audit_logs')).rows).includes(next));
+});
