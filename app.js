@@ -76,25 +76,47 @@ const photo=p=>safeImageURL(p.photo)?`<img src="${escapeHTML(safeImageURL(p.phot
 function packageCard(item,option){const yes=state.selection?.id===item.id&&state.selection?.packId===option.id;const bouquet=item.category==='yacht'&&item.sub==='sail'&&option.id==='all';let label='';if(bouquet){label=item.bouquet?'꽃다발 포함 (생화 또는 비누꽃)':'꽃다발 미포함'}
 return `<button type="button" class="package-option ${yes?'chosen':''}" data-select="${escapeHTML(item.id)}:${escapeHTML(option.id)}" aria-pressed="${yes}" ${item.salePaused?'disabled':''}><div class="package-title"><span>${escapeHTML(option.name)}</span><span class="selection-dot" aria-hidden="true">${yes?'●':'○'}</span></div>${option.weekday===null?`<div class="package-single">상담 후 안내</div>`:option.weekday===option.weekend?`<div class="package-single">${krw(option.weekday)}</div>`:`<div class="price-line"><small>주중</small><b>${krw(option.weekday)}</b></div><div class="price-line"><small>주말</small><b>${krw(option.weekend)}</b></div>`}<div class="package-notes">${escapeHTML(option.summary).split(' · ').map(t=>`<span>${t}</span>`).join('')}</div>${item.category==='heli'?`<div class="package-highlight">${option.id==='basic'?'헬기 비행·편지 낭독·샴페인':option.id==='original'?'촬영 원본 제공 · 편집본 제외':option.id==='edited'?'촬영 원본 + 추억영상 편집본':'구성 상세 확인'}</div>`:''}${label?`<div class="benefit ${item.bouquet?'good':''}">${label}</div>`:''}</button>`}
 
+function packageDuration(pk,kind){
+ if(!pk)return '';
+ if(kind==='total'&&pk.durationMinutes)return pk.durationMinutes+'분';
+ const text=[pk.summary,...(pk.features||[])].join(' · ');
+ const pattern=kind==='total'?/총(?: 이용시간)?\s*((?:약\s*)?\d+분)/:/실(?:운항|비행)(?:시간)?\s*((?:약\s*)?\d+분)/;
+ return text.match(pattern)?.[1]||'';
+}
+function yachtOverview(list){
+ if(list.length<2)return '';
+ const names=[...new Set(list.flatMap(p=>p.packages.map(pk=>pk.name)))];
+ const sections=names.map(name=>{
+  const packages=list.map(p=>p.packages.find(pk=>pk.name===name));
+  const row=(label,read,money=false)=>({label,money,values:packages.map(pk=>pk?read(pk):'해당 패키지 없음')});
+  const rows=list.some(p=>p.sub==='sail')?
+   [row('주중 가격',pk=>krw(pk.weekday),true),row('주말 가격',pk=>krw(pk.weekend),true)]:
+   [row('가격',pk=>priceDisplay(pk),true)];
+  rows.push(row('총 이용시간',pk=>packageDuration(pk,'total')||'상담 확인'));
+  if(packages.some(pk=>packageDuration(pk,'travel')))rows.push(row('실운항 시간',pk=>packageDuration(pk,'travel')||'상담 확인'));
+  const features=[...new Set(packages.flatMap(pk=>pk?.features||[]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
+  for(const feature of features)rows.push(row(feature,pk=>(pk.features||[]).includes(feature)?'포함':'상담 확인'));
+  return `<div class="comparison-scroll" tabindex="0" role="region" aria-label="${escapeHTML(name)} 요트 상품 비교표"><table class="compare-table yacht-overview-table" style="min-width:${120+list.length*112}px"><caption>${escapeHTML(name)} · 가격과 제공사항</caption><thead><tr><th scope="col">비교 항목</th>${list.map(p=>`<th scope="col">${escapeHTML(p.name)}${p.salePaused?'<span class="comparison-status">판매 중지</span>':''}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th scope="row">${escapeHTML(r.label)}</th>${r.values.map(v=>`<td class="${r.money?'comparison-price ':''}${v==='포함'?'included':''}">${escapeHTML(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ });
+ return `<section class="yacht-overview" aria-label="요트 상품 한눈에 비교"><h2>요트 상품 한눈에 비교</h2><p class="micro comparison-scroll-hint">표를 좌우로 밀어 다른 요트와 비교해 보세요.</p>${sections.join('')}<p class="micro comparison-note">총 이용시간에는 ${list.some(p=>p.sub==='sail')?'출·입항과 ':''}승·하선이 포함됩니다. 상품별 사진과 상세 구성은 아래에서 확인해 주세요.</p></section>`;
+}
 function comparisonTable(p){
  const packages=p.packages;if(packages.length<2)return '';
  const rows=[];
+ if(p.category==='yacht'){
+  for(const [key,label] of (p.sub==='sail'?[['weekday','주중 가격'],['weekend','주말 가격']]:[['weekday','가격']]))rows.push({label,money:true,values:packages.map(pk=>krw(pk[key]))});
+ }
  const featureLabels={"헬기탑승 및 비행":"헬기 비행","지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)":"헤드셋 편지 낭독 (운항 승인 전제)","착륙 후 WILL YOU MARRY ME? 손현수막":"착륙 후 손현수막","헬기 앞 테이블 세팅·샴페인":"테이블 세팅 · 샴페인","헬기 앞 기념촬영":"헬기 앞 기념촬영","헬기 내부 액션캠 영상":"헬기 내부 액션캠 영상","지상 편지 낭독 장면 촬영":"지상 편지 낭독 촬영","이·착륙 현장 반응 촬영":"이·착륙 반응 촬영","헬기 앞 DSLR 사진 촬영":"DSLR 사진 촬영","사진·영상 촬영 원본 제공":"사진·영상 원본","추억영상 편집본 제공":"추억영상 편집본"};
  const heading=pk=>p.category==='heli'?({basic:'기본',original:'촬영 원본',edited:'원본 + 편집본'}[pk.id]||pk.name):pk.name;
- const duration=(pk,kind)=>{
-  const text=[pk.summary,...(pk.features||[])].join(' · ');
-  const pattern=kind==='total'?/총(?: 이용시간)?\s*((?:약\s*)?\d+분)/:/실(?:운항|비행)(?:시간)?\s*((?:약\s*)?\d+분)/;
-  return text.match(pattern)?.[1]||'';
- };
  for(const [kind,label] of [['total','총 이용시간'],['travel',p.category==='heli'?'실비행 시간':'실운항 시간']]){
-  const values=packages.map(pk=>duration(pk,kind));if(values.every(Boolean))rows.push({label,values});
+  const values=packages.map(pk=>packageDuration(pk,kind));if(values.every(Boolean))rows.push({label,values});
  }
  const features=[...new Set(packages.flatMap(pk=>pk.features||[]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
  for(const feature of features)rows.push({label:featureLabels[feature]||feature,fullLabel:feature,values:packages.map(pk=>(pk.features||[]).includes(feature)?'포함':feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||'')?'미포함':'상담 확인')});
  const options=[...new Set(packages.flatMap(pk=>(pk.options||[]).map(o=>o.name)))];
  for(const name of options)rows.push({label:name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===name);return o?krw(o.amount)+' 추가':'상담 확인';})});
  if(!rows.length)return '';
- return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(v==='포함'?'included':'')+'">'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
+ return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+(p.category==='yacht'?' yacht-package-table':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(row.money?'comparison-price ':'')+(v==='포함'?'included':'')+'">'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
 }
 
 function productCard(p){return `<article class="product"><div class="product-photo">${photo(p)}</div><h3 class="product-name">${escapeHTML(p.name)}</h3><p class="product-desc">${escapeHTML(p.short)}</p>${p.salePaused?'<p class="badge">현재 판매 중지</p>':''}${p.category==='visit'?'<div class="pill" style="margin-bottom:10px">라이트·올인원 장식 세팅 동일</div>':''}<div class="package-grid ${p.packages.length>2?'three':''}">${p.packages.map(pk=>packageCard(p,pk)).join('')}</div>${comparisonTable(p)}<details data-detail="${escapeHTML(p.id)}" ${state.openDetails.includes(p.id)?'open':''}><summary>구성·포함 서비스 자세히 보기</summary><div class="detail-body">${escapeHTML(p.description)}</div>${p.packages.map(pk=>`<div class="detail-body"><strong>${escapeHTML(pk.name)}</strong> · ${escapeHTML(priceDisplay(pk))}\n${escapeHTML(pk.features?.join(' · ')||'추후 안내')}${pk.note?'\n※ '+escapeHTML(pk.note):''}${pk.durationMinutes?'\n이용시간 '+pk.durationMinutes+'분':''}${(pk.datePrices||[]).map(x=>'\n'+escapeHTML(x.date)+' 확정 안내 가격 '+krw(x.amount)).join('')}</div>`).join('')}${(p.media||[]).slice(1).some(m=>safeImageURL(m.url))?`<div class="product-gallery">${(p.media||[]).slice(1).filter(m=>safeImageURL(m.url)).map(m=>`<img src="${escapeHTML(safeImageURL(m.url))}" alt="${escapeHTML(m.alt)}" loading="lazy" decoding="async"/>`).join('')}</div>`:''}</details></article>`}
@@ -114,6 +136,7 @@ if(state.step==='products'){
 s+=`<button class="back" data-back="category">← 다른 상품 보기</button><h1 class="page-title">${escapeHTML(catName())}</h1><p class="muted">가격과 구성을 비교하고, 마음에 드는 패키지를 눌러주세요.</p>`;
 if(state.category==='yacht')s+=`<div class="choice-head">${[['sail','출항형 프로포즈'],['dock','정박형 프로포즈']].map(([id,n])=>`<button type="button" class="tab ${state.sub===id?'active':''}" data-sub="${id}">${n}</button>`).join('')}</div>`;
 const list=catalog.filter(x=>x.visible&&x.category===state.category&&(state.category!=='yacht'||x.sub===state.sub));
+if(state.category==='yacht')s+=yachtOverview(list);
 s+=list.length?`<div class="product-grid ${list.length===1?'single-product':''}">${list.map(productCard).join('')}</div>`:'<div class="empty">현재 선택할 수 있는 상품이 없습니다.</div>';
 if(state.category==='visit')s+=`<div class="info"><strong>라이트와 올인원은 장식 세팅이 동일합니다.</strong><div class="muted">올인원은 미니케이크·영상편지·촬영 관련 서비스 등이 추가됩니다. 영상편지 USB 요청 시 10,000원이 별도로 추가됩니다.</div></div>`;
 if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. PREMIUM·SIGNATURE 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
