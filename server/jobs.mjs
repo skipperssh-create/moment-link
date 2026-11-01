@@ -24,7 +24,8 @@ export async function processOutbox(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.outbox WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','발송 작업을 찾을 수 없습니다.');
   if(j.state==='sending'&&stale(j)){await tx.query("UPDATE moment_link.outbox SET state='uncertain',error_code='WORKER_INTERRUPTED',updated_at=now() WHERE id=$1",[id]);j.state='uncertain';}
   if(!['pending','failed'].includes(j.state)||j.provider_id)return j;
-  const s=await settings(tx);if(!enabled(s,j,env)){await tx.query("UPDATE moment_link.outbox SET state='blocked',updated_at=now() WHERE id=$1",[id]);return {...j,state:'blocked'};}await tx.query("UPDATE moment_link.outbox SET state='sending',attempts=attempts+1,updated_at=now() WHERE id=$1",[id]);return {...j,claimed:true};});
+  const live=(await tx.query('SELECT id FROM moment_link.consultations WHERE id=$1 AND expires_at>now()',[j.consultation_id])).rows[0];
+  const s=await settings(tx);if(!live||!enabled(s,j,env)){await tx.query("UPDATE moment_link.outbox SET state='blocked',updated_at=now() WHERE id=$1",[id]);return {...j,state:'blocked'};}await tx.query("UPDATE moment_link.outbox SET state='sending',attempts=attempts+1,updated_at=now() WHERE id=$1",[id]);return {...j,claimed:true};});
  if(!job.claimed)return ['sent','uncertain'].includes(job.state)?reconcileSms(db,job,env,adapters):{state:job.state};
  try{
   const s=await settings(db),r=(await db.query('SELECT receipt,phone FROM moment_link.consultations WHERE id=$1',[job.consultation_id])).rows[0];
@@ -70,7 +71,7 @@ export async function processIntegration(db,id,env,adapters={}){
   if(job.state==='uncertain'&&!prior?.id){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
   let booking=prior;
   if(!booking?.id){
-   const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1',[job.consultation_id])).rows[0];
+   const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1 AND expires_at>now()',[job.consultation_id])).rows[0];
    if(!consultation||['closed','cancelled'].includes(consultation.status)){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='CONSULTATION_CLOSED' WHERE id=$1",[id]);return {state:'conflict'};}
    const availability=await adapter.availability(job.booking);if(availability?.available!==true||!availability.token){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='AVAILABILITY_UNCONFIRMED' WHERE id=$1",[id]);return {state:'conflict'};}
    if(env.OPS_WRITES_ENABLED!=='true')fail(503,'OPS_WRITES_DISABLED','OPS 쓰기가 중지되었습니다.');

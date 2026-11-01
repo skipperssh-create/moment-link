@@ -1,5 +1,5 @@
-/* Preview shell only. No API, private pages, or remote photos are cached. */
-const CACHE='moment-link-shell-v4';
+/* Public shell only. No API, private pages, or remote photos are cached. */
+const CACHE='moment-link-shell-v41';
 const FILES=['index.html','app.js','admin.js','styles.css','manifest.webmanifest','assets/icon.svg'];
 const urls=FILES.map(p=>new URL(p,self.registration.scope).href);
 const rootURL=new URL('./',self.registration.scope).href;

@@ -52,15 +52,17 @@ const settingDefaults = {solapi:false,customerAuto:false,adminAuto:false,push:tr
 let catalog=structuredClone(defaults);
 let settings={...settingDefaults,accepting:false};
 let catalogVersion=0,requestKey='',submitting=false,apiReady=false;
-const state={view:'customer',step:'category',category:null,sub:'sail',selection:null,firstDate:'',firstTime:'',secondDate:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,adminTab:'inbox',editId:'',adminCategory:'yacht',adminSub:'sail',adminDetail:false,notice:'',formError:'',secondEnabled:false,openDetails:[],editorDirty:false};
+const state={view:'customer',step:'category',category:null,sub:'sail',selection:null,optionIds:[],firstDate:'',firstTime:'',secondDate:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,adminTab:'inbox',editId:'',adminCategory:'yacht',adminSub:'sail',adminDetail:false,notice:'',formError:'',secondEnabled:false,openDetails:[],editorDirty:false};
 
 const getProduct=()=>state.complete&&state.submitted?state.submitted.product:state.selection?.id==='recommend'?{id:'recommend',name:catName(),category:state.category,sub:state.sub,visible:true,packages:[]}:catalog.find(x=>x.id===state.selection?.id);
 const getPack=()=>state.complete&&state.submitted?state.submitted.package:state.selection?.id==='recommend'?{id:'recommend',name:'상담 후 추천',weekday:null,weekend:null,summary:'담당자와 상의 후 결정'}:getProduct()?.packages.find(x=>x.id===state.selection?.packId);
 const catName=()=>CATEGORY.find(x=>x.id===state.category)?.label||'상담';
 const choiceName=()=>`${getProduct()?.name||''} · ${getPack()?.name||''}`;
 const priceDisplay=p=>!p||p.weekday===null?'상담 후 안내':p.weekday===p.weekend?krw(p.weekday):`주중 ${krw(p.weekday)} / 주말 ${krw(p.weekend)}`;
-const displayChosenPrice=()=>{const p=getPack();return priceDisplay(p)+(p?.datePrices||[]).filter(x=>x.date===state.firstDate||x.date===state.secondDate).map(x=>' / '+dateLabel(x.date)+' '+krw(x.amount)).join('');}; // Never infer holiday pricing.
-const top=()=>`<div class="demo-banner">${settings.accepting?'상담 신청 · 예약 확정은 상담 후 안내':'개발 미리보기 · 상담 접수 준비 중'}</div><header><div class="brand">MOMENT LINK</div><nav class="nav" aria-label="관리자"><a class="tab" href="#admin">관리자 로그인</a></nav></header>`;
+const selectedOptions=()=>state.complete&&state.submitted?state.submitted.options||[]:(getPack()?.options||[]).filter(o=>state.optionIds.includes(o.id));
+const optionAmount=()=>selectedOptions().reduce((sum,o)=>sum+o.amount,0);
+const displayChosenPrice=()=>{const p=getPack(),extra=optionAmount();return priceDisplay(p?{...p,weekday:p.weekday===null?null:p.weekday+extra,weekend:p.weekend===null?null:p.weekend+extra}:p)+(p?.datePrices||[]).filter(x=>x.date===state.firstDate||x.date===state.secondDate).map(x=>' / '+dateLabel(x.date)+' '+krw(x.amount===null?null:x.amount+extra)).join('')+(selectedOptions().length?' · '+selectedOptions().map(o=>o.name).join(', '):'');}; // Never infer holiday pricing.
+const top=()=>`<div class="demo-banner">${settings.accepting?'상담 신청 · 예약 확정은 상담 후 안내':'상담 접수 준비 중 · 대표번호로 문의해 주세요'}</div><header><div class="brand">MOMENT LINK</div><nav class="nav" aria-label="관리자"><a class="tab" href="#admin">관리자 로그인</a></nav></header>`;
 const progress=()=>{const count={welcome:0,category:1,products:2,schedule:3,contact:4,review:4,done:4,sms:4}[state.step];return `<div class="step-bar" aria-label="상담 신청 단계">${[1,2,3,4].map(i=>`<span class="${i<=count?'done':''}"></span>`).join('')}</div>`};
 const iconBoat=`<svg viewBox="0 0 240 120" fill="none" aria-hidden="true"><path d="M20 72H218L186 104H52Z" fill="#fff" stroke="#98aeb8" stroke-width="3"/><path d="M74 70V24h91l26 46" fill="#f7fcff" stroke="#98aeb8" stroke-width="3"/><path d="M91 35h55v25H91Z" fill="#a8c5d2"/><path d="M25 112q22-12 44 0t44 0t44 0t44 0" stroke="#b2ccd4" stroke-width="4"/></svg>`;
 const safeImageURL = value => {
@@ -96,9 +98,9 @@ if(state.category==='yacht')s+=yachtPlace();
 if(state.category==='heli')s+=heliPlace();
 s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<section class="info"><strong>${escapeHTML(l.name)} · ${l.status==='confirmed'?'확정 안내 장소':'후보 · 미확정'}</strong><div class="muted">${escapeHTML(l.address)}${l.parking?'<br>주차: '+escapeHTML(l.parking):''}${l.contact?'<br>현장 연락: '+escapeHTML(l.contact):''}</div>${l.mapUrl?`<a href="${escapeHTML(l.mapUrl)}" target="_blank" rel="noopener noreferrer">지도 보기</a>`:''}</section>`).join('');
 s+=`<button class="secondary recommendation" data-action="recommend" aria-pressed="${state.selection?.id==='recommend'}">${state.selection?.id==='recommend'?'상담 후 추천 선택됨':'아직 고민 중이에요 · 상담 후 추천'}</button>`;
-const current=getPack();s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${priceDisplay(current)}`:'원하시는 상품을 먼저 선택해 주세요.');
+const current=getPack();if(current?.options?.length)s+=`<section class="info"><strong>추가 선택사항 · 선택</strong>${current.options.map(o=>`<label class="inline-check"><input type="checkbox" data-option="${escapeHTML(o.id)}" ${state.optionIds.includes(o.id)?'checked':''}/>${escapeHTML(o.name)} · ${krw(o.amount)}</label>`).join('')}</section>`;s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${displayChosenPrice()}`:'원하시는 상품을 먼저 선택해 주세요.');
 }
-if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted">${escapeHTML(priceDisplay(getPack()))}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
+if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
 if(state.step==='contact'){
 s+=`<button class="back" data-back="schedule">← 일정 선택으로</button><h1 class="page-title">연락받으실 정보를 알려주세요.</h1><p class="muted">필요한 항목만 간단히 입력합니다.</p>`;
 if(state.category==='yacht')s+=yachtPlace();if(state.category==='heli')s+=heliPlace();
@@ -115,7 +117,7 @@ if(state.step==='done')s+=`<p class="muted">${escapeHTML(settings.completionText
 else s+=footer('상담 신청 완료 화면 보기','review');
 }
 if(state.step==='sms')s+=`<h1 class="page-title">문자 발송 미리보기</h1><p class="muted">고객 본인의 휴대폰에서 담당자에게 보낼 문자입니다.</p><div class="info"><strong>받는 사람: ${escapeHTML(settings.smsNumber)}</strong></div><div class="message">${escapeHTML(smsText())}</div><p class="micro">문자 앱의 본문 자동 입력은 기기·운영체제·문자 앱에 따라 달라질 수 있습니다. 자동 전송은 하지 않습니다.</p><div class="btnrow" style="margin-top:16px"><button class="primary" data-action="openSms">휴대폰 문자 앱 열기</button><button class="secondary" data-action="copySms">내용 복사</button></div><button class="back" data-back="done">← 완료 화면으로 돌아가기</button>`;
-s+=`<p class="micro" style="text-align:center;margin-top:26px">대표번호 ${escapeHTML(settings.mainNumber)} · <a href="tel:${settings.mainNumber.replace(/[^0-9]/g,'')}">전화하기</a></p></div></main>`;
+s+=`<p class="micro" style="text-align:center;margin-top:26px">대표번호 ${escapeHTML(settings.mainNumber)} · <a href="tel:${settings.mainNumber.replace(/[^0-9]/g,'')}">전화하기</a><br>비상업용 상담 서비스 · <a href="/privacy.html">개인정보 안내</a></p></div></main>`;
 return s;
 }
 function smsText(){if(settings.manualSmsTemplate){const tokens={receipt:state.receipt||'',name:state.name,phone:state.phone,selection:choiceName(),price:displayChosenPrice(),first:dateLabel(state.firstDate)+' '+state.firstTime,second:state.secondDate?dateLabel(state.secondDate)+' '+state.secondTime:'',place:state.place,notes:state.notes||'없음'};return settings.manualSmsTemplate.replace(/\{(receipt|name|phone|selection|price|first|second|place|notes)\}/g,(_,key)=>tokens[key]);}return `[모먼트링크 프로포즈 상담 신청]\n접수번호: ${state.receipt||''}\n성함: ${state.name}\n번호: ${state.phone}\n상품: ${catName()}\n선택: ${choiceName()}\n가격: ${displayChosenPrice()}\n1순위: ${dateLabel(state.firstDate)} ${state.firstTime}${state.secondDate?'\n2순위: '+dateLabel(state.secondDate)+' '+state.secondTime:''}${['visit','trunk'].includes(state.category)?'\n장소: '+state.place:''}\n특이사항: ${state.notes||'없음'}\n위 내용으로 상담 부탁드립니다.`}
@@ -131,9 +133,9 @@ async function submit(){
  if(!apiReady||!settings.accepting)return formError('상담 접수 준비 중입니다. 대표번호로 문의해 주세요.');
  requestKey ||= crypto.randomUUID();submitting=true;render();
  try {const preferences=[{date:state.firstDate,time:state.firstTime}];if(state.secondDate)preferences.push({date:state.secondDate,time:state.secondTime});
- const r=await fetch('/api/consultations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},body:JSON.stringify({catalogVersion,productId:state.selection.id,packageId:state.selection.packId,category:state.category,person:state.name,phone:state.phone,preferences,place:state.place,notes:state.notes,consent:state.consent,consentVersion:settings.consentVersion})});const data=await r.json();
+ const r=await fetch('/api/consultations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},body:JSON.stringify({catalogVersion,productId:state.selection.id,packageId:state.selection.packId,optionIds:state.optionIds,category:state.category,person:state.name,phone:state.phone,preferences,place:state.place,notes:state.notes,consent:state.consent,consentVersion:settings.consentVersion})});const data=await r.json();
  if(!r.ok){if(['CATALOG_CHANGED','CONSENT_CHANGED','IDEMPOTENCY_CONFLICT'].includes(data.error)){requestKey='';await refreshCatalog();state.consent=false;}throw Error(data.message||'접수하지 못했습니다. 다시 시도해 주세요.');}
- state.submitted={product:structuredClone(getProduct()),package:structuredClone(getPack())};state.receipt=data.receipt;state.complete=true;submitting=false;setStep('done');
+ state.submitted={product:structuredClone(getProduct()),package:structuredClone(getPack()),options:structuredClone(selectedOptions())};state.receipt=data.receipt;state.complete=true;submitting=false;setStep('done');
  }catch(e){submitting=false;formError(e.message||'통신 오류입니다. 저장 여부를 확인할 수 없습니다. 같은 내용으로 다시 시도하면 중복 접수되지 않습니다.');}
 }
 document.addEventListener('click',async ev=>{
@@ -141,7 +143,7 @@ document.addEventListener('click',async ev=>{
  const btn=ev.target.closest('button');if(!btn||submitting)return;
  if(btn.dataset.category){state.category=btn.dataset.category;state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
  if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;render();return;}
- if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.complete=false;render();return;}
+ if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;render();return;}
  if(btn.dataset.time){capture();const[i,t]=btn.dataset.time.split(':');if(i==='1')state.firstTime=t;else state.secondTime=t;render();return;}
  if(btn.dataset.back){capture();setStep(btn.dataset.back);return;}
  if(btn.dataset.next){const a=btn.dataset.next;
@@ -151,7 +153,7 @@ document.addEventListener('click',async ev=>{
   if(a==='done'&&state.complete)return setStep('sms');
  }
  const a=btn.dataset.action;
- if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.complete=false;render();}
+ if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.optionIds=[];state.complete=false;render();}
  if(a==='clearSecond'||a==='toggleSecond'){capture();state.secondEnabled=a==='toggleSecond'?!state.secondEnabled:false;if(!state.secondEnabled){state.secondDate='';state.secondTime='';}render();}
  if(a==='restart'){Object.assign(state,{step:'category',category:null,selection:null,firstDate:'',secondDate:'',firstTime:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,secondEnabled:false,formError:'',receipt:'',submitted:null,openDetails:[]});requestKey='';render();}
  if(a==='copySms'){try{await navigator.clipboard.writeText(smsText());alert('문자 내용을 복사했습니다.');}catch{alert('내용을 직접 선택해 복사해 주세요.');}}
@@ -159,9 +161,9 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('toggle',ev=>{const id=ev.target.dataset?.detail;if(!id)return;state.openDetails=state.openDetails.filter(x=>x!==id);if(ev.target.open)state.openDetails.push(id);},true);
 document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(k==='consent')state.consent=ev.target.checked;});
-document.addEventListener('change',ev=>{const el=ev.target;if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
+document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option){state.optionIds=el.checked?[...state.optionIds,el.dataset.option]:state.optionIds.filter(id=>id!==el.dataset.option);render();return;}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
 window.addEventListener('beforeunload',e=>{if(!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
-function route(){if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();refreshCatalog();render();}}
+function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();refreshCatalog();render();}}
 window.addEventListener('hashchange',route);
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
 route();

@@ -1,0 +1,51 @@
+[
+  {
+    "clipped": false,
+    "height": 740,
+    "overflow": false,
+    "price": true,
+    "width": 320
+  },
+  {
+    "clipped": false,
+    "height": 800,
+    "overflow": false,
+    "price": true,
+    "width": 360
+  },
+  {
+    "clipped": false,
+    "height": 844,
+    "overflow": false,
+    "price": true,
+    "width": 390
+  },
+  {
+    "clipped": false,
+    "height": 390,
+    "overflow": false,
+    "price": true,
+    "width": 844
+  },
+  {
+    "clipped": false,
+    "height": 1024,
+    "overflow": false,
+    "price": true,
+    "width": 768
+  },
+  {
+    "clipped": false,
+    "height": 768,
+    "overflow": false,
+    "price": true,
+    "width": 1024
+  },
+  {
+    "clipped": false,
+    "height": 900,
+    "overflow": false,
+    "price": true,
+    "width": 1440
+  }
+]

@@ -4,7 +4,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = ['index.html','app.js','admin.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html'];
+const allowed = ['index.html','app.js','admin.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);
 let files = {};

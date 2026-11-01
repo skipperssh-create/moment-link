@@ -8,6 +8,7 @@ import {passwordHash} from '../server/security.mjs';
 import {processOutbox,processIntegration} from '../server/jobs.mjs';
 import {initialSettings} from '../server/seed.mjs';
 import catalog from '../catalog.confirmed.json' with {type:'json'};
+import {purgeExpired,authorizedCron} from '../server/retention.mjs';
 let pg,db,app,admin,counselor,adminId,counselorId,csrf,cookie,receiptId;
 const env={APP_ORIGIN:'https://test.moment-link.invalid',NODE_ENV:'production'};
 const payload=()=>({catalogVersion:1,productId:'classic',packageId:'light',category:'yacht',person:'합성 검수',phone:'01000000000',preferences:[{date:'2099-11-01',time:'오후'}],place:'',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test-v1'});
@@ -76,4 +77,46 @@ test('catalog validates photo metadata, date exceptions, and paused sales',async
  assert.equal((await request('consultations',{method:'POST',data:{...payload(),catalogVersion:saved.data.publishedVersion},headers:{'Idempotency-Key':randomUUID()}})).status,400);
  products[0].packages[0].datePrices.push({date:'2099-11-01',amount:1});
  assert.equal((await request('admin/catalog',{auth:true,method:'PUT',data:{version:saved.data.version,products,publish:false}})).status,400);
+});
+
+test('configured options are priced on the server and arbitrary options are rejected',async()=>{
+ const current=(await request('admin/catalog',{auth:true})).data.draft,products=structuredClone(current.data);
+ products[0].salePaused=false;products[0].packages[0].options=[{id:'usb',name:'합성 추가 선택',amount:10000}];
+ const saved=await request('admin/catalog',{auth:true,method:'PUT',data:{version:current.version,products,publish:true}});assert.equal(saved.status,200);
+ const d={...payload(),catalogVersion:saved.data.publishedVersion,phone:'01000000005',optionIds:['usb']};
+ assert.equal((await request('consultations',{method:'POST',data:{...d,optionIds:['missing']},headers:{'Idempotency-Key':randomUUID()}})).status,400);
+ assert.equal((await request('consultations',{method:'POST',data:{...d,optionIds:['usb','usb']},headers:{'Idempotency-Key':randomUUID()}})).status,400);
+ const response=await request('consultations',{method:'POST',data:d,headers:{'Idempotency-Key':randomUUID()}});assert.equal(response.status,201);
+ const savedRow=(await db.query('SELECT * FROM moment_link.consultations WHERE receipt=$1',[response.data.receipt])).rows[0];
+ assert.equal(savedRow.snapshot.price.weekday,410000);assert.equal(savedRow.snapshot.price.dateOverrides[0].override.amount,460000);assert.equal(savedRow.snapshot.options[0].name,'합성 추가 선택');
+ assert.ok(new Date(savedRow.expires_at)>new Date(savedRow.created_at));
+});
+
+test('real browser push JSON is accepted; private endpoints are rejected',async()=>{
+ const subscription={endpoint:'https://fcm.googleapis.com/fcm/send/synthetic-test-only',expirationTime:null,keys:{p256dh:'synthetic',auth:'synthetic'}};
+ assert.equal((await request('admin/push',{auth:true,method:'POST',data:subscription})).status,200);
+ assert.equal((await request('admin/push',{auth:true,method:'POST',data:{...subscription,endpoint:'https://127.0.0.1/private'}})).status,400);
+});
+
+test('retention removes expired consultation and all linked personal data only',async()=>{
+ const remaining=(await db.query('SELECT id FROM moment_link.consultations WHERE id<>$1',[receiptId])).rows.length;
+ await db.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),receiptId,adminId,'합성 개인정보 메모']);
+ await db.query("UPDATE moment_link.consultations SET expires_at=now()-interval '1 second' WHERE id=$1",[receiptId]);
+ assert.equal((await request('admin/consultations/'+receiptId,{auth:true})).status,404);
+ assert.ok(!(await request('admin/consultations',{auth:true})).data.items.some(r=>r.id===receiptId));
+ const result=await purgeExpired(db);assert.equal(result.deleted,1);
+ for(const table of ['consultation_notes','outbox','integration_jobs'])assert.equal((await db.query(`SELECT * FROM moment_link.${table} WHERE consultation_id=$1`,[receiptId])).rows.length,0);
+ assert.equal((await db.query('SELECT * FROM moment_link.audit_logs WHERE entity_id=$1',[receiptId])).rows.length,0);
+ assert.equal((await db.query('SELECT * FROM moment_link.consultations')).rows.length,remaining);assert.equal((await purgeExpired(db)).deleted,0);
+});
+
+test('cron cleanup requires a strong exact bearer and policy edits require a new consent version',async()=>{
+ const secret='synthetic-cron-secret-32-characters-long';
+ assert.equal(authorizedCron(new Request(env.APP_ORIGIN),secret),false);
+ assert.equal(authorizedCron(new Request(env.APP_ORIGIN,{headers:{authorization:'Bearer '+secret}}),secret),true);
+ assert.equal((await request('cron/retention')).status,401);
+ const cron=createApp({db,env:{...env,CRON_SECRET:secret}});
+ assert.equal((await cron(new Request(env.APP_ORIGIN+'/api/cron/retention',{headers:{Authorization:'Bearer '+secret}}))).status,200);
+ const s=(await request('admin/settings',{auth:true})).data.settings;
+ assert.equal((await request('admin/settings',{auth:true,method:'PUT',data:{version:s.version,data:{...s.data,retentionDays:30}}})).status,409);
 });

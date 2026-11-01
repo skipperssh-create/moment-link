@@ -5,6 +5,7 @@ import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validDate} from './validation.mjs';
 import {processOutbox,processIntegration} from './jobs.mjs';
+import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
 const categoryNames={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
 export const settingsSchema=z.object({solapi:z.boolean(),customerAuto:z.boolean(),adminAuto:z.boolean(),push:z.boolean(),smsNumber:text(30),mainNumber:text(30),adminSms:text(30),yachtPlace:text(500),yachtAddress:text(500),heliGunsan:text(500),heliByeonsan:text(500),privacyController:text(100),privacyContact:text(100),retentionDays:z.number().int().min(1).max(3650).nullable(),privacyText:text(10000),consentVersion:text(80,1),accepting:z.boolean(),customerTemplate:text(1000),adminTemplate:text(1000),completionText:text(1000).optional(),manualSmsTemplate:text(3000).optional(),locations:z.array(z.object({id:z.string().uuid(),category:z.enum(['yacht','visit','trunk','heli']),name:text(100,1),status:z.enum(['candidate','confirmed']),address:text(500),mapUrl:z.string().max(2000).refine(v=>!v||/^https:\/\//.test(v)),parking:text(500),contact:text(100)}).strict()).max(50).optional()}).strict().refine(s=>!s.accepting||(s.privacyController&&s.privacyContact&&s.retentionDays&&s.privacyText&&s.consentVersion!=='draft'));
@@ -20,8 +21,12 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
  try {
   const url=new URL(request.url),path=url.pathname.replace(/\/$/,'');
   const method=request.method;
-  if(path==='/api/health')return json({status:'ok',version:'4.0.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
+  if(path==='/api/health')return json({status:'ok',version:'4.1.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
   const db=givenDb||database();
+  if(path==='/api/cron/retention'&&method==='GET'){
+   if(!authorizedCron(request,env.CRON_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
+   return json(await purgeExpired(db));
+  }
   if(writeMethods.includes(method))sameOrigin(request,env);
   if(path==='/api/catalog'&&method==='GET'){
    const [c,s]=await Promise.all([published(db),config(db,'settings')]);
@@ -45,10 +50,12 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(data.productId==='recommend'&&data.packageId==='recommend'){p={id:'recommend',category:data.category,name:categoryNames[data.category],packages:[]};pk={id:'recommend',name:'상담 후 추천',weekday:null,weekend:null,features:[]};}
     if(!p||!pk||p.salePaused||p.category!==data.category)fail(400,'PRODUCT','선택 가능한 상품이 아닙니다.');
     if(['visit','trunk'].includes(p.category)&&!data.place)fail(400,'PLACE','희망 장소를 입력해 주세요.');
+    const options=data.optionIds.map(id=>(pk.options||[]).find(o=>o.id===id));if(options.some(o=>!o))fail(400,'OPTION','선택 가능한 추가 옵션이 아닙니다.');
+    const optionAmount=options.reduce((sum,o)=>sum+o.amount,0);
     await rateLimit(tx,'phone:'+data.phone,5,3600);
     const id=randomUUID(),receipt='ML-'+id.replaceAll('-','').slice(0,14).toUpperCase();
-    const snapshot={catalogVersion:c.version,product:{...p,packages:undefined},package:pk,price:{weekday:pk.weekday,weekend:pk.weekend,dateOverrides:data.preferences.map(x=>({date:x.date,override:(pk.datePrices||[]).find(rule=>rule.date===x.date)||null}))},timezone:'Asia/Seoul'};
-    await tx.query(`INSERT INTO moment_link.consultations(id,receipt,idempotency_hash,payload_hash,person,phone,category,product_id,package_id,snapshot,preferences,place,notes,consent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[id,receipt,idemHash,payloadHash,data.person,data.phone,data.category,p.id,pk.id,JSON.stringify(snapshot),JSON.stringify(data.preferences),data.place,data.notes,JSON.stringify({version:s.consentVersion,text:s.privacyText,controller:s.privacyController,retentionDays:s.retentionDays,acceptedAt:new Date().toISOString()})]);
+    const snapshot={catalogVersion:c.version,product:{...p,packages:undefined},package:pk,options,price:{weekday:pk.weekday===null?null:pk.weekday+optionAmount,weekend:pk.weekend===null?null:pk.weekend+optionAmount,optionAmount,dateOverrides:data.preferences.map(x=>({date:x.date,override:(()=>{const rule=(pk.datePrices||[]).find(rule=>rule.date===x.date);return rule?{...rule,amount:rule.amount===null?null:rule.amount+optionAmount}:null;})()}))},timezone:'Asia/Seoul'};
+    await tx.query(`INSERT INTO moment_link.consultations(id,receipt,idempotency_hash,payload_hash,person,phone,category,product_id,package_id,snapshot,preferences,place,notes,consent,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()+make_interval(days=>$15))`,[id,receipt,idemHash,payloadHash,data.person,data.phone,data.category,p.id,pk.id,JSON.stringify(snapshot),JSON.stringify(data.preferences),data.place,data.notes,JSON.stringify({version:s.consentVersion,text:s.privacyText,controller:s.privacyController,retentionDays:s.retentionDays,acceptedAt:new Date().toISOString()}),s.retentionDays]);
     const outbox=[];
     for(const [channel,on] of [['sms_customer',s.solapi&&s.customerAuto&&env.SMS_LIVE_ENABLED==='true'],['sms_admin',s.solapi&&s.adminAuto&&env.SMS_LIVE_ENABLED==='true'],['push',s.push&&env.PUSH_LIVE_ENABLED==='true']])if(on){const jobId=randomUUID();await tx.query('INSERT INTO moment_link.outbox(id,event_key,consultation_id,channel) VALUES($1,$2,$3,$4)',[jobId,`${id}:${channel}`,id,channel]);outbox.push(jobId);}
     await audit(tx,null,'consultation.created',id,{catalogVersion:c.version});
@@ -83,13 +90,14 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
-   const r=await db.query(`SELECT * FROM moment_link.consultations WHERE ($1='admin' OR assignee=$2) AND ($3='' OR person ILIKE $4 OR phone ILIKE $4 OR receipt ILIKE $4) ORDER BY created_at DESC LIMIT 50 OFFSET $5`,[user.role,user.id,search,'%'+search+'%',offset]);return json({items:r.rows.map(visibleRequest)});
+   const r=await db.query(`SELECT * FROM moment_link.consultations WHERE expires_at>now() AND ($1='admin' OR assignee=$2) AND ($3='' OR person ILIKE $4 OR phone ILIKE $4 OR receipt ILIKE $4) ORDER BY created_at DESC LIMIT 50 OFFSET $5`,[user.role,user.id,search,'%'+search+'%',offset]);return json({items:r.rows.map(visibleRequest)});
   }
   const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
-    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if(method==='DELETE'&&!action){authorize(user,true);await tx.query('UPDATE moment_link.consultations SET expires_at=now() WHERE id=$1',[id]);await audit(tx,user.id,'privacy.deletion.requested',id);return {ok:true};}
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
     if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
     if(action==='confirm'&&method==='POST'){
@@ -111,6 +119,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
    });return json(result);
   }
+  if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
+  if(path==='/api/admin/retention'&&method==='POST'){authorize(user,true);return json(await purgeExpired(db));}
   if(path==='/api/admin/catalog'&&method==='GET'){authorize(user,true);return json({draft:await config(db,'catalog_draft'),published:await published(db)});}
   if(path==='/api/admin/catalog'&&method==='PUT'){
    authorize(user,true);const d=parse(z.object({version:z.number().int(),products:catalogSchema,publish:z.boolean()}).strict(),await body(request,700000));
@@ -125,6 +135,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/admin/settings'&&method==='GET'){authorize(user,true);return json({settings:await config(db,'settings'),gates:{sms:env.SMS_LIVE_ENABLED==='true',push:env.PUSH_LIVE_ENABLED==='true',ops:env.OPS_WRITES_ENABLED==='true'},vapidPublicKey:env.VAPID_PUBLIC_KEY||''});}
   if(path==='/api/admin/settings'&&method==='PUT'){
    authorize(user,true);const d=parse(z.object({version:z.number().int(),data:settingsSchema}).strict(),await body(request));
+   const before=(await config(db,'settings')).data;
+   if(['privacyController','privacyContact','retentionDays','privacyText'].some(k=>JSON.stringify(before[k])!==JSON.stringify(d.data[k]))&&before.consentVersion===d.data.consentVersion)fail(409,'CONSENT_VERSION','개인정보 안내를 바꿀 때는 안내문 버전도 변경해 주세요.');
    if(d.data.solapi&&env.SMS_LIVE_ENABLED!=='true')fail(403,'SMS_NOT_APPROVED','문자 실발송 승인이 적용되지 않았습니다.');
    if(d.data.push&&env.PUSH_LIVE_ENABLED!=='true')fail(403,'PUSH_NOT_ENABLED','푸시 발송 연결을 먼저 설정해 주세요.');
    return json(await db.transaction(async tx=>{const r=await tx.query(`UPDATE moment_link.config SET data=$1,version=version+1,updated_at=now() WHERE id='settings' AND version=$2 RETURNING version`,[JSON.stringify(d.data),d.version]);if(!r.rows.length)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');await audit(tx,user.id,'settings.updated','settings',{keys:Object.keys(d.data)});return {version:r.rows[0].version};}));
@@ -147,7 +159,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     await tx.query('UPDATE moment_link.admin_users SET role=$1,active=$2 WHERE id=$3',[d.role,d.active,id]);await tx.query('DELETE FROM moment_link.sessions WHERE user_id=$1',[id]);await audit(tx,user.id,'user.updated',id,d);return {ok:true};}));
   }
   if(path==='/api/admin/push'&&method==='POST'){
-   const d=parse(z.object({endpoint:z.string().url().max(2000),keys:z.object({p256dh:z.string().max(150),auth:z.string().max(100)}).strict()}).strict(),await body(request));
+   authorize(user,true);
+   const d=parse(z.object({endpoint:z.string().url().max(2000),expirationTime:z.number().nullable().optional(),keys:z.object({p256dh:z.string().max(150),auth:z.string().max(100)}).strict()}).strict(),await body(request));
    const host=new URL(d.endpoint).hostname;if(!['fcm.googleapis.com','updates.push.services.mozilla.com','web.push.apple.com'].some(h=>host===h||host.endsWith('.'+h))||new URL(d.endpoint).protocol!=='https:')fail(400,'PUSH_ENDPOINT','지원하지 않는 푸시 주소입니다.');
    await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);return json({ok:true});
   }
