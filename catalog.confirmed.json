@@ -238,7 +238,26 @@
           "현장 전체 설치",
           "이벤트 종료 후 수거·정리"
         ],
-        "note": "고객은 장소만 준비하면 됩니다."
+        "note": "고객은 장소만 준비하면 됩니다.",
+        "options": [
+          {
+            "id": "bouquet",
+            "name": "기본 꽃다발 추가",
+            "amount": 30000
+          },
+          {
+            "id": "video-letter",
+            "name": "영상편지",
+            "amount": 30000,
+            "group": "영상편지"
+          },
+          {
+            "id": "video-letter-usb",
+            "name": "영상편지 USB 제작",
+            "amount": 40000,
+            "group": "영상편지"
+          }
+        ]
       },
       {
         "id": "all",
@@ -261,9 +280,14 @@
         "note": "영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.",
         "options": [
           {
-            "id": "video-usb",
-            "name": "영상편지 USB",
+            "id": "usb",
+            "name": "영상편지 USB 제작",
             "amount": 10000
+          },
+          {
+            "id": "bouquet",
+            "name": "기본 꽃다발 추가",
+            "amount": 30000
           }
         ]
       }

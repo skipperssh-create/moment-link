@@ -10,6 +10,36 @@ import {initialSettings} from '../server/seed.mjs';
 import {packageSchema} from '../server/validation.mjs';
 import catalog from '../catalog.confirmed.json' with {type:'json'};
 import {purgeExpired,authorizedCron} from '../server/retention.mjs';
+test('visit add-ons preserve prices and prevent charging both video alternatives',async()=>{
+ const localPg=new PGlite(),localDb={query:(s,a)=>localPg.query(s,a),transaction:fn=>localPg.transaction(fn)};
+ try{
+  await migrate(localDb);
+  await localDb.query("UPDATE moment_link.config SET data=$1 WHERE id='settings'",[JSON.stringify({...initialSettings,accepting:true,privacyController:'합성 검수',privacyContact:'테스트',privacyText:'합성 개인정보 처리 고지',retentionDays:1,consentVersion:'test-v1'})]);
+  const handle=createApp({db:localDb,env:{APP_ORIGIN:'https://test.moment-link.invalid'}});
+  const visit=catalog.find(p=>p.id==='visit');
+  visit.packages.forEach(p=>assert.deepEqual(packageSchema.parse(p),p));
+  assert.equal(packageSchema.safeParse({...visit.packages[0],options:[{id:'x',name:'x',amount:1,group:''}]}).success,false);
+  let phoneIndex=10;
+  const submit=async(packageId,optionIds)=>{
+   const response=await handle(new Request('https://test.moment-link.invalid/api/consultations',{method:'POST',headers:{Origin:'https://test.moment-link.invalid','Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({catalogVersion:1,productId:'visit',packageId,category:'visit',optionIds,person:'합성 검수',phone:'010000000'+phoneIndex++,preferences:[{date:'2099-11-01',time:'오후'}],place:'합성 테스트 장소',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test-v1'})}));
+   return {status:response.status,data:await response.json()};
+  };
+  const invalid=await submit('light',['video-letter','video-letter-usb','bouquet']);
+  assert.equal(invalid.status,400);assert.equal(invalid.data.error,'OPTION_GROUP');
+  assert.equal((await localDb.query('SELECT count(*)::int AS n FROM moment_link.consultations')).rows[0].n,0);
+  for(const [packageId,optionIds,total] of [
+   ['light',[],249000],['light',['bouquet'],279000],['light',['video-letter'],279000],['light',['video-letter-usb'],289000],
+   ['light',['bouquet','video-letter'],309000],['light',['bouquet','video-letter-usb'],319000],
+   ['all',[],348000],['all',['bouquet'],378000],['all',['bouquet','usb'],388000]
+  ]){
+   const r=await submit(packageId,optionIds);assert.equal(r.status,201,JSON.stringify(r.data));
+   const snapshot=(await localDb.query('SELECT snapshot FROM moment_link.consultations WHERE receipt=$1',[r.data.receipt])).rows[0].snapshot;
+   assert.equal(snapshot.price.weekday,total);assert.equal(snapshot.price.weekend,total);
+   assert.deepEqual(snapshot.options.map(o=>o.id),optionIds);
+  }
+  assert.equal((await submit('all',['video-letter-usb'])).status,400);
+ }finally{await localPg.close();}
+});
 let pg,db,app,admin,counselor,adminId,counselorId,csrf,cookie,receiptId;
 const env={APP_ORIGIN:'https://test.moment-link.invalid',NODE_ENV:'production'};
 const payload=()=>({catalogVersion:1,productId:'classic',packageId:'light',category:'yacht',person:'합성 검수',phone:'01000000000',preferences:[{date:'2099-11-01',time:'오후'}],place:'',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test-v1'});

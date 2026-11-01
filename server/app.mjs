@@ -51,6 +51,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(!p||!pk||p.salePaused||p.category!==data.category)fail(400,'PRODUCT','선택 가능한 상품이 아닙니다.');
     if(['visit','trunk'].includes(p.category)&&!data.place)fail(400,'PLACE','희망 장소를 입력해 주세요.');
     const options=data.optionIds.map(id=>(pk.options||[]).find(o=>o.id===id));if(options.some(o=>!o))fail(400,'OPTION','선택 가능한 추가 옵션이 아닙니다.');
+    const groups=options.map(o=>o.group).filter(Boolean);
+    if(new Set(groups).size!==groups.length)fail(400,'OPTION_GROUP','같은 종류의 추가 옵션은 하나만 선택해 주세요.');
     const optionAmount=options.reduce((sum,o)=>sum+o.amount,0);
     await rateLimit(tx,'phone:'+data.phone,5,3600);
     const id=randomUUID(),receipt='ML-'+id.replaceAll('-','').slice(0,14).toUpperCase();

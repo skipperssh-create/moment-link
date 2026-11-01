@@ -37,8 +37,8 @@ pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하�
 pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함','영상촬영 (마케팅 동의 시)'])
 ],'현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
 product('visit','visit','main','출장 프로포즈 세팅','두 패키지의 장식 세팅은 동일합니다.',[
-pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),
-pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.')
+{...pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),options:[{id:'bouquet',name:'기본 꽃다발 추가',amount:30000},{id:'video-letter',name:'영상편지',amount:30000,group:'영상편지'},{id:'video-letter-usb',name:'영상편지 USB 제작',amount:40000,group:'영상편지'}]},
+{...pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.'),options:[{id:'usb',name:'영상편지 USB 제작',amount:10000},{id:'bouquet',name:'기본 꽃다발 추가',amount:30000}]}
 ],'올인원은 장식의 품질이나 양이 달라지는 상품이 아니라 미니케이크·영상편지 등 추가 서비스가 포함되는 상품입니다.'),
 product('trunk','trunk','main','트렁크 프로포즈','차량 트렁크를 활용한 깜짝 이벤트',[
 pack('consult','상담 후 추천',null,null,'장소·차종·희망 구성 상담 후 안내',[])
@@ -106,13 +106,26 @@ function comparisonTable(p){
   const values=packages.map(pk=>packageDuration(pk,kind));if(values.every(Boolean))rows.push({label,values});
  }
  const features=[...new Set(packages.flatMap(pk=>[...(pk.features||[]),...(pk.excludedFeatures||[])]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
- for(const feature of features)rows.push({label:featureLabels[feature]||feature,fullLabel:feature,values:packages.map(pk=>(pk.features||[]).includes(feature)?'포함':pk.excludedFeatures?.includes(feature)||(feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||''))?'미포함':'상담 확인')});
+ for(const feature of features)rows.push({label:featureLabels[feature]||feature,fullLabel:feature,values:packages.map(pk=>{
+  if((pk.features||[]).includes(feature))return '포함';
+  const video=p.category==='visit'&&feature==='맞춤 영상편지 제작·현장 세팅'&&pk.options?.find(o=>o.id==='video-letter');
+  if(video)return krw(video.amount)+' 추가';
+  return pk.excludedFeatures?.includes(feature)||(feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||''))?'미포함':'상담 확인';
+ })});
  const options=[...new Set(packages.flatMap(pk=>(pk.options||[]).map(o=>o.name)))];
- for(const name of options)rows.push({label:name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===name);return o?krw(o.amount)+' 추가':'상담 확인';})});
+ for(const name of options.filter(name=>!(p.category==='visit'&&name==='영상편지'&&features.includes('맞춤 영상편지 제작·현장 세팅'))))rows.push({label:name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===name);return o?krw(o.amount)+' 추가':'상담 확인';})});
  if(!rows.length)return '';
  return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(v==='포함'?'included':'')+'">'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
 }
 
+function optionChoices(pk){
+ const options=pk.options||[],groups=[...new Set(options.map(o=>o.group).filter(Boolean))];
+ const choice=(o,type='checkbox')=>`<label class="inline-check"><input type="${type}" data-option="${escapeHTML(o.id)}" ${o.group?'name="option-'+escapeHTML(o.group)+'"':''} ${state.optionIds.includes(o.id)?'checked':''}/>${escapeHTML(o.name)} · ${krw(o.amount)}</label>`;
+ return options.filter(o=>!o.group).map(o=>choice(o)).join('')+groups.map(group=>{
+  const choices=options.filter(o=>o.group===group),selected=choices.some(o=>state.optionIds.includes(o.id));
+  return `<div class="option-group" role="group" aria-label="${escapeHTML(group)}"><p class="micro">${escapeHTML(group)} · 하나만 선택</p><label class="inline-check"><input type="radio" name="option-${escapeHTML(group)}" data-option-none="${escapeHTML(group)}" ${selected?'':'checked'}/>선택 안 함</label>${choices.map(o=>choice(o,'radio')).join('')}</div>`;
+ }).join('');
+}
 function productCard(p){return `<article class="product"><div class="product-photo">${photo(p)}</div><h3 class="product-name">${escapeHTML(p.name)}</h3><p class="product-desc">${escapeHTML(p.short)}</p>${p.salePaused?'<p class="badge">현재 판매 중지</p>':''}${p.category==='visit'?'<div class="pill" style="margin-bottom:10px">라이트·올인원 장식 세팅 동일</div>':''}<div class="package-grid ${p.packages.length>2?'three':''}">${p.packages.map(pk=>packageCard(p,pk)).join('')}</div>${comparisonTable(p)}<details data-detail="${escapeHTML(p.id)}" ${state.openDetails.includes(p.id)?'open':''}><summary>구성·포함 서비스 자세히 보기</summary><div class="detail-body">${escapeHTML(p.description)}</div>${p.packages.map(pk=>`<div class="detail-body"><strong>${escapeHTML(pk.name)}</strong> · ${escapeHTML(priceDisplay(pk))}\n${escapeHTML(pk.features?.join(' · ')||'추후 안내')}${pk.note?'\n※ '+escapeHTML(pk.note):''}${pk.durationMinutes?'\n이용시간 '+pk.durationMinutes+'분':''}${(pk.datePrices||[]).map(x=>'\n'+escapeHTML(x.date)+' 확정 안내 가격 '+krw(x.amount)).join('')}</div>`).join('')}${(p.media||[]).slice(1).some(m=>safeImageURL(m.url))?`<div class="product-gallery">${(p.media||[]).slice(1).filter(m=>safeImageURL(m.url)).map(m=>`<img src="${escapeHTML(safeImageURL(m.url))}" alt="${escapeHTML(m.alt)}" loading="lazy" decoding="async"/>`).join('')}</div>`:''}</details></article>`}
 function yachtPlace(){return `<section class="info"><strong>요트 승선 장소 · 한국해양대학교</strong><div class="muted">${escapeHTML(settings.yachtAddress)}<br>${escapeHTML(settings.yachtPlace)}</div></section>`}
 function heliPlace(){return `<section class="info"><strong>헬기 탑승 장소 · 전날 최종 안내</strong><div class="muted">군산: ${escapeHTML(settings.heliGunsan)}<br>변산: ${escapeHTML(settings.heliByeonsan)}<br>비행 전날 기상 및 운영 상황 확인 후 최종 탑승장소를 개별 안내합니다.</div></section>`}
@@ -131,13 +144,13 @@ s+=`<button class="back" data-back="category">← 다른 상품 보기</button><
 if(state.category==='yacht')s+=`<div class="choice-head">${[['sail','출항형 프로포즈'],['dock','정박형 프로포즈']].map(([id,n])=>`<button type="button" class="tab ${state.sub===id?'active':''}" data-sub="${id}">${n}</button>`).join('')}</div>`;
 const list=catalog.filter(x=>x.visible&&x.category===state.category&&(state.category!=='yacht'||x.sub===state.sub));
 s+=list.length?`<div class="product-grid ${list.length===1?'single-product':''}">${list.map(productCard).join('')}</div>`:'<div class="empty">현재 선택할 수 있는 상품이 없습니다.</div>';
-if(state.category==='visit')s+=`<div class="info"><strong>라이트와 올인원은 장식 세팅이 동일합니다.</strong><div class="muted">올인원은 미니케이크·영상편지·촬영 관련 서비스 등이 추가됩니다. 영상편지 USB 요청 시 10,000원이 별도로 추가됩니다.</div></div>`;
+if(state.category==='visit')s+=`<div class="info"><strong>라이트와 올인원은 장식 세팅이 동일합니다.</strong><div class="muted">올인원은 미니케이크·영상편지·촬영 관련 서비스 등이 추가됩니다. 기본 꽃다발은 두 패키지 모두 30,000원에 추가할 수 있습니다. 라이트는 영상편지 30,000원 또는 USB 제작 포함 40,000원 중 하나를 선택할 수 있습니다. 올인원은 영상편지가 포함되며 USB 제작만 요청 시 10,000원이 추가됩니다.</div></div>`;
 if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. PREMIUM·SIGNATURE 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
 if(state.category==='yacht')s+=yachtPlace();
 if(state.category==='heli')s+=heliPlace();
 s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<section class="info"><strong>${escapeHTML(l.name)} · ${l.status==='confirmed'?'확정 안내 장소':'후보 · 미확정'}</strong><div class="muted">${escapeHTML(l.address)}${l.parking?'<br>주차: '+escapeHTML(l.parking):''}${l.contact?'<br>현장 연락: '+escapeHTML(l.contact):''}</div>${l.mapUrl?`<a href="${escapeHTML(l.mapUrl)}" target="_blank" rel="noopener noreferrer">지도 보기</a>`:''}</section>`).join('');
 s+=`<button class="secondary recommendation" data-action="recommend" aria-pressed="${state.selection?.id==='recommend'}">${state.selection?.id==='recommend'?'상담 후 추천 선택됨':'아직 고민 중이에요 · 상담 후 추천'}</button>`;
-const current=getPack();if(current?.options?.length)s+=`<section class="info"><strong>추가 선택사항 · 선택</strong>${current.options.map(o=>`<label class="inline-check"><input type="checkbox" data-option="${escapeHTML(o.id)}" ${state.optionIds.includes(o.id)?'checked':''}/>${escapeHTML(o.name)} · ${krw(o.amount)}</label>`).join('')}</section>`;s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${displayChosenPrice()}`:'원하시는 상품을 먼저 선택해 주세요.');
+const current=getPack();if(current?.options?.length)s+=`<section class="info"><strong>추가 선택사항 · 선택</strong>${optionChoices(current)}</section>`;s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${displayChosenPrice()}`:'원하시는 상품을 먼저 선택해 주세요.');
 }
 if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
 if(state.step==='contact'){
@@ -237,7 +250,14 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('toggle',ev=>{const id=ev.target.dataset?.detail;if(!id)return;state.openDetails=state.openDetails.filter(x=>x!==id);if(ev.target.open)state.openDetails.push(id);},true);
 document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(k==='consent')state.consent=ev.target.checked;});
-document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option){state.optionIds=el.checked?[...state.optionIds,el.dataset.option]:state.optionIds.filter(id=>id!==el.dataset.option);rememberStep();render();return;}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
+document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option||el.dataset.optionNone){
+ const options=getPack()?.options||[],selected=options.find(o=>o.id===el.dataset.option),group=selected?.group||el.dataset.optionNone;
+ state.optionIds=state.optionIds.filter(id=>id!==selected?.id&&!(group&&options.some(o=>o.id===id&&o.group===group)));
+ if(selected&&el.checked)state.optionIds.push(selected.id);
+ rememberStep();render();
+ [...document.querySelectorAll('[data-option],[data-option-none]')].find(input=>selected?input.dataset.option===selected.id:input.dataset.optionNone===group)?.focus({preventScroll:true});
+ return;
+}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
 window.addEventListener('beforeunload',e=>{if(state.step!=='category'&&!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
 function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();if(!history.state?.momentLink){navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();}refreshCatalog();render();}}
 window.addEventListener('hashchange',route);
