@@ -6,6 +6,7 @@ import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration} from './jobs.mjs';
+import {changeTrash,emptyTrash} from './trash.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
 const categoryNames={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
@@ -54,6 +55,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     const options=data.optionIds.map(id=>(pk.options||[]).find(o=>o.id===id));if(options.some(o=>!o))fail(400,'OPTION','선택 가능한 추가 옵션이 아닙니다.');
     const groups=options.map(o=>o.group).filter(Boolean);
     if(new Set(groups).size!==groups.length)fail(400,'OPTION_GROUP','같은 종류의 추가 옵션은 하나만 선택해 주세요.');
+    if(options.some(o=>o.requiresOptionId&&!data.optionIds.includes(o.requiresOptionId)))fail(400,'OPTION_REQUIRES','소장용 USB를 추가하려면 영상편지 제작을 먼저 선택해 주세요.');
     const optionAmount=options.reduce((sum,o)=>sum+o.amount,0);
     await rateLimit(tx,'phone:'+data.phone,5,3600);
     const id=randomUUID(),receipt='ML-'+id.replaceAll('-','').slice(0,14).toUpperCase();
@@ -98,21 +100,30 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
+  if(path==='/api/admin/trash/empty'&&method==='POST'){authorize(user,true);return json(await emptyTrash(db,user,await body(request)));}
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
-   const view=parse(z.enum(['all','inbox','reservations']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','confirmed','closed','cancelled']),url.searchParams.get('status')||'all');
+   const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','consulting','hold','confirmed','closed','cancelled']),url.searchParams.get('status')||'all');
+   if(view==='trash')authorize(user,true);
    const reserved="(c.status='confirmed' OR c.communication ? 'reservation' OR EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id AND j.state='succeeded'))";
-   const filter=view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved+' AND ($6=\'all\' OR c.status=$6)':'';
-   const order=view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
-   const args=[user.role,user.id,search,'%'+search+'%',offset];if(view==='reservations')args.push(status);
-   const r=await db.query(`SELECT c.* FROM moment_link.consultations c WHERE c.expires_at>now() AND ($1='admin' OR c.assignee=$2) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)${filter} ORDER BY ${order} LIMIT 50 OFFSET $5`,args);return json({items:r.rows.map(visibleRequest)});
+   const scope="c.expires_at>now() AND ($1='admin' OR c.assignee=$2) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)";
+   const active=view==='trash'?'c.deleted_at IS NOT NULL AND c.delete_after>now()':'c.deleted_at IS NULL';
+   const filter=view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'';
+   const order=view==='trash'?'c.deleted_at DESC':view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
+   const trashBefore=new Date().toISOString(),args=[user.role,user.id,search,'%'+search+'%'];
+   const counts={all:0,new:0,consulting:0,hold:0,confirmed:0,closed:0,cancelled:0};
+   const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
+   for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
+   const r=await db.query('SELECT c.* FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
+   return json({items:r.rows.map(visibleRequest),counts,trashBefore});
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|reservation))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|reservation|restore|permanent))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
-    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
-    if(method==='DELETE'&&!action){authorize(user,true);await tx.query('UPDATE moment_link.consultations SET expires_at=now() WHERE id=$1',[id]);await audit(tx,user.id,'privacy.deletion.requested',id);return {ok:true};}
+    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND (delete_after IS NULL OR delete_after>now()) FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if((method==='DELETE'&&!action)||(action==='restore'&&method==='POST')||(action==='permanent'&&method==='DELETE')){authorize(user,true);return changeTrash(tx,r,user,action||'trash',await body(request));}
+    if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='reservation'&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}

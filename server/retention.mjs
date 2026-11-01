@@ -1,4 +1,5 @@
 import {timingSafeEqual} from 'node:crypto';
+import {eraseConsultations} from './trash.mjs';
 import {audit} from './security.mjs';
 
 export function authorizedCron(request,secret){
@@ -9,12 +10,8 @@ export function authorizedCron(request,secret){
 export async function purgeExpired(db){
  return db.transaction(async tx=>{
   await tx.query("SELECT pg_advisory_xact_lock(hashtext('moment-link-retention'))");
-  const expired=(await tx.query('SELECT id FROM moment_link.consultations WHERE expires_at<=now() ORDER BY expires_at LIMIT 500 FOR UPDATE')).rows.map(r=>r.id);
-  if(expired.length){
-   for(const table of ['consultation_notes','outbox','integration_jobs'])await tx.query(`DELETE FROM moment_link.${table} WHERE consultation_id=ANY($1::uuid[])`,[expired]);
-   await tx.query('DELETE FROM moment_link.audit_logs WHERE entity_id=ANY($1::text[])',[expired]);
-   await tx.query('DELETE FROM moment_link.consultations WHERE id=ANY($1::uuid[])',[expired]);
-  }
+  const expired=(await tx.query('SELECT id FROM moment_link.consultations WHERE expires_at<=now() OR delete_after<=now() ORDER BY expires_at LIMIT 500 FOR UPDATE')).rows.map(r=>r.id);
+  await eraseConsultations(tx,expired);
   await tx.query('DELETE FROM moment_link.sessions WHERE expires_at<=now()');
   await tx.query('DELETE FROM moment_link.rate_limits WHERE expires_at<=now()');
   await tx.query("DELETE FROM moment_link.audit_logs WHERE created_at<now()-interval '90 days'");

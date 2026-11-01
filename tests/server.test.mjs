@@ -10,7 +10,7 @@ import {initialSettings} from '../server/seed.mjs';
 import {packageSchema} from '../server/validation.mjs';
 import catalog from '../catalog.confirmed.json' with {type:'json'};
 import {purgeExpired,authorizedCron} from '../server/retention.mjs';
-test('visit add-ons preserve prices and prevent charging both video alternatives',async()=>{
+test('visit video production and optional USB are charged once with server-enforced prerequisites',async()=>{
  const localPg=new PGlite(),localDb={query:(s,a)=>localPg.query(s,a),transaction:fn=>localPg.transaction(fn)};
  try{
   await migrate(localDb);
@@ -24,12 +24,12 @@ test('visit add-ons preserve prices and prevent charging both video alternatives
    const response=await handle(new Request('https://test.moment-link.invalid/api/consultations',{method:'POST',headers:{Origin:'https://test.moment-link.invalid','Content-Type':'application/json','Idempotency-Key':randomUUID()},body:JSON.stringify({catalogVersion:1,productId:'visit',packageId,category:'visit',optionIds,person:'합성 검수',phone:'010000000'+phoneIndex++,preferences:[{date:'2099-11-01',time:'오후'}],place:'합성 테스트 장소',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test-v1'})}));
    return {status:response.status,data:await response.json()};
   };
-  const invalid=await submit('light',['video-letter','video-letter-usb','bouquet']);
-  assert.equal(invalid.status,400);assert.equal(invalid.data.error,'OPTION_GROUP');
+  const invalid=await submit('light',['usb']);
+  assert.equal(invalid.status,400);assert.equal(invalid.data.error,'OPTION_REQUIRES');
   assert.equal((await localDb.query('SELECT count(*)::int AS n FROM moment_link.consultations')).rows[0].n,0);
   for(const [packageId,optionIds,total] of [
-   ['light',[],249000],['light',['bouquet'],279000],['light',['video-letter'],279000],['light',['video-letter-usb'],289000],
-   ['light',['bouquet','video-letter'],309000],['light',['bouquet','video-letter-usb'],319000],
+   ['light',[],249000],['light',['bouquet'],279000],['light',['video-letter'],279000],['light',['video-letter','usb'],289000],
+   ['light',['bouquet','video-letter'],309000],['light',['bouquet','video-letter','usb'],319000],
    ['all',[],348000],['all',['bouquet'],378000],['all',['bouquet','usb'],388000]
   ]){
    const r=await submit(packageId,optionIds);assert.equal(r.status,201,JSON.stringify(r.data));

@@ -247,15 +247,14 @@
           },
           {
             "id": "video-letter",
-            "name": "영상편지",
-            "amount": 30000,
-            "group": "영상편지"
+            "name": "영상편지 제작",
+            "amount": 30000
           },
           {
-            "id": "video-letter-usb",
-            "name": "영상편지 USB 제작",
-            "amount": 40000,
-            "group": "영상편지"
+            "id": "usb",
+            "name": "소장용 USB",
+            "amount": 10000,
+            "requiresOptionId": "video-letter"
           }
         ]
       },
@@ -277,17 +276,17 @@
           "설치 상황 사진 공유",
           "50회 이상 현장 경험 플래너 전담"
         ],
-        "note": "영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.",
+        "note": "액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.",
         "options": [
-          {
-            "id": "usb",
-            "name": "영상편지 USB 제작",
-            "amount": 10000
-          },
           {
             "id": "bouquet",
             "name": "기본 꽃다발 추가",
             "amount": 30000
+          },
+          {
+            "id": "usb",
+            "name": "소장용 USB",
+            "amount": 10000
           }
         ]
       }
