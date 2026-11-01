@@ -15,6 +15,7 @@
 .message-stages [aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
 .message-booking{background:#f5f5f7;border-radius:14px;padding:0 14px 14px}
 .message-booking:not([open]){padding-bottom:0}
+textarea.message-place{field-sizing:content;min-height:96px}
 .message-checks{display:flex;flex-wrap:wrap;gap:0 20px;margin-top:14px}
 .message-body{line-height:1.85;min-height:300px}
 .message-send .primary{text-decoration:none;text-align:center}

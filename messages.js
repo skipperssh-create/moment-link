@@ -7,11 +7,25 @@ const contact='문의: 1833-8047\n담당자: 010-8009-8047';
 const refunds='취소·환불 안내 (행사 예정일 기준)\n45~31일 전: 90% 환불\n30~16일 전: 80% 환불\n15~11일 전: 70% 환불\n10~7일 전: 60% 환불\n6~2일 전: 50% 환불\n1일 전·당일: 환불 불가';
 const dateOK=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const timeOK=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const P=globalThis.MomentLinkPricing;
 const money=value=>Number.isInteger(value)?value.toLocaleString('ko-KR')+'원':'금액 확인 필요';
-function defaults(r){
- const p=r.preferences?.[0]||{},price=r.snapshot?.price||{};
- // Different weekday/weekend prices and holidays require an operator's final quote.
- return {date:p.date||'',time:timeOK(p.time)?p.time:'',amount:price.weekday===price.weekend?price.weekday:null,place:r.place||'',scheduleConfirmed:false,paymentConfirmed:false,extra:'',...(r.communication?.booking||{})};
+function defaults(r,settings={}){
+ const p=r.preferences?.[0]||{},saved=r.communication?.booking;
+ const b={date:p.date||'',time:timeOK(p.time)?p.time:'',amount:null,place:r.place||'',scheduleConfirmed:false,paymentConfirmed:false,extra:'',...saved};
+ // Old explicit quotes and confirmed reservations keep their agreed price.
+ b.amountMode=r.communication?.reservation||saved?.amountMode==='manual'||saved?.amountMode!=='auto'&&Number.isInteger(saved?.amount)?'manual':'auto';
+ if(b.amountMode==='auto')b.amount=P.quote(r,b.date).amount;
+ if(!b.place&&r.category==='yacht'&&!r.communication?.reservation)b.place=P.location(settings);
+ if(saved&&saved.amount!==b.amount)b.paymentConfirmed=false;
+ if(saved&&saved.place!==b.place)b.scheduleConfirmed=false;
+ return b;
+}
+function amountError(b,r){
+ if(b.amountMode!=='auto')return '';
+ // A saved confirmation remains valid if a later holiday update changes the calendar.
+ const old=r.communication;
+ if(old?.reservation&&['date','amount'].every(k=>old.booking?.[k]===b[k]))return '';
+ return b.amount!==P.quote(r,b.date).amount?'날짜에 맞는 자동 금액을 다시 적용해 주세요.':'';
 }
 function validate(stage,b,r){
  if(!stages[stage])return '안내 단계를 선택해 주세요.';
@@ -22,6 +36,7 @@ function validate(stage,b,r){
  if(stage==='thanks')return '';
  if(!timeOK(b.time))return '협의한 정확한 시간을 입력해 주세요.';
  if(!Number.isInteger(b.amount)||b.amount<0||b.amount>100000000)return '안내할 최종 금액을 입력해 주세요.';
+ if(amountError(b,r))return amountError(b,r);
  if(['confirmed','reminder'].includes(stage)){
   if(!b.scheduleConfirmed||!b.paymentConfirmed)return '일정·장소 확정과 입금 확인을 모두 체크해 주세요.';
   if(!b.place.trim())return '확정 장소·주소를 입력해 주세요.';
@@ -36,7 +51,7 @@ function videoGuide(r,b){
 }
 function preparation(r,b,short=false){
  switch(r.category){
- case 'yacht':return [(short?'':'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.\n')+'비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.',short?'':videoGuide(r,b)].filter(Boolean).join('\n\n');
+ case 'yacht':return [b.place.includes('한국해양대학교')?'오시는 길\n'+P.yachtRoute:'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.','비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.',short?'':videoGuide(r,b)].filter(Boolean).join('\n\n');
  case 'visit':return ['장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·행사장의 설치 허용 여부도 미리 확인 부탁드립니다.',short?'':videoGuide(r,b)].filter(Boolean).join('\n\n');
  case 'trunk':return /부산|출장/.test(r.snapshot?.package?.name||'')?'부산 출장 진행입니다. 차량 종류, 정확한 주차 위치와 현장 출입 방법을 담당자에게 알려 주세요. 트렁크의 짐은 미리 비워 주세요.':'해운대 사무실 방문 진행입니다. 안내받은 주소로 차량과 함께 방문해 주세요. 차량 종류를 미리 알려 주시고 트렁크의 짐은 비워 주세요.';
  case 'heli':return '헬기는 주간에만 운항하며 기상 상황에 따라 시간·장소가 변경될 수 있습니다. 최종 탑승 장소와 시간을 담당자에게 확인해 주세요. 편지 낭독 준비와 촬영 구성은 선택하신 패키지에 맞춰 안내드립니다.';
@@ -62,5 +77,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,defaults,validate,generate,smsURI,hasVideo});
+globalThis.MomentLinkMessages=Object.freeze({stages,defaults,validate,generate,smsURI,hasVideo,amountError});
 })();

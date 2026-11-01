@@ -40,7 +40,7 @@ test('public shell works offline while requests, admin data and photos bypass th
   assert.equal(await live.text(),'fresh /');
   w.offline=true;
   assert.equal(await (await w.dispatch('fetch',{request:{url:origin+'/',method:'GET'}})).text(),'fresh /');
-  for(const path of ['/app.js','/admin.js','/pwa.js','/styles.css','/assets/icon-192.png']){
+  for(const path of ['/app.js','/admin.js','/pricing.js','/pwa.js','/styles.css','/assets/icon-192.png']){
     const response=await w.dispatch('fetch',{request:{url:origin+path,method:'GET'}});assert.equal(response.status,200,path);
   }
   for(const [url,method] of [[origin+'/api/catalog','GET'],[origin+'/api/admin/consultations','GET'],[origin+'/api/media/private-photo','GET'],[origin+'/api/consultations','POST'],[origin+'/?private=example','GET'],['https://external.invalid/photo.jpg','GET'],[origin+'/app.js','POST']]){

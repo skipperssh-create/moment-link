@@ -2,9 +2,10 @@ import {z} from 'zod';
 import {randomUUID,createHash} from 'node:crypto';
 import {text,parse,validDate,validatePreferences} from './validation.mjs';
 import {fail,audit} from './security.mjs';
+import '../pricing.js';
 import '../messages.js';
 const stages=z.enum(['receipt','confirmed','reminder','thanks']);
-const booking=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000)}).strict();
+const booking=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),amountMode:z.enum(['auto','manual']).optional(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000)}).strict();
 const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks'].map(k=>[k,text(5000).optional()]))).strict();
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
@@ -14,6 +15,7 @@ export async function saveCommunication(tx,r,user,method,input){
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
  let next;
  if(method==='PUT'){
+  const amountProblem=MomentLinkMessages.amountError(d.booking,r);if(amountProblem)fail(400,'PRICE_CHANGED',amountProblem);
   if(old.reservation&&(['date','time','amount','place'].some(k=>d.booking[k]!==old.booking?.[k])||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘예약 정보 수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
   next={...old,booking:d.booking,drafts:d.drafts};
   await audit(tx,user.id,'communication.saved',r.id);

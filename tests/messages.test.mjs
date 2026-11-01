@@ -21,7 +21,7 @@ test('all four stages cover every category and preserve quoted facts',()=>{
    if(stage==='thanks')assert.doesNotMatch(message,/입금 부탁/);
   }
  }
- assert.equal(M.defaults(sample()).time,'');assert.equal(M.defaults(sample()).amount,null);
+ assert.equal(M.defaults(sample()).time,'');assert.equal(M.defaults({...sample(),preferences:[{date:'2026-11-03',time:'오후'}]}).amount,390000);
  assert.equal(M.defaults(sample('trunk')).amount,219000);
  assert.match(M.generate(sample('trunk'),'reminder',booking),/해운대 사무실 방문/);
  assert.match(M.generate(sample('trunk','busan'),'reminder',booking),/부산 출장/);
@@ -71,6 +71,8 @@ test('private guidance persists with version checks, accurate manual logs, expir
   assert.equal((await req(path,'PUT',save,staff)).status,404);
   assert.equal((await req(path,'PUT',save,{...auth,'X-CSRF-Token':'wrong'})).status,403);
   assert.equal((await req(path,'PUT',{...save,booking:{...booking,amount:-1}},auth)).status,400);
+  assert.equal((await req(path,'PUT',{...save,booking:{...booking,date:'2026-11-03',amount:440000,amountMode:'auto'}},auth)).status,400);
+  assert.equal((await req(path,'PUT',{...save,booking:{...booking,amountMode:'untrusted'}},auth)).status,400);
   let out=await req(path,'PUT',save,auth);assert.equal(out.status,200,JSON.stringify(out.data));let version=out.data.item.version;
   assert.equal(out.data.item.idempotency_hash,undefined);assert.deepEqual(out.data.item.snapshot,r.snapshot);
   assert.equal((await req(path,'PUT',save,auth)).status,409);
