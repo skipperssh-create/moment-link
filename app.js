@@ -20,22 +20,22 @@ const visitAdd=['미니케이크 준비','맞춤 영상편지 제작·현장 세
 const heliBasic=['헬기탑승 및 비행','지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)','착륙 후 WILL YOU MARRY ME? 손현수막','헬기 앞 테이블 세팅·샴페인','헬기 앞 기념촬영'];
 const heliFootage=['헬기 내부 액션캠 영상','지상 편지 낭독 장면 촬영','이·착륙 현장 반응 촬영','헬기 앞 DSLR 사진 촬영','사진·영상 촬영 원본 제공'];
 const defaults = [
-product('classic','yacht','sail','CLASSIC','레오파드 · 합리적인 가격의 로맨틱 요트',[
+product('classic','yacht','sail','클래식(레오파드)요트','레오파드 · 합리적인 가격의 로맨틱 요트',[
 pack('light','라이트',390000,440000,'총 이용시간 30분 · 실운항 약 25분',baseYacht,'',yachtExtra),
 pack('all','올인원',440000,540000,'총 이용시간 50분 · 실운항 약 45분',allYacht)
 ],'합리적인 가격으로 즐기는 로맨틱한 요트 프로포즈.'),
-product('premium','yacht','sail','PREMIUM','메가 · 넓고 쾌적한 프리미엄 공간',[
+product('premium','yacht','sail','프리미엄(메가)요트','메가 · 넓고 쾌적한 프리미엄 공간',[
 pack('light','라이트',490000,590000,'총 이용시간 30분 · 실운항 약 25분',[...baseYacht,'케이크','꽃다발'],'',yachtExtra),
 pack('all','올인원',590000,690000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'케이크','꽃다발'],'꽃다발: 생화 또는 비누꽃')
 ],'넓고 쾌적한 공간에서 즐기는 프리미엄 요트 프로포즈.',{bouquet:true}),
-product('signature','yacht','sail','SIGNATURE','리파리 · 프라이빗 럭셔리 요트',[
+product('signature','yacht','sail','시그니처(리파리)요트','리파리 · 프라이빗 럭셔리 요트',[
 pack('light','라이트',590000,690000,'총 이용시간 30분 · 실운항 약 25분',[...baseYacht,'케이크','꽃다발'],'',yachtExtra),
 pack('all','올인원',690000,790000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'케이크','꽃다발'],'꽃다발: 생화 또는 비누꽃')
 ],'더욱 특별하고 프라이빗한 최고급 럭셔리 요트 프로포즈.',{bouquet:true}),
 product('docked','yacht','dock','미출항 · 요트 단독 대관','출항 없이 정박한 요트에서 프라이빗하게 진행',[
 pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하선 포함',['요트 단독 대관','영상촬영 (마케팅 동의 시)']),
 pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함','영상촬영 (마케팅 동의 시)'])
-],'현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
+],'현장 운영 상황에 따라 프리미엄(메가)요트 또는 시그니처(리파리)요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
 product('visit','visit','main','출장 프로포즈 세팅','두 패키지의 장식 세팅은 동일합니다.',[
 {...pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),options:[{id:'bouquet',name:'기본 꽃다발 추가',amount:30000},{id:'video-letter',name:'영상편지',amount:30000,group:'영상편지'},{id:'video-letter-usb',name:'영상편지 USB 제작',amount:40000,group:'영상편지'}]},
 {...pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.'),options:[{id:'usb',name:'영상편지 USB 제작',amount:10000},{id:'bouquet',name:'기본 꽃다발 추가',amount:30000}]}
@@ -146,7 +146,7 @@ if(state.category==='yacht')s+=`<div class="choice-head">${[['sail','출항형 �
 const list=catalog.filter(x=>x.visible&&x.category===state.category&&(state.category!=='yacht'||x.sub===state.sub));
 s+=list.length?`<div class="product-grid ${list.length===1?'single-product':''}">${list.map(productCard).join('')}</div>`:'<div class="empty">현재 선택할 수 있는 상품이 없습니다.</div>';
 if(state.category==='visit')s+=`<div class="info"><strong>라이트와 올인원은 장식 세팅이 동일합니다.</strong><div class="muted">올인원은 미니케이크·영상편지·촬영 관련 서비스 등이 추가됩니다. 기본 꽃다발은 두 패키지 모두 30,000원에 추가할 수 있습니다. 라이트는 영상편지 30,000원 또는 USB 제작 포함 40,000원 중 하나를 선택할 수 있습니다. 올인원은 영상편지가 포함되며 USB 제작만 요청 시 10,000원이 추가됩니다.</div></div>`;
-if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. PREMIUM·SIGNATURE 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
+if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. 프리미엄(메가)요트·시그니처(리파리)요트 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
 if(state.category==='yacht')s+=yachtPlace();
 if(state.category==='heli')s+=heliPlace();
 s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<section class="info"><strong>${escapeHTML(l.name)} · ${l.status==='confirmed'?'확정 안내 장소':'후보 · 미확정'}</strong><div class="muted">${escapeHTML(l.address)}${l.parking?'<br>주차: '+escapeHTML(l.parking):''}${l.contact?'<br>현장 연락: '+escapeHTML(l.contact):''}</div>${l.mapUrl?`<a href="${escapeHTML(l.mapUrl)}" target="_blank" rel="noopener noreferrer">지도 보기</a>`:''}</section>`).join('');

@@ -3,7 +3,7 @@
     "id": "classic",
     "category": "yacht",
     "sub": "sail",
-    "name": "CLASSIC",
+    "name": "클래식(레오파드)요트",
     "short": "레오파드 · 합리적인 가격의 로맨틱 요트",
     "packages": [
       {
@@ -61,7 +61,7 @@
     "id": "premium",
     "category": "yacht",
     "sub": "sail",
-    "name": "PREMIUM",
+    "name": "프리미엄(메가)요트",
     "short": "메가 · 넓고 쾌적한 프리미엄 공간",
     "packages": [
       {
@@ -123,7 +123,7 @@
     "id": "signature",
     "category": "yacht",
     "sub": "sail",
-    "name": "SIGNATURE",
+    "name": "시그니처(리파리)요트",
     "short": "리파리 · 프라이빗 럭셔리 요트",
     "packages": [
       {
@@ -214,7 +214,7 @@
         "note": ""
       }
     ],
-    "description": "현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.",
+    "description": "현장 운영 상황에 따라 프리미엄(메가)요트 또는 시그니처(리파리)요트로 배정합니다. 주중·주말 동일 대관금액입니다.",
     "visible": true,
     "photo": "",
     "bouquet": false
