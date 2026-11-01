@@ -1,0 +1,11 @@
+.git
+.env*
+node_modules
+previews
+tests
+docs
+deployment
+*.md
+*.txt
+standalone-preview.html
+catalog.confirmed.json

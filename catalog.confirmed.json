@@ -1,0 +1,289 @@
+[
+  {
+    "id": "classic",
+    "category": "yacht",
+    "sub": "sail",
+    "name": "CLASSIC",
+    "short": "레오파드 · 합리적인 가격의 로맨틱 요트",
+    "packages": [
+      {
+        "id": "light",
+        "name": "라이트",
+        "weekday": 390000,
+        "weekend": 440000,
+        "summary": "총 이용시간 30분 · 실운항 약 25분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 30분 · 실운항 약 25분"
+        ],
+        "note": ""
+      },
+      {
+        "id": "all",
+        "name": "올인원",
+        "weekday": 440000,
+        "weekend": 540000,
+        "summary": "총 이용시간 50분 · 실운항 약 45분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 50분 · 실운항 약 45분"
+        ],
+        "note": "꽃다발 미포함"
+      }
+    ],
+    "description": "합리적인 가격으로 즐기는 로맨틱한 요트 프로포즈.",
+    "visible": true,
+    "photo": "",
+    "bouquet": false
+  },
+  {
+    "id": "premium",
+    "category": "yacht",
+    "sub": "sail",
+    "name": "PREMIUM",
+    "short": "메가 · 넓고 쾌적한 프리미엄 공간",
+    "packages": [
+      {
+        "id": "light",
+        "name": "라이트",
+        "weekday": 490000,
+        "weekend": 590000,
+        "summary": "총 이용시간 30분 · 실운항 약 25분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 30분 · 실운항 약 25분"
+        ],
+        "note": ""
+      },
+      {
+        "id": "all",
+        "name": "올인원",
+        "weekday": 590000,
+        "weekend": 690000,
+        "summary": "총 이용시간 50분 · 실운항 약 45분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 50분 · 실운항 약 45분",
+          "꽃다발"
+        ],
+        "note": "꽃다발: 생화 또는 비누꽃"
+      }
+    ],
+    "description": "넓고 쾌적한 공간에서 즐기는 프리미엄 요트 프로포즈.",
+    "visible": true,
+    "photo": "",
+    "bouquet": true
+  },
+  {
+    "id": "signature",
+    "category": "yacht",
+    "sub": "sail",
+    "name": "SIGNATURE",
+    "short": "리파리 · 프라이빗 럭셔리 요트",
+    "packages": [
+      {
+        "id": "light",
+        "name": "라이트",
+        "weekday": 590000,
+        "weekend": 690000,
+        "summary": "총 이용시간 30분 · 실운항 약 25분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 30분 · 실운항 약 25분"
+        ],
+        "note": ""
+      },
+      {
+        "id": "all",
+        "name": "올인원",
+        "weekday": 690000,
+        "weekend": 790000,
+        "summary": "총 이용시간 50분 · 실운항 약 45분",
+        "features": [
+          "요트 프로포즈",
+          "총 이용시간 50분 · 실운항 약 45분",
+          "꽃다발"
+        ],
+        "note": "꽃다발: 생화 또는 비누꽃"
+      }
+    ],
+    "description": "더욱 특별하고 프라이빗한 최고급 럭셔리 요트 프로포즈.",
+    "visible": true,
+    "photo": "",
+    "bouquet": true
+  },
+  {
+    "id": "docked",
+    "category": "yacht",
+    "sub": "dock",
+    "name": "미출항 · 요트 단독 대관",
+    "short": "출항 없이 정박한 요트에서 프라이빗하게 진행",
+    "packages": [
+      {
+        "id": "light",
+        "name": "라이트",
+        "weekday": 290000,
+        "weekend": 290000,
+        "summary": "총 이용시간 약 30분 · 승·하선 포함",
+        "features": [
+          "요트 단독 대관"
+        ],
+        "note": ""
+      },
+      {
+        "id": "all",
+        "name": "올인원",
+        "weekday": 390000,
+        "weekend": 390000,
+        "summary": "총 이용시간 약 50분 · 승·하선 포함",
+        "features": [
+          "요트 단독 대관",
+          "영상편지 포함"
+        ],
+        "note": ""
+      }
+    ],
+    "description": "현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.",
+    "visible": true,
+    "photo": "",
+    "bouquet": false
+  },
+  {
+    "id": "visit",
+    "category": "visit",
+    "sub": "main",
+    "name": "출장 프로포즈 세팅",
+    "short": "두 패키지의 장식 세팅은 동일합니다.",
+    "packages": [
+      {
+        "id": "light",
+        "name": "라이트",
+        "weekday": 249000,
+        "weekend": 249000,
+        "summary": "장식 세팅 · 현장 설치 · 행사 후 수거",
+        "features": [
+          "꽃장식·촛불·조명·소품 전체 세팅",
+          "거치대 풍선 세팅",
+          "현장 전체 설치",
+          "이벤트 종료 후 수거·정리"
+        ],
+        "note": "고객은 장소만 준비하면 됩니다."
+      },
+      {
+        "id": "all",
+        "name": "올인원",
+        "weekday": 348000,
+        "weekend": 348000,
+        "summary": "라이트 동일한 장식 + 추가 서비스",
+        "features": [
+          "꽃장식·촛불·조명·소품 전체 세팅",
+          "거치대 풍선 세팅",
+          "현장 전체 설치",
+          "이벤트 종료 후 수거·정리",
+          "미니케이크 준비",
+          "맞춤 영상편지 제작·현장 세팅",
+          "액션캠 설치·촬영 원본 전달 (동의 조건)",
+          "웰컴 드링크 2병",
+          "설치 상황 사진 공유",
+          "50회 이상 현장 경험 플래너 전담"
+        ],
+        "note": "영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용."
+      }
+    ],
+    "description": "올인원은 장식의 품질이나 양이 달라지는 상품이 아니라 미니케이크·영상편지 등 추가 서비스가 포함되는 상품입니다.",
+    "visible": true,
+    "photo": "",
+    "bouquet": false
+  },
+  {
+    "id": "trunk",
+    "category": "trunk",
+    "sub": "main",
+    "name": "트렁크 프로포즈",
+    "short": "차량 트렁크를 활용한 깜짝 이벤트",
+    "packages": [
+      {
+        "id": "consult",
+        "name": "상담 후 추천",
+        "weekday": null,
+        "weekend": null,
+        "summary": "장소·차종·희망 구성 상담 후 안내",
+        "features": [],
+        "note": ""
+      }
+    ],
+    "description": "희망 위치와 특이사항을 적어 주시면 맞춤 안내드립니다.",
+    "visible": true,
+    "photo": "",
+    "bouquet": false
+  },
+  {
+    "id": "heli",
+    "category": "heli",
+    "sub": "main",
+    "name": "헬기 프로포즈",
+    "short": "하늘에서 듣는 편지, 착륙 후 깜짝 프로포즈",
+    "packages": [
+      {
+        "id": "basic",
+        "name": "기본 프로포즈",
+        "weekday": 690000,
+        "weekend": 690000,
+        "summary": "총 약 35분 · 실비행 약 5분",
+        "features": [
+          "헬기탑승 및 비행",
+          "지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)",
+          "착륙 후 WILL YOU MARRY ME? 손현수막",
+          "헬기 앞 테이블 세팅·샴페인",
+          "헬기 앞 기념촬영"
+        ],
+        "note": "안전 확인 후 지상·항공 통신으로 편지를 전달합니다."
+      },
+      {
+        "id": "original",
+        "name": "촬영 원본",
+        "weekday": 990000,
+        "weekend": 990000,
+        "summary": "기본 포함 + 촬영 원본 제공",
+        "features": [
+          "헬기탑승 및 비행",
+          "지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)",
+          "착륙 후 WILL YOU MARRY ME? 손현수막",
+          "헬기 앞 테이블 세팅·샴페인",
+          "헬기 앞 기념촬영",
+          "헬기 내부 액션캠 영상",
+          "지상 편지 낭독 장면 촬영",
+          "이·착륙 현장 반응 촬영",
+          "헬기 앞 DSLR 사진 촬영",
+          "사진·영상 촬영 원본 제공"
+        ],
+        "note": "추억영상 편집본은 포함되지 않습니다."
+      },
+      {
+        "id": "edited",
+        "name": "원본 + 추억영상",
+        "weekday": 1090000,
+        "weekend": 1090000,
+        "summary": "기본·촬영 원본 + 추억영상 편집본",
+        "features": [
+          "헬기탑승 및 비행",
+          "지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)",
+          "착륙 후 WILL YOU MARRY ME? 손현수막",
+          "헬기 앞 테이블 세팅·샴페인",
+          "헬기 앞 기념촬영",
+          "헬기 내부 액션캠 영상",
+          "지상 편지 낭독 장면 촬영",
+          "이·착륙 현장 반응 촬영",
+          "헬기 앞 DSLR 사진 촬영",
+          "사진·영상 촬영 원본 제공",
+          "추억영상 편집본 제공"
+        ],
+        "note": "촬영 원본과 추억영상 편집본을 함께 제공합니다."
+      }
+    ],
+    "description": "여자친구가 먼저 헬기에 탑승하여 비행하는 동안, 지상 남자친구가 헤드셋으로 편지를 낭독합니다. 착륙 후 손현수막·샴페인·기념촬영으로 마무리합니다. 통신·촬영·현장 이벤트는 운항자 안전 승인 조건으로 진행됩니다. 군산 또는 변산 중 최종 탑승 장소는 전날 기상·운영 확인 후 안내됩니다.",
+    "visible": true,
+    "photo": "",
+    "bouquet": false
+  }
+]

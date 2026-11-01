@@ -1,0 +1,57 @@
+{
+  "version": "3.0.0",
+  "date": "2026-11-01",
+  "mode": "public_static_preview_only",
+  "github": {
+    "owner": "skipperssh-create",
+    "suggested_repository": "moment-link",
+    "repository_created": false,
+    "git_connected": false,
+    "blocker": "Connected GitHub tool supports file writes but has no repository creation operation; authenticated GitHub CLI is unavailable in this environment. No unrelated repository was modified."
+  },
+  "vercel": {
+    "team_id": "team_87cJPIp6fEpRqArZ8VXppNZU",
+    "team_slug": "skipperssh-7474s-projects",
+    "project_id": "prj_iXF9GTtMSqvGnAMctXDKRvPAEbMZ",
+    "project_name": "moment-link-preview",
+    "deployment_id": "dpl_71WwKHodXzeFtEiQdfUDXTGoHJqB",
+    "state": "READY",
+    "url": "https://moment-link-preview.vercel.app",
+    "immutable_url": "https://moment-link-preview-gz9lts19k-skipperssh-7474s-projects.vercel.app",
+    "alternative_alias": "https://moment-link-preview-skipperssh-7474s-projects.vercel.app",
+    "deployment_source": "Vercel REST inline source upload; NOT GitHub-linked",
+    "node_version": "22.x",
+    "output_directory": "dist",
+    "payload_sha256": "5a118e3a31633991e74e6b2bb8320d8819f7a781c754f1c2e3345e43f8780acc",
+    "git_auto_deploy": false,
+    "sso_protection": "prod_deployment_urls_and_all_previews"
+  },
+  "verification": {
+    "connector_http": [
+      {
+        "url": "https://moment-link-preview.vercel.app",
+        "status": 200
+      },
+      {
+        "url": "https://moment-link-preview.vercel.app/manifest.webmanifest",
+        "status": 200
+      },
+      {
+        "url": "https://moment-link-preview.vercel.app/CODEX_HANDOFF.md",
+        "status": 404
+      }
+    ],
+    "build_integrity_check": "passed in Vercel build",
+    "remote_browser_tested": false,
+    "physical_devices_tested": false
+  },
+  "not_active": [
+    "customer API/database",
+    "administrator authentication",
+    "SOLAPI SMS",
+    "real web push",
+    "OPS booking integration",
+    "billing",
+    "custom domain DNS"
+  ]
+}

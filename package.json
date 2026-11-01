@@ -1,0 +1,14 @@
+{
+  "name": "moment-link-preview",
+  "version": "3.0.0",
+  "private": true,
+  "description": "MOMENT LINK responsive preview, deployment, and complete Codex handoff",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "node --check app.js && node --check sw.js && node --check scripts/build.mjs",
+    "build": "node scripts/build.mjs",
+    "dev": "python3 -m http.server 4173 --bind 127.0.0.1"
+  }
+}

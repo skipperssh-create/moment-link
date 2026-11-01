@@ -1,0 +1,19 @@
+{
+  "name": "MOMENT LINK 미리보기",
+  "short_name": "모먼트링크",
+  "description": "고객 상담 및 관리자 화면 개발 미리보기 · 실제 접수 아님",
+  "lang": "ko",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "orientation": "any"
+}

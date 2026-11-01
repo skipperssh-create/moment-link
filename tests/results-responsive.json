@@ -1,0 +1,816 @@
+{
+  "mode": "inline real UI with in-memory localStorage adapter",
+  "engine": "Chromium",
+  "real_devices_tested": false,
+  "network_integrations_tested": false,
+  "total": 161,
+  "passed": 161,
+  "failed": 0,
+  "results": [
+    {
+      "test": "320x720 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "320x720 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "360x780 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "390x844 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "412x915 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "720x320 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "780x360 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "844x390 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "915x412 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "600x900 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x600 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "768x1024 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x768 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "820x1180 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1180x820 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1024x1366 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1366x1024 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1280x800 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1440x900 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "900x1440 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 category",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 yacht sailing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 yacht docked",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 visit",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 heli",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 schedule",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 admin products",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "1920x1080 admin settings",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "uncaught JS errors",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

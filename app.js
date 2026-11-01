@@ -1,0 +1,241 @@
+/* MOMENT LINK - standalone, local-only product & UX prototype.
+ * SECURITY: This build has NO authentication/backend. Never use it for real customers.
+ * Customer details live in memory only; no personal data is persisted.
+ */
+(() => {
+'use strict';
+const PRODUCT_KEY = 'moment-link-prototype-products-v3';
+const SETTINGS_KEY = 'moment-link-prototype-settings-v3';
+const $ = selector => document.querySelector(selector);
+const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const krw = value => value === null || value === undefined || value === '' ? '상담 후 안내' : `${Number(value).toLocaleString('ko-KR')}원`;
+const dateLabel = value => value ? `${Number(value.substring(5,7))}월 ${Number(value.substring(8,10))}일` : '미선택';
+const localToday = () => {const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const p=Object.fromEntries(parts.map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`};
+const uid = () => 'i_' + Math.random().toString(36).slice(2, 10);
+const pack = (id,name,weekday,weekend,summary,features=[],note='') => ({id,name,weekday,weekend,summary,features,note});
+const product = (id,category,sub,name,short,packages,description,extra={}) => ({id,category,sub,name,short,packages,description,visible:true,photo:'',bouquet:false,...extra});
+const CATEGORY = [{id:'yacht',label:'요트 프로포즈',sub:'출항형 · 정박형',symbol:'Y'},{id:'visit',label:'출장 프로포즈',sub:'라이트 · 올인원',symbol:'V'},{id:'trunk',label:'트렁크 프로포즈',sub:'차량 이벤트 장식',symbol:'T'},{id:'heli',label:'헬기 프로포즈',sub:'편지 낭독 · 촬영 패키지',symbol:'H'}];
+// Only owner-confirmed features are published. Unconfirmed wine, photography,
+// video-letter and firework inclusion rules belong in docs/OPEN_ITEMS.md.
+const baseYacht=['요트 프로포즈','총 이용시간 30분 · 실운항 약 25분'];
+const allYacht=['요트 프로포즈','총 이용시간 50분 · 실운항 약 45분'];
+const visitBase=['꽃장식·촛불·조명·소품 전체 세팅','거치대 풍선 세팅','현장 전체 설치','이벤트 종료 후 수거·정리'];
+const visitAdd=['미니케이크 준비','맞춤 영상편지 제작·현장 세팅','액션캠 설치·촬영 원본 전달 (동의 조건)','웰컴 드링크 2병','설치 상황 사진 공유','50회 이상 현장 경험 플래너 전담'];
+const heliBasic=['헬기탑승 및 비행','지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)','착륙 후 WILL YOU MARRY ME? 손현수막','헬기 앞 테이블 세팅·샴페인','헬기 앞 기념촬영'];
+const heliFootage=['헬기 내부 액션캠 영상','지상 편지 낭독 장면 촬영','이·착륙 현장 반응 촬영','헬기 앞 DSLR 사진 촬영','사진·영상 촬영 원본 제공'];
+const defaults = [
+product('classic','yacht','sail','CLASSIC','레오파드 · 합리적인 가격의 로맨틱 요트',[
+pack('light','라이트',390000,440000,'총 이용시간 30분 · 실운항 약 25분',baseYacht),
+pack('all','올인원',440000,540000,'총 이용시간 50분 · 실운항 약 45분',allYacht,'꽃다발 미포함')
+],'합리적인 가격으로 즐기는 로맨틱한 요트 프로포즈.'),
+product('premium','yacht','sail','PREMIUM','메가 · 넓고 쾌적한 프리미엄 공간',[
+pack('light','라이트',490000,590000,'총 이용시간 30분 · 실운항 약 25분',baseYacht),
+pack('all','올인원',590000,690000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'꽃다발'],'꽃다발: 생화 또는 비누꽃')
+],'넓고 쾌적한 공간에서 즐기는 프리미엄 요트 프로포즈.',{bouquet:true}),
+product('signature','yacht','sail','SIGNATURE','리파리 · 프라이빗 럭셔리 요트',[
+pack('light','라이트',590000,690000,'총 이용시간 30분 · 실운항 약 25분',baseYacht),
+pack('all','올인원',690000,790000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'꽃다발'],'꽃다발: 생화 또는 비누꽃')
+],'더욱 특별하고 프라이빗한 최고급 럭셔리 요트 프로포즈.',{bouquet:true}),
+product('docked','yacht','dock','미출항 · 요트 단독 대관','출항 없이 정박한 요트에서 프라이빗하게 진행',[
+pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하선 포함',['요트 단독 대관']),
+pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함'])
+],'현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
+product('visit','visit','main','출장 프로포즈 세팅','두 패키지의 장식 세팅은 동일합니다.',[
+pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),
+pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'영상편지 USB 희망 시 10,000원 추가. 액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.')
+],'올인원은 장식의 품질이나 양이 달라지는 상품이 아니라 미니케이크·영상편지 등 추가 서비스가 포함되는 상품입니다.'),
+product('trunk','trunk','main','트렁크 프로포즈','차량 트렁크를 활용한 깜짝 이벤트',[
+pack('consult','상담 후 추천',null,null,'장소·차종·희망 구성 상담 후 안내',[])
+],'희망 위치와 특이사항을 적어 주시면 맞춤 안내드립니다.'),
+product('heli','heli','main','헬기 프로포즈','하늘에서 듣는 편지, 착륙 후 깜짝 프로포즈',[
+pack('basic','기본 프로포즈',690000,690000,'총 약 35분 · 실비행 약 5분',heliBasic,'안전 확인 후 지상·항공 통신으로 편지를 전달합니다.'),
+pack('original','촬영 원본',990000,990000,'기본 포함 + 촬영 원본 제공',[...heliBasic,...heliFootage],'추억영상 편집본은 포함되지 않습니다.'),
+pack('edited','원본 + 추억영상',1090000,1090000,'기본·촬영 원본 + 추억영상 편집본',[...heliBasic,...heliFootage,'추억영상 편집본 제공'],'촬영 원본과 추억영상 편집본을 함께 제공합니다.')
+],'여자친구가 먼저 헬기에 탑승하여 비행하는 동안, 지상 남자친구가 헤드셋으로 편지를 낭독합니다. 착륙 후 손현수막·샴페인·기념촬영으로 마무리합니다. 통신·촬영·현장 이벤트는 운항자 안전 승인 조건으로 진행됩니다. 군산 또는 변산 중 최종 탑승 장소는 전날 기상·운영 확인 후 안내됩니다.')
+];
+const settingDefaults = {solapi:false,customerAuto:false,adminAuto:false,push:true,smsNumber:'010-8009-8047',mainNumber:'1833-8047',yachtPlace:'한국해양대학교 기존 출항지',yachtAddress:'부산 영도 · 상세 길찾기는 예약 안내에서 확인',heliGunsan:'군산 (상세 위치는 최종 안내)',heliByeonsan:'변산 (상세 위치는 최종 안내)'};
+function localRead(key, fallback){try{const value=JSON.parse(localStorage.getItem(key));return value??structuredClone(fallback)}catch{return structuredClone(fallback)}}
+let catalog = localRead(PRODUCT_KEY,defaults);
+if (!Array.isArray(catalog) || catalog.some(p=>!p.id || !Array.isArray(p.packages))) catalog=structuredClone(defaults);
+let settings = {...settingDefaults,...localRead(SETTINGS_KEY,settingDefaults)};
+const state={view:'customer',step:'category',category:null,sub:'sail',selection:null,firstDate:'',firstTime:'',secondDate:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,adminTab:'inbox',editId:'',adminCategory:'yacht',adminSub:'sail',adminDetail:false,notice:'',formError:'',secondEnabled:false,openDetails:[],editorDirty:false};
+const sessionRequests=[];
+const getProduct=()=>state.selection?.id==='recommend'?{id:'recommend',name:catName(),category:state.category,sub:state.sub,visible:true,packages:[]}:catalog.find(x=>x.id===state.selection?.id);
+const getPack=()=>state.selection?.id==='recommend'?{id:'recommend',name:'상담 후 추천',weekday:null,weekend:null,summary:'담당자와 상의 후 결정'}:getProduct()?.packages.find(x=>x.id===state.selection?.packId);
+const catName=()=>CATEGORY.find(x=>x.id===state.category)?.label||'상담';
+const choiceName=()=>`${getProduct()?.name||''} · ${getPack()?.name||''}`;
+const priceDisplay=p=>!p||p.weekday===null?'상담 후 안내':p.weekday===p.weekend?krw(p.weekday):`주중 ${krw(p.weekday)} / 주말 ${krw(p.weekend)}`;
+const displayChosenPrice=()=>priceDisplay(getPack()); // Never infer holiday pricing.
+const top=()=>`<div class="demo-banner">개발 미리보기 · 실제 접수·발송 없음</div><header><div class="brand">MOMENT LINK</div><nav class="nav" aria-label="모드 전환"><button class="tab" data-view="customer" ${state.view==='customer'?'aria-current="page"':''}>고객 화면</button><button class="tab" data-view="admin" ${state.view==='admin'?'aria-current="page"':''}>관리자 데모</button></nav></header>`;
+const progress=()=>{const count={welcome:0,category:1,products:2,schedule:3,contact:4,review:4,done:4,sms:4}[state.step];return `<div class="step-bar" aria-label="상담 신청 단계">${[1,2,3,4].map(i=>`<span class="${i<=count?'done':''}"></span>`).join('')}</div>`};
+const iconBoat=`<svg viewBox="0 0 240 120" fill="none" aria-hidden="true"><path d="M20 72H218L186 104H52Z" fill="#fff" stroke="#98aeb8" stroke-width="3"/><path d="M74 70V24h91l26 46" fill="#f7fcff" stroke="#98aeb8" stroke-width="3"/><path d="M91 35h55v25H91Z" fill="#a8c5d2"/><path d="M25 112q22-12 44 0t44 0t44 0t44 0" stroke="#b2ccd4" stroke-width="4"/></svg>`;
+const safeImageURL = value => {
+ const v=String(value||'').trim();
+ if (!v) return '';
+ if (/^data:image\/(png|jpeg|webp|gif);base64,[a-zA-Z0-9+/=]+$/.test(v)) return v;
+ try { const u=new URL(v); return ['https:','http:'].includes(u.protocol)?u.href:''; } catch { return ''; }
+};
+const photo=p=>safeImageURL(p.photo)?`<img src="${escapeHTML(safeImageURL(p.photo))}" alt="${escapeHTML(p.name)} 대표사진" loading="lazy" />`:`<div class="photo-placeholder"><span class="photo-wordmark">MOMENT LINK</span><span>실제 상품 사진 등록 전</span></div>`;
+function packageCard(item,option){const yes=state.selection?.id===item.id&&state.selection?.packId===option.id;const bouquet=item.category==='yacht'&&item.sub==='sail'&&option.id==='all';let label='';if(bouquet){label=item.bouquet?'꽃다발 포함 (생화 또는 비누꽃)':'꽃다발 미포함'}
+return `<button type="button" class="package-option ${yes?'chosen':''}" data-select="${escapeHTML(item.id)}:${escapeHTML(option.id)}" aria-pressed="${yes}"><div class="package-title"><span>${escapeHTML(option.name)}</span><span class="selection-dot" aria-hidden="true">${yes?'●':'○'}</span></div>${option.weekday===null?`<div class="package-single">상담 후 안내</div>`:option.weekday===option.weekend?`<div class="package-single">${krw(option.weekday)}</div>`:`<div class="price-line"><small>주중</small><b>${krw(option.weekday)}</b></div><div class="price-line"><small>주말</small><b>${krw(option.weekend)}</b></div>`}<div class="package-notes">${escapeHTML(option.summary).split(' · ').map(t=>`<span>${t}</span>`).join('')}</div>${item.category==='heli'?`<div class="package-highlight">${option.id==='basic'?'헬기 비행·편지 낭독·샴페인':option.id==='original'?'촬영 원본 제공 · 편집본 제외':option.id==='edited'?'촬영 원본 + 추억영상 편집본':'구성 상세 확인'}</div>`:''}${label?`<div class="benefit ${item.bouquet?'good':''}">${label}</div>`:''}</button>`}
+function productCard(p){return `<article class="product"><div class="product-photo">${photo(p)}</div><h3 class="product-name">${escapeHTML(p.name)}</h3><p class="product-desc">${escapeHTML(p.short)}</p>${p.category==='visit'?'<div class="pill" style="margin-bottom:10px">라이트·올인원 장식 세팅 동일</div>':''}<div class="package-grid ${p.packages.length>2?'three':''}">${p.packages.map(pk=>packageCard(p,pk)).join('')}</div><details data-detail="${escapeHTML(p.id)}" ${state.openDetails.includes(p.id)?'open':''}><summary>구성·포함 서비스 자세히 보기</summary><div class="detail-body">${escapeHTML(p.description)}</div>${p.packages.map(pk=>`<div class="detail-body"><strong>${escapeHTML(pk.name)}</strong> · ${escapeHTML(priceDisplay(pk))}\n${escapeHTML(pk.features?.join(' · ')||'추후 안내')}${pk.note?'\n※ '+escapeHTML(pk.note):''}</div>`).join('')}</details></article>`}
+function yachtPlace(){return `<section class="info"><strong>요트 승선 장소 · 한국해양대학교</strong><div class="muted">${escapeHTML(settings.yachtAddress)}<br>${escapeHTML(settings.yachtPlace)}</div></section>`}
+function heliPlace(){return `<section class="info"><strong>헬기 탑승 장소 · 전날 최종 안내</strong><div class="muted">군산: ${escapeHTML(settings.heliGunsan)}<br>변산: ${escapeHTML(settings.heliByeonsan)}<br>비행 전날 기상 및 운영 상황 확인 후 최종 탑승장소를 개별 안내합니다.</div></section>`}
+function footer(buttonText,action,disabled=false,note=''){return `<div class="action-bar">${state.formError?`<p class="form-error" role="alert">${escapeHTML(state.formError)}</p>`:''}${note?`<div class="micro" style="margin-bottom:9px">${escapeHTML(note)}</div>`:''}<button class="primary" type="button" data-next="${action}" ${disabled?'disabled':''}>${buttonText}</button></div>`}
+function scheduleFields(n){
+ const d=n===1?state.firstDate:state.secondDate,t=n===1?state.firstTime:state.secondTime;
+ const id=n===1?'firstDate':'secondDate';
+ return `<div class="sectionlabel">${n}순위 희망 날짜 ${n===1?'· 필수':'· 선택'}</div><input aria-label="${n}순위 희망 날짜" id="${id}" class="field" type="date" min="${localToday()}" value="${escapeHTML(d)}"/><div class="times">${['오전','오후','저녁','시간 무관'].map(x=>`<button type="button" class="time ${t===x?'active':''}" data-time="${n}:${x}" aria-pressed="${t===x}">${x}</button>`).join('')}</div><details class="exact-time" ${/^\d{2}:\d{2}$/.test(t)?'open':''}><summary>정확한 시간을 정하고 싶어요</summary><label class="micro" for="exactTime${n}">희망 시간 ${n===1?'(선택)':'(2순위)'}</label><input type="time" class="field" id="exactTime${n}" value="${/^\d{2}:\d{2}$/.test(t)?t:''}"></details>`;
+}
+function customer(){let s=`<main class="layout"><div class="page">${progress()}`;
+if(state.step==='welcome')s+=`<section class="hero-card"><div class="eyebrow">PROPOSE CONSULTING</div><h1 class="page-title">특별한 순간을<br>간편하게 준비하세요.</h1><p class="muted">원하시는 상품과 희망 날짜를 선택해 주세요.<br>담당자가 내용을 확인한 후 상담을 도와드립니다.</p><div class="info"><strong>모먼트링크 프로포즈 상담 안내</strong><div class="muted">회원가입 없이 상품·가격을 비교하고 신청할 수 있습니다.</div></div>${footer('간편 상담 시작하기','start')}</section>`;
+if(state.step==='category')s+=`<h1 class="page-title">어떤 프로포즈를 준비하시나요?</h1><p class="muted">원하시는 이벤트를 선택해 주세요.</p><div class="category-grid">${CATEGORY.map(c=>`<button type="button" class="select-card" data-category="${c.id}"><span class="category-icon">${c.symbol}</span><div class="card-title">${c.label}</div><div class="card-desc">${c.sub}</div></button>`).join('')}</div>`;
+if(state.step==='products'){
+s+=`<button class="back" data-back="category">← 다른 상품 보기</button><h1 class="page-title">${escapeHTML(catName())}</h1><p class="muted">가격과 구성을 비교하고, 마음에 드는 패키지를 눌러주세요.</p>`;
+if(state.category==='yacht')s+=`<div class="choice-head">${[['sail','출항형 프로포즈'],['dock','정박형 프로포즈']].map(([id,n])=>`<button type="button" class="tab ${state.sub===id?'active':''}" data-sub="${id}">${n}</button>`).join('')}</div>`;
+const list=catalog.filter(x=>x.visible&&x.category===state.category&&(state.category!=='yacht'||x.sub===state.sub));
+s+=list.length?`<div class="product-grid ${list.length===1?'single-product':''}">${list.map(productCard).join('')}</div>`:'<div class="empty">현재 선택할 수 있는 상품이 없습니다.</div>';
+if(state.category==='visit')s+=`<div class="info"><strong>라이트와 올인원은 장식 세팅이 동일합니다.</strong><div class="muted">올인원은 미니케이크·영상편지·촬영 관련 서비스 등이 추가됩니다. 영상편지 USB 요청 시 10,000원이 별도로 추가됩니다.</div></div>`;
+if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. PREMIUM·SIGNATURE 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
+if(state.category==='yacht')s+=yachtPlace();
+if(state.category==='heli')s+=heliPlace();
+s+=`<button class="secondary recommendation" data-action="recommend" aria-pressed="${state.selection?.id==='recommend'}">${state.selection?.id==='recommend'?'상담 후 추천 선택됨':'아직 고민 중이에요 · 상담 후 추천'}</button>`;
+const current=getPack();s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${priceDisplay(current)}`:'원하시는 상품을 먼저 선택해 주세요.');
+}
+if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted">${escapeHTML(priceDisplay(getPack()))}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
+if(state.step==='contact'){
+s+=`<button class="back" data-back="schedule">← 일정 선택으로</button><h1 class="page-title">연락받으실 정보를 알려주세요.</h1><p class="muted">필요한 항목만 간단히 입력합니다.</p>`;
+if(state.category==='yacht')s+=yachtPlace();if(state.category==='heli')s+=heliPlace();
+s+=`<div class="fields"><div><label class="sectionlabel" for="name" style="display:block">성함</label><input class="field" id="name" maxlength="60" placeholder="성함" value="${escapeHTML(state.name)}" autocomplete="name" /></div><div><label class="sectionlabel" for="phone" style="display:block">휴대전화 번호</label><input class="field" id="phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel" value="${escapeHTML(state.phone)}" /></div></div>`;
+if(['visit','trunk'].includes(state.category))s+=`<label for="place" class="sectionlabel" style="display:block">희망 세팅 장소</label><input id="place" maxlength="300" class="field" placeholder="호텔명 또는 주소·지역" value="${escapeHTML(state.place)}"/><p class="micro">정확한 주소를 모르시면 지역·건물명만 입력하셔도 됩니다.</p>`;
+s+=`<label for="notes" class="sectionlabel" style="display:block">특이사항 (선택)</label><textarea id="notes" maxlength="1500" class="field" placeholder="추가 요청사항이 있으면 적어주세요.">${escapeHTML(state.notes)}</textarea><label class="inline-check"><input id="consent" type="checkbox" ${state.consent?'checked':''}/><span>상담을 위한 개인정보 수집·이용에 동의합니다.<span class="micro consent-note">데모용 동의입니다. 실제 개인정보를 입력하지 마세요.</span></span></label><details class="request-summary"><summary>선택 내용 확인</summary><div class="detail-body">${escapeHTML(choiceName())}<br>${escapeHTML(displayChosenPrice())}<br>1순위 ${escapeHTML(dateLabel(state.firstDate)+' '+state.firstTime)}${state.secondDate?'<br>2순위 '+escapeHTML(dateLabel(state.secondDate)+' '+state.secondTime):''}</div></details>${footer('상담 신청하기 · 체험','contact')}`;
+}
+if(['review','done'].includes(state.step)){
+if(state.step==='review')s+=`<button class="back" data-back="contact">← 입력 내용 수정</button><h1 class="page-title">신청 내용을 확인해 주세요.</h1>`;else s+=`<div style="text-align:center;padding:24px 0 8px"><div style="color:#278854;font-size:38px">✓</div><h1 class="page-title">상담 신청 완료 화면</h1><p class="muted">프로토타입이므로 실제 접수·알림은 발송되지 않았습니다.</p></div>`;
+const fields=[['상품',catName()],['선택',choiceName()],['안내 가격',displayChosenPrice()],['성함',state.name],['번호',state.phone],['1순위',dateLabel(state.firstDate)+' '+state.firstTime],['2순위',state.secondDate?dateLabel(state.secondDate)+' '+state.secondTime:'미선택'],...(['visit','trunk'].includes(state.category)?[['장소',state.place]]:[]),['특이사항',state.notes||'없음']];
+s+=`<section class="info"><dl>${fields.map(([a,b])=>`<div class="summary"><dt>${escapeHTML(a)}</dt><dd>${escapeHTML(b)}</dd></div>`).join('')}</dl></section><p class="micro">상담 신청은 예약 확정이 아닙니다. 담당자가 가능 일정을 확인한 뒤 별도 안내합니다.</p>`;
+if(state.step==='done')s+=`<p class="muted">실제 서비스에서는 신청 내용이 관리자 PWA에 자동 등록됩니다. 고객 문자 발송은 선택사항입니다.</p>${footer('내 문자 앱으로 상담 내용 보내기','done')}<button class="secondary" style="width:100%;margin-top:10px" data-action="restart">다시 체험하기</button>`;
+else s+=footer('상담 신청 완료 화면 보기','review');
+}
+if(state.step==='sms')s+=`<h1 class="page-title">문자 발송 미리보기</h1><p class="muted">고객 본인의 휴대폰에서 담당자에게 보낼 문자입니다.</p><div class="info"><strong>받는 사람: ${escapeHTML(settings.smsNumber)}</strong></div><div class="message">${escapeHTML(smsText())}</div><p class="micro">문자 앱의 본문 자동 입력은 기기·운영체제·문자 앱에 따라 달라질 수 있습니다. 자동 전송은 하지 않습니다.</p><div class="btnrow" style="margin-top:16px"><button class="primary" data-action="openSms">휴대폰 문자 앱 열기</button><button class="secondary" data-action="copySms">내용 복사</button></div><button class="back" data-back="done">← 완료 화면으로 돌아가기</button>`;
+s+=`<p class="micro" style="text-align:center;margin-top:26px">대표번호 ${escapeHTML(settings.mainNumber)} · <a href="tel:${settings.mainNumber.replace(/[^0-9]/g,'')}">전화하기</a></p></div></main>`;
+return s;
+}
+function smsText(){return `[모먼트링크 프로포즈 상담 신청]\n성함: ${state.name}\n번호: ${state.phone}\n상품: ${catName()}\n선택: ${choiceName()}\n가격: ${displayChosenPrice()}\n1순위: ${dateLabel(state.firstDate)} ${state.firstTime}${state.secondDate?'\n2순위: '+dateLabel(state.secondDate)+' '+state.secondTime:''}${['visit','trunk'].includes(state.category)?'\n장소: '+state.place:''}\n특이사항: ${state.notes||'없음'}\n위 내용으로 상담 부탁드립니다.`}
+function adminPanel(){
+let out=`<main class="admin"><div class="admin-layout"><aside class="admin-menu" aria-label="관리자 메뉴">${[['inbox','상담 접수함'],['products','상품 관리'],['settings','문자·알림'],['places','장소 관리'],['ops','OPS 연동']].map(([id,label])=>`<button class="tab" type="button" data-admin-tab="${id}" ${state.adminTab===id?'aria-current="page"':''}>${label}</button>`).join('')}</aside><section class="admin-section"><div class="status-top"><div><div class="title">${{inbox:'상담 접수함',products:'상품 관리',settings:'문자·알림 설정',places:'장소 관리',ops:'통합 OPS 연동'}[state.adminTab]}</div><div class="adminSmall micro">로컬 프로토타입 · 계정 인증 및 실제 서버 연동 전</div></div><span class="badge">데모</span></div>`;
+if(state.adminTab==='inbox'){
+const list=sessionRequests;
+out+=`<p class="muted">같은 브라우저에서 완료 화면까지 진행한 샘플 신청만 임시 표시합니다. 개인정보는 서버에 저장하지 않습니다.</p><div class="admin-row" style="margin:15px 0"><span class="badge">접수 ${list.length}건 (현재 세션)</span><button class="secondary" data-action="pushDemo">푸시 알림 모양 보기</button></div>`;
+if(state.adminDetail)out+=`<div class="notification"><div class="micro" style="color:#bfc0c5">MOMENT LINK · 데모 알림</div><div style="font-size:15px;font-weight:720;margin-top:5px">새로운 상담 신청이 접수되었습니다.</div></div>`;
+out+=list.length?list.map((r,i)=>`<div class="admin-card"><div class="admin-row"><div><strong>${escapeHTML(r.categoryName)}</strong><div class="micro">${escapeHTML(r.person)} · ${escapeHTML(r.choice)}</div></div><span class="badge">상담 접수</span></div><dl>${[['연락처',r.phone],['1순위',r.first],['2순위',r.second],['장소',r.place],['특이사항',r.notes]].map(([a,b])=>`<div class="summary"><dt>${a}</dt><dd>${escapeHTML(b)}</dd></div>`).join('')}</dl><div class="btnrow" style="margin-top:14px"><button class="secondary" data-action="demoOnly">상담 진행</button><button class="secondary" data-action="demoOnly">문자 보내기</button><button class="secondary" data-action="demoOnly">OPS 예약 확정</button></div></div>`).join(''):'<div class="empty">아직 접수된 샘플 상담이 없습니다.<br>고객 화면에서 신청을 완료해 보세요.</div>';
+}
+if(state.adminTab==='products'){
+const filtered=catalog.filter(x=>x.category===state.adminCategory&&(state.adminCategory!=='yacht'||x.sub===state.adminSub));
+const current=catalog.find(x=>x.id===state.editId)||filtered[0];
+if(current)state.editId=current.id;
+out+=`<p class="muted">상품 종류·사진·설명·가격·패키지를 직접 수정할 수 있습니다. 상품 개수는 코드에서 제한하지 않습니다.</p><div class="admin-controls"><div><label class="admin-label" for="adminCategory">상품 카테고리</label><select id="adminCategory" class="admin-select">${CATEGORY.map(c=>`<option value="${c.id}" ${c.id===state.adminCategory?'selected':''}>${c.label}</option>`).join('')}</select></div>${state.adminCategory==='yacht'?`<div><label class="admin-label" for="adminSub">요트 프로포즈 하위 상품</label><select id="adminSub" class="admin-select"><option value="sail" ${state.adminSub==='sail'?'selected':''}>출항형</option><option value="dock" ${state.adminSub==='dock'?'selected':''}>정박형</option></select></div>`:'<div></div>'}</div><div class="admin-card"><div class="admin-row"><strong>등록 상품 (${filtered.length}개)</strong><button class="secondary" data-action="addProduct">+ 상품 추가</button></div><div class="card-stack" style="margin-top:13px">${filtered.map(p=>`<button class="secondary" style="text-align:left;display:flex;justify-content:space-between;gap:8px" data-edit-id="${p.id}"><span>${escapeHTML(p.name)}</span><span class="micro">${p.visible?'노출':'숨김'} · 편집</span></button>`).join('')||'<p class="muted">아직 상품이 없습니다.</p>'}</div></div>`;
+if(current)out+=`<div class="admin-card" id="productEditor"><div class="admin-row"><strong>상품 편집: ${escapeHTML(current.name)}</strong><div class="admin-actions"><button class="secondary" data-action="toggleVisible">${current.visible?'노출 중':'숨김'}</button><button class="secondary" data-action="moveUp" aria-label="상품 순서 위로">위로</button><button class="secondary" data-action="moveDown" aria-label="상품 순서 아래로">아래로</button><button class="secondary danger" data-action="deleteProduct">삭제</button></div></div><label class="admin-label" for="editName">상품명</label><input class="admin-input" id="editName" value="${escapeHTML(current.name)}"/><label class="admin-label" for="editShort">카드 요약 설명</label><input class="admin-input" id="editShort" value="${escapeHTML(current.short)}"/><label class="admin-label" for="editDescription">상세 상품 설명</label><textarea class="admin-input" rows="5" id="editDescription">${escapeHTML(current.description)}</textarea><label class="admin-label" for="editPhoto">대표사진 URL 또는 사진 업로드</label><input class="admin-input" id="editPhoto" value="${escapeHTML(current.photo)}" placeholder="https://..."/><input class="admin-input" style="margin-top:8px" id="photoUpload" type="file" accept="image/*"/><p class="tiny">사진 업로드는 이 브라우저에만 저장되는 데모 기능입니다. 실제 개발 시 사진 파일은 서버의 전용 저장소에 업로드합니다.</p>${current.category==='yacht'&&current.sub==='sail'?`<label class="inline-check"><input type="checkbox" id="editBouquet" ${current.bouquet?'checked':''}/> 올인원 꽃다발 포함 (생화 또는 비누꽃)</label>`:''}${current.packages.map((g,i)=>`<div class="divider"></div><div class="admin-row"><strong>패키지 ${i+1}</strong><button class="secondary" data-remove-pack="${g.id}">패키지 삭제</button></div><div class="admin-cols"><div><label class="admin-label" for="packName_${i}">패키지명</label><input id="packName_${i}" class="admin-input" value="${escapeHTML(g.name)}"/></div><div><label class="admin-label" for="packSummary_${i}">짧은 안내</label><input id="packSummary_${i}" class="admin-input" value="${escapeHTML(g.summary)}"/></div><div><label class="admin-label" for="packWeek_${i}">${current.category==='yacht'&&current.sub==='sail'?'주중 가격':'판매가격'} (원)</label><input type="number" min="0" class="admin-input" id="packWeek_${i}" value="${g.weekday??''}" placeholder="미정"/></div><div><label class="admin-label" for="packWeekend_${i}">${current.category==='yacht'&&current.sub==='sail'?'주말 가격':'대체 가격'} (원, 빈칸이면 동일)</label><input type="number" min="0" class="admin-input" id="packWeekend_${i}" value="${g.weekend??''}" placeholder="미정"/></div></div><label class="admin-label" for="packFeatures_${i}">포함 항목 (줄바꿈으로 구분)</label><textarea id="packFeatures_${i}" class="admin-input" rows="4">${escapeHTML((g.features||[]).join('\n'))}</textarea><label class="admin-label" for="packNote_${i}">주의·추가 안내</label><input id="packNote_${i}" class="admin-input" value="${escapeHTML(g.note)}"/>`).join('')}<div class="btnrow" style="margin-top:18px"><button class="secondary" data-action="addPack">+ 패키지 추가</button><button class="primary" data-action="saveProduct">상품 변경 저장</button></div></div>`;
+out+=`<div class="callout">프로토타입에서는 상품 편집값만 이 브라우저의 로컬 저장소에 보존합니다. 정식 서비스에서는 관리자 로그인·권한·변경 이력·이미지 저장소·운영 DB를 별도로 구축해야 합니다.</div>`;
+}
+if(state.adminTab==='settings'){
+out+=`<p class="muted">SOLAPI OFF를 기본으로 사용합니다. 현재는 어떤 SMS도 자동 발송되지 않습니다.</p><div class="admin-card">${[['solapi','SOLAPI 문자 발송 전체 사용','자동 발송 마스터 스위치'],['customerAuto','고객 접수 확인 SMS','신청 접수 후 고객에게 발송'],['adminAuto','관리자 신규 상담 SMS','새 신청 관리자 알림'],['push','관리자 PWA 푸시','알림 권한 및 기기 조건 충족 시']].map(([k,n,desc])=>`<div class="admin-row" style="padding:12px 0;border-bottom:1px solid #eee"><div><strong style="font-size:13px">${n}</strong><div class="tiny">${desc}</div></div><button class="toggle" role="switch" aria-label="${n}" aria-checked="${Boolean(settings[k])}" data-switch="${k}" ${k!=='solapi'&&k!=='push'&&!settings.solapi?'disabled':''}></button></div>`).join('')}</div><div class="admin-card"><strong>고객 연락처</strong><div class="admin-cols"><div><label class="admin-label" for="settingSms">문자 발송·수신 번호</label><input class="admin-input" id="settingSms" value="${escapeHTML(settings.smsNumber)}"/></div><div><label class="admin-label" for="settingMain">대표번호</label><input class="admin-input" id="settingMain" value="${escapeHTML(settings.mainNumber)}"/></div></div><button class="secondary" style="margin-top:13px" data-action="saveNumbers">연락처 변경</button></div><div class="callout">SOLAPI를 ON으로 바꾸더라도 이 프로토타입에는 API 키나 발송 서버가 없어 문자는 발송되지 않습니다. 정식 개발에서는 발신번호 인증, 잔액, 수신 구성, 발송 동의를 검증합니다.</div>`;
+}
+if(state.adminTab==='places'){
+out+=`<p class="muted">요트는 고정 승선장, 헬기는 군산·변산 후보를 관리합니다.</p><div class="admin-card"><strong>요트 승선 장소</strong><label class="admin-label" for="yachtPlace">승선 지점</label><input class="admin-input" id="yachtPlace" value="${escapeHTML(settings.yachtPlace)}"/><label class="admin-label" for="yachtAddress">주소</label><input class="admin-input" id="yachtAddress" value="${escapeHTML(settings.yachtAddress)}"/></div><div class="admin-card"><strong>헬기 탑승 장소 후보 (전날 최종 확정)</strong><label class="admin-label" for="heliGunsan">군산</label><input class="admin-input" id="heliGunsan" value="${escapeHTML(settings.heliGunsan)}"/><label class="admin-label" for="heliByeonsan">변산</label><input class="admin-input" id="heliByeonsan" value="${escapeHTML(settings.heliByeonsan)}"/></div><button class="primary" style="margin-top:12px" data-action="savePlaces">장소 안내 저장</button><div class="callout">헬기 상담 신청 시에는 두 후보지를 안내하고, 최종 탑승 위치는 전날 기상·운영 확인 후 관리자에서 확정해 발송하는 기능을 정식 연동 시 구현합니다.</div>`;
+}
+if(state.adminTab==='ops'){
+out+=`<p class="muted">상담 접수와 실제 예약을 분리합니다. 고객 신청 단계에서는 기존 OPS의 일정을 점유하지 않습니다.</p>${[['BOATN OPS','요트 출항형·정박형'],['KHT OPS','헬기 프로포즈'],['설렘 OPS','출장·트렁크 프로포즈']].map(([n,d])=>`<div class="admin-card"><div class="admin-row"><div><h3>${n}</h3><div class="tiny">${d}</div></div><span class="badge">연동 전</span></div></div>`).join('')}<div class="callout">Codex 작업 범위: 인증된 API, 예약 전 중복검사, 승인 후 등록, 취소·변경 동기화, 연동 실패 로그, 재시도, 운영자 권한 확인.</div>`;
+}
+if(state.notice)out+=`<div role="status" class="toast">${escapeHTML(state.notice)}</div>`;
+out+='</section></div></main>';return out;
+}
+function persist(){try{localStorage.setItem(PRODUCT_KEY,JSON.stringify(catalog));localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));return true}catch{state.notice='브라우저 저장 공간 부족 또는 로컬 저장 실패. 사진 크기를 줄여주세요.';return false}}
+function capture(){for(const k of ['name','phone','place','notes','firstDate','secondDate']){const n=document.getElementById(k);if(n)state[k]=n.value}const c=$('#consent');if(c)state.consent=c.checked}
+function formValue(id){return document.getElementById(id)?.value??''}
+function saveEditor(){
+ const old=catalog.find(p=>p.id===state.editId);if(!old||!$('#editName'))return false;
+ const x=structuredClone(old);
+ x.name=formValue('editName').trim();
+ if(!x.name){state.notice='상품명을 입력해 주세요.';return false}
+ x.short=formValue('editShort');x.description=formValue('editDescription');
+ const url=formValue('editPhoto').trim();
+ if(url&&!safeImageURL(url)){state.notice='사진은 https 주소나 PNG/JPEG/WebP/GIF 이미지를 사용해 주세요.';return false}
+ x.photo=url;
+ const bou=$('#editBouquet');if(bou)x.bouquet=bou.checked;
+ for(let i=0;i<x.packages.length;i++){
+  const g=x.packages[i],a=formValue(`packWeek_${i}`),b=formValue(`packWeekend_${i}`);
+  if([a,b].some(v=>v!==''&&(!Number.isSafeInteger(Number(v))||Number(v)<0))){state.notice='가격은 0 이상의 정수로 입력하거나 비워 주세요.';return false}
+  g.name=formValue(`packName_${i}`).trim();if(!g.name){state.notice='패키지명을 입력해 주세요.';return false}
+  g.summary=formValue(`packSummary_${i}`);g.weekday=a===''?null:Number(a);g.weekend=b===''?g.weekday:Number(b);
+  if(g.weekday===null&&g.weekend!==null){state.notice='기준 가격부터 입력해 주세요.';return false}
+  g.features=formValue(`packFeatures_${i}`).split(/\r?\n/).map(t=>t.trim()).filter(Boolean);g.note=formValue(`packNote_${i}`);
+ }
+ if(x.category==='yacht'&&x.sub==='sail'){
+  const all=x.packages.find(g=>g.id==='all');if(all){all.features=all.features.filter(f=>f!=='꽃다발');if(x.bouquet)all.features.push('꽃다발')}
+ }
+ const previous=catalog;catalog=catalog.map(p=>p.id===x.id?x:p);
+ if(!persist()){catalog=previous;return false}
+ state.editorDirty=false;state.notice='상품 변경을 이 브라우저 미리보기에 저장했습니다.';return true;
+}
+function render(){if(state.selection&&(!getProduct()?.visible||!getPack()))state.selection=null;document.getElementById('app').innerHTML=`<div class="shell">${top()}${state.view==='customer'?customer():adminPanel()}</div>`}
+function setStep(x){state.step=x;state.notice='';state.formError='';render();window.scrollTo({top:0,behavior:'instant'})}
+function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
+function formError(message){state.formError=message;render();document.querySelector('[role=alert]')?.scrollIntoView({block:'nearest'});return false}
+function submitPreview(){if(state.complete)return;sessionRequests.unshift({id:uid(),status:'신규',price:displayChosenPrice(),person:state.name,phone:state.phone,categoryName:catName(),choice:choiceName(),first:dateLabel(state.firstDate)+' '+state.firstTime,second:state.secondDate?dateLabel(state.secondDate)+' '+state.secondTime:'미선택',place:state.category==='yacht'?settings.yachtPlace:state.category==='heli'?'군산 또는 변산 · 전날 안내':state.place||'미정',notes:state.notes||'없음'});state.complete=true}
+function changeView(v){capture();state.view=v;state.notice='';render();window.scrollTo({top:0,behavior:'instant'})}
+document.addEventListener('click',async ev=>{
+const btn=ev.target.closest('button');if(!btn)return;
+if(btn.dataset.view){changeView(btn.dataset.view);return}
+if(btn.dataset.category){state.category=btn.dataset.category;state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;setStep('products');return}
+if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;render();return}
+if(btn.dataset.select){const [id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.complete=false;render();return}
+if(btn.dataset.time){capture();const [i,t]=btn.dataset.time.split(':');if(i==='1')state.firstTime=t;else state.secondTime=t;render();return}
+if(btn.dataset.back){capture();setStep(btn.dataset.back);return}
+if(btn.dataset.next){const a=btn.dataset.next;if(a==='start')return setStep('category');if(a==='products'){if(state.selection)return setStep('schedule');return}if(a==='schedule'){capture();if(!state.firstDate||!state.firstTime){return formError('1순위 날짜와 시간대를 선택해 주세요.')}if(!validDate(state.firstDate)||state.firstDate<localToday()){return formError('오늘 이후의 올바른 날짜를 선택해 주세요.')}if(state.secondDate&&(!validDate(state.secondDate)||state.secondDate<localToday())){return formError('2순위 날짜를 확인해 주세요.')}if(state.secondDate===state.firstDate&&state.secondTime===state.firstTime){return formError('2순위는 다른 날짜 또는 시간으로 선택해 주세요.')}if(state.secondDate&&!state.secondTime){return formError('2순위 시간을 선택하거나 일정을 비워 주세요.')}return setStep('contact')}if(a==='contact'){capture();if(!getPack()||!getProduct()?.visible){return formError('선택한 상품이 변경되었습니다. 상품을 다시 선택해 주세요.')}state.phone=state.phone.replace(/[\s-]/g,'');if(!state.name.trim()){return formError('성함을 입력해 주세요.')}if(!/^01[016789]\d{7,8}$/.test(state.phone)){return formError('휴대전화 번호를 확인해 주세요.')}if(['visit','trunk'].includes(state.category)&&!state.place.trim()){return formError('희망 장소나 지역을 입력해 주세요.')}if(!state.consent){return formError('개인정보 수집·이용 안내를 확인해 주세요.')}submitPreview();return setStep('done')}if(a==='review'){submitPreview();return setStep('done')}if(a==='done')return setStep('sms')}
+if(btn.dataset.adminTab){state.adminTab=btn.dataset.adminTab;state.notice='';render();return}
+if(btn.dataset.editId){state.editId=btn.dataset.editId;render();return}
+if(btn.dataset.switch){const k=btn.dataset.switch;if((k==='customerAuto'||k==='adminAuto')&&!settings.solapi)return;settings[k]=!settings[k];if(k==='solapi'&&!settings.solapi){settings.customerAuto=false;settings.adminAuto=false}persist();render();return}
+if(btn.dataset.removePack){if(!saveEditor()){render();return}const x=catalog.find(p=>p.id===state.editId);if(x&&x.packages.length>1){x.packages=x.packages.filter(g=>g.id!==btn.dataset.removePack);persist();state.notice='패키지를 삭제했습니다.'}else state.notice='최소 1개의 패키지는 유지해야 합니다.';render();return}
+const a=btn.dataset.action;if(!a)return;
+if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.complete=false;render();return}
+if(a==='clearSecond'){capture();state.secondDate='';state.secondTime='';state.secondEnabled=false;state.formError='';render();return}
+if(a==='toggleSecond'){capture();state.secondEnabled=!state.secondEnabled;if(!state.secondEnabled){state.secondDate='';state.secondTime=''}render();return}
+if(a==='restart'){state.step='welcome';state.category=null;state.selection=null;state.firstDate='';state.secondDate='';state.firstTime='';state.secondTime='';state.name='';state.phone='';state.place='';state.notes='';state.consent=false;state.complete=false;state.secondEnabled=false;state.formError='';state.openDetails=[];render();return}
+if(a==='copySms'){try{await navigator.clipboard.writeText(smsText());alert('문자 내용을 복사했습니다.')}catch{alert('이 브라우저에서 복사 기능을 지원하지 않습니다. 내용을 직접 선택해 복사해 주세요.')}return}
+if(a==='openSms'){const message=smsText();const dest=settings.smsNumber.replace(/[^0-9]/g,'');const platform=(/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))?'&':'?';window.location.href=`sms:${dest}${platform}body=${encodeURIComponent(message)}`;return}
+if(a==='pushDemo'){state.adminDetail=!state.adminDetail;render();return}
+if(a==='demoOnly'){state.notice='실제 전화·문자·OPS 예약 연결 전입니다.';render();return}
+if(a==='addProduct'){
+const cat=state.adminCategory,sub=cat==='yacht'?state.adminSub:'main',id=uid();
+catalog.push(product(id,cat,sub,'새 상품','설명을 입력해 주세요.',[pack('option1','기본 패키지',null,null,'설명 입력',[])],'상세 내용을 입력해 주세요.'));
+state.editId=id;state.notice='상품을 추가했습니다. 이름·가격·사진을 수정해 주세요.';persist();render();return;
+}
+if(a==='addPack'){if(!saveEditor()){render();return}const x=catalog.find(p=>p.id===state.editId);if(x){x.packages.push(pack(uid(),'새 패키지',null,null,'상품 안내 입력',[]));persist();state.notice='패키지를 추가했습니다.'}render();return}
+if(a==='moveUp'||a==='moveDown'){if(!saveEditor()){render();return}const x=catalog.find(p=>p.id===state.editId);const group=catalog.filter(p=>p.category===x.category&&p.sub===x.sub);const j=group.findIndex(p=>p.id===x.id),k=j+(a==='moveUp'?-1:1);if(k>=0&&k<group.length){const ia=catalog.indexOf(x),ib=catalog.indexOf(group[k]);[catalog[ia],catalog[ib]]=[catalog[ib],catalog[ia]];persist();state.notice='상품 노출 순서를 변경했습니다.'}render();return}
+if(a==='saveProduct'){saveEditor();render();return}
+if(a==='toggleVisible'){if(!saveEditor()){render();return}const x=catalog.find(p=>p.id===state.editId);if(x){x.visible=!x.visible;persist()}render();return}
+if(a==='deleteProduct'){
+const x=catalog.find(p=>p.id===state.editId);if(!x)return;
+if(!confirm(`'${x.name}' 상품을 미리보기에서 삭제하시겠습니까?`))return;
+catalog=catalog.filter(p=>p.id!==x.id);state.editId=catalog.find(p=>p.category===state.adminCategory&&(state.adminCategory!=='yacht'||p.sub===state.adminSub))?.id||'';if(state.selection?.id===x.id)state.selection=null;persist();state.notice='상품을 삭제했습니다.';render();return;
+}
+if(a==='saveNumbers'){settings.smsNumber=formValue('settingSms').trim()||settings.smsNumber;settings.mainNumber=formValue('settingMain').trim()||settings.mainNumber;persist();state.notice='연락처를 저장했습니다.';render();return}
+if(a==='savePlaces'){for(const k of ['yachtPlace','yachtAddress','heliGunsan','heliByeonsan'])settings[k]=formValue(k);persist();state.notice='장소 정보를 저장했습니다.';render();return}
+});
+document.addEventListener('toggle',ev=>{const id=ev.target.dataset?.detail;if(!id)return;state.openDetails=state.openDetails.filter(x=>x!==id);if(ev.target.open)state.openDetails.push(id)},true);
+document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(k==='consent')state.consent=ev.target.checked});
+document.addEventListener('change',async ev=>{
+const el=ev.target;if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();return}
+if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();return}
+if(el.id==='adminCategory'){state.adminCategory=el.value;state.adminSub='sail';state.editId=catalog.find(x=>x.category===state.adminCategory&&(state.adminCategory!=='yacht'||x.sub===state.adminSub))?.id||'';render();return}
+if(el.id==='adminSub'){state.adminSub=el.value;state.editId=catalog.find(x=>x.category==='yacht'&&x.sub===state.adminSub)?.id||'';render();return}
+if(el.id==='photoUpload'&&el.files?.length){
+const file=el.files[0];if(!file.type.startsWith('image/')){alert('이미지 파일을 선택해 주세요.');return}if(file.size>750*1024){alert('이 미리보기에서는 이미지 파일을 750KB 이하로 선택해 주세요. 정식 앱은 서버 업로드로 크기 제한을 확장합니다.');return}
+const fr=new FileReader();fr.onload=()=>{const p=$('#editPhoto');if(p)p.value=String(fr.result)};fr.readAsDataURL(file);
+}
+});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+window.MomentLinkPreview={version:'2.0.0',catalog:()=>structuredClone(catalog),settings:()=>structuredClone(settings)};
+render();
+})();

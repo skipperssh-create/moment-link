@@ -1,0 +1,42 @@
+[
+  {
+    "file": "404.html",
+    "identical": true,
+    "sha256": "4c5eef57f879b20440529ba5a5eccf290008fb96fac09e28221505f75782c573"
+  },
+  {
+    "file": "app.js",
+    "identical": true,
+    "sha256": "9a68861caaa4fef61d3049efed1c8fbdcada7747dbeaf2e129bec52259543f92"
+  },
+  {
+    "file": "assets/icon.svg",
+    "identical": true,
+    "sha256": "ca41c6dad715023b36a2e8dd2287308f9e0def0e307704c6923774761a23ac2a"
+  },
+  {
+    "file": "index.html",
+    "identical": true,
+    "sha256": "81f25fb7c1d89480fc0b5f06c9b13b86a17e02e90f41b5605b88f7491db50a92"
+  },
+  {
+    "file": "manifest.webmanifest",
+    "identical": true,
+    "sha256": "2f0bf101fa8202b8479d486affcc2f59dd06fc84e43a738f25fd3c75ed7c1cea"
+  },
+  {
+    "file": "robots.txt",
+    "identical": true,
+    "sha256": "331ea9090db0c9f6f597bd9840fd5b171830f6e0b3ba1cb24dfa91f0c95aedc1"
+  },
+  {
+    "file": "styles.css",
+    "identical": true,
+    "sha256": "085d0fb9930a1a1b6fbbdfd9690bb7d256867c8ec894f922d087b49d9bbb2b6f"
+  },
+  {
+    "file": "sw.js",
+    "identical": true,
+    "sha256": "d10973f99c6bc5693dac0e5c1f9717686d1d1daf860a832ee47495a27837b99e"
+  }
+]

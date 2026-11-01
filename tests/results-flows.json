@@ -1,0 +1,261 @@
+{
+  "mode": "inline real UI with in-memory localStorage adapter",
+  "engine": "Chromium",
+  "real_devices_tested": false,
+  "network_integrations_tested": false,
+  "total": 50,
+  "passed": 50,
+  "failed": 0,
+  "results": [
+    {
+      "test": "PREMIUM all-in-one price",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "flower table removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "bouquet benefit on premium all-in-one",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "classic all-in-one excludes bouquet",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "detail expansion preserved",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "exact time selection",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "rotation preserves preferred date",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "second date optional",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "contact completion reaches done",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "customer SMS direction",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "optional date omitted from SMS",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "SMS includes exact time",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "correct SMS recipient",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "no invented holiday single quote",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "submitted request in admin",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht request location snapshot",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "no customer PII persisted by preview",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "SOLAPI default off",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "child SMS switch disabled when master off",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "SOLAPI off also disables customer sends",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht product added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht package added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht edited product visible to customer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht hidden product removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "yacht product deletion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit product added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit package added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit edited product visible to customer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit hidden product removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit product deletion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "trunk product added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "trunk package added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "trunk edited product visible to customer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "trunk hidden product removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "trunk product deletion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli product added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli package added",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli edited product visible to customer",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli hidden product removed",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli product deletion",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit identical styling",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "visit all-in-one correct price",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "recommendation without invented price",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "dock all-in-one price",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "dock includes video letter",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "dock no sailing time",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "heli exact three prices",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "99만원 explicitly excludes editing",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "109만원 explicitly includes edited video",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "test": "uncaught JS errors",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}
