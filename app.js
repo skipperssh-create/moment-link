@@ -11,7 +11,7 @@ const pack = (id,name,weekday,weekend,summary,features=[],note='',excludedFeatur
 const product = (id,category,sub,name,short,packages,description,extra={}) => ({id,category,sub,name,short,packages,description,visible:true,photo:'',bouquet:false,...extra});
 const CATEGORY = [{id:'yacht',label:'요트 프로포즈',sub:'출항형 · 정박형',symbol:'Y'},{id:'visit',label:'출장 프로포즈',sub:'라이트 · 올인원',symbol:'V'},{id:'trunk',label:'트렁크 프로포즈',sub:'차량 이벤트 장식',symbol:'T'},{id:'heli',label:'헬기 프로포즈',sub:'편지 낭독 · 촬영 패키지',symbol:'H'}];
 // Yacht contents follow the owner's comparison image supplied on 2026-11-01.
-const yachtCommon=['단독 요트 대관','요트 투어·프로포즈','영상편지 상영','프로포즈 장식','LED 촛불 연출'];
+const yachtCommon=['단독 요트 대관','요트 투어·프로포즈','영상편지 상영','프로포즈 장식','LED 촛불 연출','영상촬영 (마케팅 동의 시)'];
 const yachtExtra=['와인','DSLR 스냅 촬영','포토데코','폭죽'];
 const baseYacht=[...yachtCommon,'총 이용시간 30분 · 실운항 약 25분'];
 const allYacht=[...yachtCommon,...yachtExtra,'총 이용시간 50분 · 실운항 약 45분'];
@@ -33,8 +33,8 @@ pack('light','라이트',590000,690000,'총 이용시간 30분 · 실운항 약 
 pack('all','올인원',690000,790000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'꽃다발'],'꽃다발: 생화 또는 비누꽃')
 ],'더욱 특별하고 프라이빗한 최고급 럭셔리 요트 프로포즈.',{bouquet:true}),
 product('docked','yacht','dock','미출항 · 요트 단독 대관','출항 없이 정박한 요트에서 프라이빗하게 진행',[
-pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하선 포함',['요트 단독 대관']),
-pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함'])
+pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하선 포함',['요트 단독 대관','영상촬영 (마케팅 동의 시)']),
+pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함','영상촬영 (마케팅 동의 시)'])
 ],'현장 운영 상황에 따라 PREMIUM 또는 SIGNATURE 요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
 product('visit','visit','main','출장 프로포즈 세팅','두 패키지의 장식 세팅은 동일합니다.',[
 pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),
