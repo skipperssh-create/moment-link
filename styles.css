@@ -11,7 +11,8 @@
 .recommendation{width:100%;margin:12px 0;text-align:center;background:#fafafa}.recommendation[aria-pressed=true]{border-color:#1d1d1f;box-shadow:inset 0 0 0 1px #1d1d1f}
 
 /* Yacht photo framing: consistent covers, uncropped detailed photographs. */
-.product>.product-photo{height:auto;aspect-ratio:16/9}
+.product>.product-photo{height:auto;aspect-ratio:16/9;position:relative}
+.product>.product-photo>img{position:absolute;inset:0}
 .product-gallery{display:grid;gap:12px;margin-top:4px;min-width:0}
 .product-gallery img{display:block;width:100%;height:auto;border-radius:14px}
 .product-grid:has(details[open] .product-gallery){align-items:start}
