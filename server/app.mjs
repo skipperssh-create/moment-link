@@ -3,7 +3,7 @@ import {z} from 'zod';
 import {saveCommunication,confirmReservation} from './communications.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
-import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
+import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf,SESSION_SECONDS} from './security.mjs';
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration} from './jobs.mjs';
 import {changeTrash,emptyTrash} from './trash.mjs';
@@ -13,13 +13,15 @@ const categoryNames={yacht:'요트 프로포즈',visit:'출장 프로포즈',tru
 export const settingsSchema=z.object({solapi:z.boolean(),customerAuto:z.boolean(),adminAuto:z.boolean(),push:z.boolean(),smsNumber:text(30),mainNumber:text(30),adminSms:text(30),yachtPlace:text(500),yachtAddress:text(500),heliGunsan:text(500),heliByeonsan:text(500),privacyController:text(100),privacyContact:text(100),retentionDays:z.number().int().min(1).max(3650).nullable(),privacyText:text(10000),consentVersion:text(80,1),accepting:z.boolean(),customerTemplate:text(1000),adminTemplate:text(1000),completionText:text(1000).optional(),manualSmsTemplate:text(3000).optional(),locations:z.array(z.object({id:z.string().uuid(),category:z.enum(['yacht','visit','trunk','heli']),name:text(100,1),status:z.enum(['candidate','confirmed']),address:text(500),mapUrl:z.string().max(2000).refine(v=>!v||/^https:\/\//.test(v)),parking:text(500),contact:text(100)}).strict()).max(50).optional()}).strict().refine(s=>!s.accepting||(s.privacyController&&s.privacyContact&&s.retentionDays&&s.privacyText&&s.consentVersion!=='draft'));
 async function config(db,id){return (await db.query('SELECT * FROM moment_link.config WHERE id=$1',[id])).rows[0];}
 async function published(db){return (await db.query('SELECT * FROM moment_link.catalog_versions ORDER BY version DESC LIMIT 1')).rows[0];}
-const json=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
+const jsonResponse=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 async function body(request,max=100000){if(Number(request.headers.get('content-length'))>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');if(!request.headers.get('content-type')?.includes('application/json'))fail(415,'CONTENT_TYPE','JSON 요청이 필요합니다.');const raw=await request.text();if(Buffer.byteLength(raw)>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');try{return JSON.parse(raw);}catch{fail(400,'JSON','올바르지 않은 요청입니다.');}}
 const userPublic=u=>u?{id:u.id,username:u.username,role:u.role,mustChangePassword:u.must_change_password}:null;
 function visibleRequest(r){return {...r,idempotency_hash:undefined,payload_hash:undefined};}
 export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
  return async function handle(request){
  const requestId=randomUUID();
+ let renewedCookie;
+ const json=(data,status=200,headers={})=>jsonResponse(data,status,{...(renewedCookie?{'Set-Cookie':renewedCookie}:{}),...headers});
  try {
   const url=new URL(request.url),path=url.pathname.replace(/\/$/,'');
   const method=request.method;
@@ -81,10 +83,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'login:'+ip,20,900);await rateLimit(db,'login-user:'+d.username,10,900);
    const u=(await db.query('SELECT * FROM moment_link.admin_users WHERE username=$1',[d.username])).rows[0];
    if(!await verifyPassword(d.password,u?.password_hash)||!u?.active)fail(401,'LOGIN_FAILED','아이디 또는 비밀번호를 확인해 주세요.');
-   const raw=token(),anti=token();await db.query(`INSERT INTO moment_link.sessions(token_hash,user_id,csrf,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')`,[hash(raw),u.id,anti]);
+   const raw=token(),anti=token();await db.query(`INSERT INTO moment_link.sessions(token_hash,user_id,csrf,expires_at) VALUES($1,$2,$3,now()+$4*interval '1 second')`,[hash(raw),u.id,anti,SESSION_SECONDS]);
    await audit(db,u.id,'auth.login',u.id);return json({user:userPublic(u),csrf:anti},200,{'Set-Cookie':cookie(raw,env)});
   }
-  const user=await session(db,request);
+  const user=await session(db,request,raw=>{renewedCookie=cookie(raw,env);});
   if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
   if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
   if(path==='/api/auth/password'&&method==='POST'){
