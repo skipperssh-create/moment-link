@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {saveCommunication} from './communications.mjs';
+import {saveCommunication,confirmReservation} from './communications.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
@@ -100,9 +100,14 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
-   const r=await db.query(`SELECT * FROM moment_link.consultations WHERE expires_at>now() AND ($1='admin' OR assignee=$2) AND ($3='' OR person ILIKE $4 OR phone ILIKE $4 OR receipt ILIKE $4) ORDER BY created_at DESC LIMIT 50 OFFSET $5`,[user.role,user.id,search,'%'+search+'%',offset]);return json({items:r.rows.map(visibleRequest)});
+   const view=parse(z.enum(['all','inbox','reservations']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','confirmed','closed','cancelled']),url.searchParams.get('status')||'all');
+   const reserved="(c.status='confirmed' OR c.communication ? 'reservation' OR EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id AND j.state='succeeded'))";
+   const filter=view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved+' AND ($6=\'all\' OR c.status=$6)':'';
+   const order=view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
+   const args=[user.role,user.id,search,'%'+search+'%',offset];if(view==='reservations')args.push(status);
+   const r=await db.query(`SELECT c.* FROM moment_link.consultations c WHERE c.expires_at>now() AND ($1='admin' OR c.assignee=$2) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)${filter} ORDER BY ${order} LIMIT 50 OFFSET $5`,args);return json({items:r.rows.map(visibleRequest)});
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|reservation))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
@@ -110,6 +115,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(method==='DELETE'&&!action){authorize(user,true);await tx.query('UPDATE moment_link.consultations SET expires_at=now() WHERE id=$1',[id]);await audit(tx,user.id,'privacy.deletion.requested',id);return {ok:true};}
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item)};}
+    if(action==='reservation'&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
     if(action==='confirm'&&method==='POST'){
      authorize(user,true);const d=parse(z.object({version:z.number().int(),date:text(10).refine(validDate),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(1).max(1440),amount:z.number().int().min(0).max(100000000),place:text(500,1),resourceId:text(100,1),approved:z.literal(true)}).strict(),await body(request));
@@ -123,7 +129,12 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(method==='PATCH'&&!action){
      const d=parse(z.object({version:z.number().int(),status:z.enum(['new','consulting','hold','closed','cancelled']).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
      if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');if(d.assignee!==undefined)authorize(user,true);
-     if(r.status==='confirmed'&&d.status&&d.status!=='closed')fail(409,'OPS_CHANGE_REQUIRED','확정 예약 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
+     if(r.status==='confirmed'&&d.status){
+      const manual=r.communication?.reservation?.source==='manual';
+      const external=(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0];
+      if(d.status!=='closed'&&(!manual||external||d.status!=='cancelled'))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 행사 완료·취소로 변경할 수 있습니다. OPS 등록 건의 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
+     }
+     if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
      if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND state IN ('pending','checking','uncertain','failed')",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};

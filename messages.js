@@ -17,6 +17,7 @@ function validate(stage,b,r){
  if(!stages[stage])return '안내 단계를 선택해 주세요.';
  if(!/^01[016789]\d{7,8}$/.test(r.phone||''))return '고객 휴대전화 번호를 확인해 주세요.';
  if(r.status==='cancelled')return '취소된 상담에는 이 예약 안내를 보낼 수 없습니다.';
+ if(r.status==='closed'&&r.communication?.reservation&&stage!=='thanks')return '행사 완료된 예약은 이벤트 후 안부 문자를 이용해 주세요.';
  if(!dateOK(b.date))return '안내할 행사 날짜를 입력해 주세요.';
  if(stage==='thanks')return '';
  if(!timeOK(b.time))return '협의한 정확한 시간을 입력해 주세요.';

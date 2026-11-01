@@ -28,7 +28,7 @@ Node.js 24, pnpm 11.25.0. pnpm install --frozen-lockfile, pnpm run check, pnpm t
 
 PowerShell에서 LOCAL_SYNTHETIC=true와 LOCAL_TEST_PASSWORD(개별 로컬 전용 8자 이상)를 환경변수로 설정한 뒤 pnpm dev를 실행합니다. http://127.0.0.1:4173 의 local-admin은 입력한 비밀번호로 로그인하는 메모리 합성 DB 전용 계정입니다. 운영 비밀번호를 재사용하지 않으며 Vercel에서는 이 모드를 사용하지 않습니다.
 
-전용 운영 DB 초기화: MOMENT_LINK_DATABASE=true로 scripts/migrate.mjs 실행. 현재 스키마 2까지 적용됐고 RUN_DB_MIGRATIONS=false입니다. 실제 키는 Git에 올리지 않습니다.
+전용 운영 DB 초기화: MOMENT_LINK_DATABASE=true로 scripts/migrate.mjs 실행. 현재 스키마 3까지 적용됐고 RUN_DB_MIGRATIONS=false입니다. 실제 키는 Git에 올리지 않습니다.
 
 최초 관리자 정보는 작업 PC .local/owner-credentials.json에만 있으며 Git/공개 정적 출력에서 제외됩니다. 비밀번호 변경 시 기존 자기 세션은 회수됩니다.
 
@@ -55,3 +55,9 @@ PowerShell에서 LOCAL_SYNTHETIC=true와 LOCAL_TEST_PASSWORD(개별 로컬 전�
 요트·출장·트렁크·헬기와 선택한 패키지에 맞춰 문구가 생성됩니다. 결제 후 확정·하루 전 안내에는 일정·장소 확정 및 입금 확인이 필요합니다. 일정·금액 변경 시 확인 체크가 해제되고 문구가 다시 생성됩니다. 문구는 고객별 수정·저장이 가능하며, 문자 앱 열기 요청과 담당자의 발송 확인을 구분해 기록합니다. 자동 예약 발송·입금 자동 조회·수신 확인 기능은 아닙니다.
 
 스키마 3은 상담에 비공개 `communication` 컬럼을 추가합니다. 권한·CSRF·버전 충돌 검사를 적용하고 기존 보유기한에 따라 함께 삭제합니다. 초기 관리자 생성은 직원 계정이 전혀 없는 DB에서만 실행하므로 관리자 이름 변경 후 재마이그레이션해도 초기 계정이 재생성되지 않습니다. 테스트: `node --test tests/server.test.mjs tests/pwa.test.mjs tests/messages.test.mjs`. 상세: [문자 안내 운영 설명](docs/CUSTOMER_MESSAGES.md).
+
+## 예약 확정과 별도 관리
+
+상담 상세의 **예약 확정**을 눌러 협의한 날짜·시간·장소·최종 금액을 입력하고 일정 및 입금 확인을 체크합니다. 확정하면 **확정 예약** 메뉴로 이동하며, 진행 예정·행사 완료·취소·전체 예약을 나눠 볼 수 있습니다. 각 예약의 4단계 문자 버튼에서 문구를 준비하고 고객 번호를 눌러 문자 앱을 엽니다. 실제 전송은 담당자가 직접 합니다.
+
+검색창에는 이름·전화번호·접수번호를 입력합니다. **검색**과 **목록 새로고침**은 분리했으며, 검색 중에는 **검색 초기화**가 표시됩니다. 상세: [예약 관리 운영 설명](docs/RESERVATIONS.md).

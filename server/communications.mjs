@@ -1,6 +1,6 @@
 import {z} from 'zod';
 import {randomUUID,createHash} from 'node:crypto';
-import {text,parse,validDate} from './validation.mjs';
+import {text,parse,validDate,validatePreferences} from './validation.mjs';
 import {fail,audit} from './security.mjs';
 import '../messages.js';
 const stages=z.enum(['receipt','confirmed','reminder','thanks']);
@@ -14,6 +14,7 @@ export async function saveCommunication(tx,r,user,method,input){
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
  let next;
  if(method==='PUT'){
+  if(old.reservation&&(['date','time','amount','place'].some(k=>d.booking[k]!==old.booking?.[k])||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘예약 정보 수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
   next={...old,booking:d.booking,drafts:d.drafts};
   await audit(tx,user.id,'communication.saved',r.id);
  }else{
@@ -25,5 +26,21 @@ export async function saveCommunication(tx,r,user,method,input){
   await audit(tx,user.id,'communication.'+d.kind,r.id,{stage:d.stage});
  }
  const item=(await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2 RETURNING *',[JSON.stringify(next),r.id])).rows[0];
+ return {item};
+}
+
+export async function confirmReservation(tx,r,user,input){
+ const d=parse(z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict(),input);
+ if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
+ if(r.status==='cancelled'||(r.status==='closed'&&r.communication?.reservation))fail(409,'STATE','취소·완료된 예약은 다시 확정할 수 없습니다.');
+ const problem=MomentLinkMessages.validate('confirmed',d.booking,r);if(problem)fail(400,'BOOKING_NOT_READY',problem);
+ validatePreferences([{date:d.booking.date,time:d.booking.time}]);
+ // An external booking must continue through its existing change/availability workflow.
+ const external=(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[r.id])).rows[0];
+ if(external||r.status==='confirmed'&&!r.communication?.reservation)fail(409,'OPS_CHANGE_REQUIRED','OPS 등록 이력이 있는 예약은 대상 OPS의 일정과 상태를 먼저 확인해 주세요.');
+ const old=r.communication||{},at=new Date().toISOString();
+ const next={...old,booking:d.booking,drafts:d.drafts,reservation:{...old.reservation,source:'manual',confirmedAt:old.reservation?.confirmedAt||at,confirmedBy:old.reservation?.confirmedBy||user.username,updatedAt:at,updatedBy:user.username}};
+ const item=(await tx.query("UPDATE moment_link.consultations SET status='confirmed',communication=$1,version=version+1,updated_at=now() WHERE id=$2 RETURNING *",[JSON.stringify(next),r.id])).rows[0];
+ await audit(tx,user.id,old.reservation?'reservation.updated':'reservation.confirmed',r.id,{from:r.status,to:'confirmed'});
  return {item};
 }

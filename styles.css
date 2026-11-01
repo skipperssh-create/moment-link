@@ -23,7 +23,7 @@
 .message-history li{margin:10px 0}.message-history .micro{display:block}
 @media(max-width:850px){.message-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.message-composer{margin:22px 0;padding:20px 0}.message-stages .secondary{font-size:12px}.message-checks{display:block}.message-booking{padding-inline:10px}}
-.inbox-search{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:22px 0 10px}
+.inbox-search{display:block;margin:22px 0 16px}
 .inbox-search-field{min-width:0}.inbox-search .admin-label{margin:0 0 8px}
 .inbox-search>.secondary{min-height:48px;min-width:148px;white-space:nowrap}
 .inbox-count{margin:0}.inbox-pagination{margin-top:14px}
@@ -32,6 +32,14 @@
 .inbox-item .inbox-product{margin:12px 0 6px;word-break:keep-all}
 .inbox-item .inbox-date{margin:0 0 16px}
 @media(max-width:600px){.inbox-search{grid-template-columns:1fr;gap:10px;margin-top:20px}.inbox-search>.secondary{width:100%}.inbox-results{margin-top:18px}}
+.inbox-search-row{display:flex;align-items:stretch;gap:10px}.inbox-search-row input{flex:1;min-width:0;margin:0}.inbox-search-row .primary{flex:0 0 auto;width:auto;min-width:76px;padding:10px 18px}
+.inbox-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:12px}.inbox-tools .secondary{min-height:44px;padding:9px 14px}
+.reservation-filters{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 12px}.reservation-filters .secondary{min-height:44px;padding:9px 14px}.reservation-filters [aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.reservation-heading{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:16px 0}.reservation-heading h2{flex:1;min-width:0}.reservation-heading .primary{width:auto;min-height:48px;padding:12px 18px}
+.reservation-confirm{margin:16px 0;padding:18px;background:var(--bg);border-radius:14px}.reservation-confirm .primary{padding:12px 20px;min-height:48px}.reservation-confirm .micro{margin:10px 0 0}
+.reservation-messages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}.reservation-messages .secondary{padding:12px 8px;min-width:0}.reservation-messages .micro{display:block;margin-top:4px}
+@media(max-width:850px){.reservation-messages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.inbox-search-row{gap:8px}.inbox-search-row .primary{min-width:64px;padding:10px 12px}.inbox-tools .micro{flex-basis:100%}.reservation-heading h2{flex-basis:100%}.reservation-confirm{padding:14px}.reservation-messages .secondary{font-size:12px}}
 
 .recommendation{width:100%;margin:12px 0;text-align:center;background:#fafafa}.recommendation[aria-pressed=true]{border-color:#1d1d1f;box-shadow:inset 0 0 0 1px #1d1d1f}
 
