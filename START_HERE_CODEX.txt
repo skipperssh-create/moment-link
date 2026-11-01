@@ -1,3 +1,5 @@
+> 2026-11-01 공개 전환 완료: 사용자가 비상업용 공개를 명시했습니다. link.teamboatn.com DNS/HTTPS, 공개 GitHub, 실제 접수 활성화 완료. 상세 현재 상태는 deployment/DEPLOYMENT.md. 아래 v3/v4 미리보기 상태는 역사 기록입니다. SMS 실발송·유료 구매 보류, OPS 실연동 및 기기 푸시 검증은 미완료입니다.
+
 > 2026-11-01 v4 개발 반영: 이 문서의 v3 배포 상태는 원본 인계 기록입니다. 현재 완료/미완료 상태는 deployment/DEPLOYMENT.md, 실행 방법은 README.md, 새 검증은 tests/TEST_REPORT.md를 따릅니다. 최신 사용자는 link.teamboatn.com, Hobby 유지, 구매 제외 개발 진행을 승인했습니다. 문자 실발송·유료 활성화는 보류합니다.
 
 첨부 ZIP 전체를 압축 해제하고 moment-link 폴더를 작업 루트로 사용해 주세요.
