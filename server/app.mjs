@@ -1,0 +1,150 @@
+import {randomUUID} from 'node:crypto';
+import {z} from 'zod';
+import sharp from 'sharp';
+import {database} from './database.mjs';
+import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
+import {text,parse,catalogSchema,consultationSchema,validatePreferences,validDate} from './validation.mjs';
+import {processOutbox,processIntegration} from './jobs.mjs';
+const writeMethods=['POST','PUT','PATCH','DELETE'];
+const categoryNames={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
+export const settingsSchema=z.object({solapi:z.boolean(),customerAuto:z.boolean(),adminAuto:z.boolean(),push:z.boolean(),smsNumber:text(30),mainNumber:text(30),adminSms:text(30),yachtPlace:text(500),yachtAddress:text(500),heliGunsan:text(500),heliByeonsan:text(500),privacyController:text(100),privacyContact:text(100),retentionDays:z.number().int().min(1).max(3650).nullable(),privacyText:text(10000),consentVersion:text(80,1),accepting:z.boolean(),customerTemplate:text(1000),adminTemplate:text(1000)}).strict().refine(s=>!s.accepting||(s.privacyController&&s.privacyContact&&s.retentionDays&&s.privacyText&&s.consentVersion!=='draft'));
+async function config(db,id){return (await db.query('SELECT * FROM moment_link.config WHERE id=$1',[id])).rows[0];}
+async function published(db){return (await db.query('SELECT * FROM moment_link.catalog_versions ORDER BY version DESC LIMIT 1')).rows[0];}
+const json=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
+async function body(request,max=100000){if(Number(request.headers.get('content-length'))>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');if(!request.headers.get('content-type')?.includes('application/json'))fail(415,'CONTENT_TYPE','JSON 요청이 필요합니다.');const raw=await request.text();if(Buffer.byteLength(raw)>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');try{return JSON.parse(raw);}catch{fail(400,'JSON','올바르지 않은 요청입니다.');}}
+const userPublic=u=>u?{id:u.id,username:u.username,role:u.role,mustChangePassword:u.must_change_password}:null;
+function visibleRequest(r){return {...r,idempotency_hash:undefined,payload_hash:undefined};}
+export function createApp({db:givenDb,env=process.env,adapters={}}={}){
+ return async function handle(request){
+ const requestId=randomUUID();
+ try {
+  const url=new URL(request.url),path=url.pathname.replace(/\/$/,'');
+  const method=request.method;
+  if(path==='/api/health')return json({status:'ok',version:'4.0.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
+  const db=givenDb||database();
+  if(writeMethods.includes(method))sameOrigin(request,env);
+  if(path==='/api/catalog'&&method==='GET'){
+   const [c,s]=await Promise.all([published(db),config(db,'settings')]);
+   const keys=['smsNumber','mainNumber','yachtPlace','yachtAddress','heliGunsan','heliByeonsan','privacyController','privacyContact','retentionDays','privacyText','consentVersion','accepting'];
+   return json({version:c.version,products:c.products.filter(p=>p.visible&&!p.archived),settings:Object.fromEntries(keys.map(k=>[k,s.data[k]]))});
+  }
+  if(path==='/api/consultations'&&method==='POST'){
+   const ip=env.VERCEL?request.headers.get('x-vercel-forwarded-for')||'unknown':'local';
+   await rateLimit(db,'intake-ip:'+ip,60,600);
+   const key=request.headers.get('idempotency-key');if(!key||!/^[-a-zA-Z0-9]{20,100}$/.test(key))fail(400,'IDEMPOTENCY_KEY','접수 식별자가 필요합니다.');
+   const data=parse(consultationSchema,await body(request));validatePreferences(data.preferences);
+   const payloadHash=hash(JSON.stringify(data)),idemHash=hash(key);
+   const result=await db.transaction(async tx=>{
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))',[idemHash]);
+    const prior=(await tx.query('SELECT receipt,payload_hash FROM moment_link.consultations WHERE idempotency_hash=$1',[idemHash])).rows[0];
+    if(prior){if(prior.payload_hash!==payloadHash)fail(409,'IDEMPOTENCY_CONFLICT','다른 내용에 사용된 접수 식별자입니다.');return {receipt:prior.receipt,replayed:true};}
+    const s=(await config(tx,'settings')).data;if(!s.accepting)fail(503,'NOT_ACCEPTING','상담 접수 준비 중입니다. 대표번호로 문의해 주세요.');
+    if(data.consentVersion!==s.consentVersion)fail(409,'CONSENT_CHANGED','개인정보 안내가 변경되었습니다. 새 안내를 확인해 주세요.');
+    const c=await published(tx);if(data.catalogVersion!==c.version)fail(409,'CATALOG_CHANGED','상품 정보가 변경되었습니다. 다시 확인해 주세요.');
+    let p=c.products.find(x=>x.id===data.productId&&x.visible&&!x.archived),pk=p?.packages.find(x=>x.id===data.packageId);
+    if(data.productId==='recommend'&&data.packageId==='recommend'){p={id:'recommend',category:data.category,name:categoryNames[data.category],packages:[]};pk={id:'recommend',name:'상담 후 추천',weekday:null,weekend:null,features:[]};}
+    if(!p||!pk||p.category!==data.category)fail(400,'PRODUCT','선택 가능한 상품이 아닙니다.');
+    if(['visit','trunk'].includes(p.category)&&!data.place)fail(400,'PLACE','희망 장소를 입력해 주세요.');
+    await rateLimit(tx,'phone:'+data.phone,5,3600);
+    const id=randomUUID(),receipt='ML-'+id.replaceAll('-','').slice(0,14).toUpperCase();
+    const snapshot={catalogVersion:c.version,product:{...p,packages:undefined},package:pk,price:{weekday:pk.weekday,weekend:pk.weekend},timezone:'Asia/Seoul'};
+    await tx.query(`INSERT INTO moment_link.consultations(id,receipt,idempotency_hash,payload_hash,person,phone,category,product_id,package_id,snapshot,preferences,place,notes,consent) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,[id,receipt,idemHash,payloadHash,data.person,data.phone,data.category,p.id,pk.id,JSON.stringify(snapshot),JSON.stringify(data.preferences),data.place,data.notes,JSON.stringify({version:s.consentVersion,text:s.privacyText,controller:s.privacyController,retentionDays:s.retentionDays,acceptedAt:new Date().toISOString()})]);
+    for(const [channel,on] of [['sms_customer',s.solapi&&s.customerAuto&&env.SMS_LIVE_ENABLED==='true'],['sms_admin',s.solapi&&s.adminAuto&&env.SMS_LIVE_ENABLED==='true'],['push',s.push&&env.PUSH_LIVE_ENABLED==='true']])if(on)await tx.query('INSERT INTO moment_link.outbox(id,event_key,consultation_id,channel) VALUES($1,$2,$3,$4)',[randomUUID(),`${id}:${channel}`,id,channel]);
+    await audit(tx,null,'consultation.created',id,{catalogVersion:c.version});
+    return {receipt,replayed:false};
+   });return json(result,result.replayed?200:201);
+  }
+  if(path.startsWith('/api/media/')&&method==='GET'){
+   const id=path.split('/').pop();if(!z.string().uuid().safeParse(id).success)fail(404,'NOT_FOUND','사진을 찾을 수 없습니다.');
+   const row=(await db.query('SELECT mime,bytes FROM moment_link.media WHERE id=$1',[id])).rows[0];if(!row)fail(404,'NOT_FOUND','사진을 찾을 수 없습니다.');
+   return new Response(row.bytes,{headers:{'Content-Type':row.mime,'Cache-Control':'public,max-age=86400,immutable','X-Content-Type-Options':'nosniff'}});
+  }
+  if(path==='/api/auth/login'&&method==='POST'){
+   const d=parse(z.object({username:text(40,3),password:z.string().min(1).max(128)}).strict(),await body(request));
+   // Trust Vercel's overwritten proxy header only on Vercel; local fallback is fixed.
+   const ip=env.VERCEL?request.headers.get('x-vercel-forwarded-for')||'unknown':'local';
+   await rateLimit(db,'login:'+ip,20,900);await rateLimit(db,'login-user:'+d.username,10,900);
+   const u=(await db.query('SELECT * FROM moment_link.admin_users WHERE username=$1',[d.username])).rows[0];
+   if(!await verifyPassword(d.password,u?.password_hash)||!u?.active)fail(401,'LOGIN_FAILED','아이디 또는 비밀번호를 확인해 주세요.');
+   const raw=token(),anti=token();await db.query(`INSERT INTO moment_link.sessions(token_hash,user_id,csrf,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')`,[hash(raw),u.id,anti]);
+   await audit(db,u.id,'auth.login',u.id);return json({user:userPublic(u),csrf:anti},200,{'Set-Cookie':cookie(raw,env)});
+  }
+  const user=await session(db,request);
+  if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
+  if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
+  if(path==='/api/auth/password'&&method==='POST'){
+   csrf(request,user);const d=parse(z.object({current:z.string().max(128),password:z.string().min(12).max(128)}).strict(),await body(request));
+   await rateLimit(db,'password:'+user.id,5,900);const u=(await db.query('SELECT password_hash FROM moment_link.admin_users WHERE id=$1',[user.id])).rows[0];if(!await verifyPassword(d.current,u.password_hash))fail(403,'PASSWORD','현재 비밀번호를 확인해 주세요.');
+   await db.transaction(async tx=>{await tx.query('UPDATE moment_link.admin_users SET password_hash=$1,must_change_password=false WHERE id=$2',[await passwordHash(d.password),user.id]);await tx.query('DELETE FROM moment_link.sessions WHERE user_id=$1',[user.id]);await audit(tx,user.id,'auth.password.changed',user.id);});return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
+  }
+  authorize(user);if(writeMethods.includes(method))csrf(request,user);
+  if(path==='/api/admin/consultations'&&method==='GET'){
+   const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
+   const r=await db.query(`SELECT * FROM moment_link.consultations WHERE ($1='admin' OR assignee=$2) AND ($3='' OR person ILIKE $4 OR phone ILIKE $4 OR receipt ILIKE $4) ORDER BY created_at DESC LIMIT 50 OFFSET $5`,[user.role,user.id,search,'%'+search+'%',offset]);return json({items:r.rows.map(visibleRequest)});
+  }
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes))?$/);
+  if(match){
+   const [,id,action]=match;
+   const result=await db.transaction(async tx=>{
+    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
+    if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
+    if(action==='confirm'&&method==='POST'){
+     authorize(user,true);const d=parse(z.object({version:z.number().int(),date:text(10).refine(validDate),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(1).max(1440),amount:z.number().int().min(0).max(100000000),place:text(500,1),resourceId:text(100,1),approved:z.literal(true)}).strict(),await body(request));
+     if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');validatePreferences([{date:d.date,time:d.time}]);
+     if(['cancelled','closed'].includes(r.status))fail(409,'STATE','종결된 상담은 확정할 수 없습니다.');
+     const target=r.category==='yacht'?'boatn':r.category==='heli'?'kht':'seollem';
+     const prior=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0];
+     if(prior)return {job:prior};
+     const jobId=randomUUID();await tx.query('INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,approved_by,booking) VALUES($1,$2,$3,$4,$5,$6)',[jobId,id,target,'moment-link:'+id,user.id,JSON.stringify({...d,person:r.person,phone:r.phone,productId:r.product_id,packageId:r.package_id,timezone:'Asia/Seoul'})]);await audit(tx,user.id,'ops.approved',id,{jobId,target});return {job:{id:jobId,state:'pending'}};
+    }
+    if(method==='PATCH'&&!action){
+     const d=parse(z.object({version:z.number().int(),status:z.enum(['new','consulting','hold','closed','cancelled']).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
+     if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');if(d.assignee!==undefined)authorize(user,true);
+     if(r.status==='confirmed'&&d.status&&d.status!=='closed')fail(409,'OPS_CHANGE_REQUIRED','확정 예약 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
+     const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};
+    }fail(405,'METHOD','허용되지 않는 요청입니다.');
+   });return json(result);
+  }
+  if(path==='/api/admin/catalog'&&method==='GET'){authorize(user,true);return json({draft:await config(db,'catalog_draft'),published:await published(db)});}
+  if(path==='/api/admin/catalog'&&method==='PUT'){
+   authorize(user,true);const d=parse(z.object({version:z.number().int(),products:catalogSchema,publish:z.boolean()}).strict(),await body(request,700000));
+   return json(await db.transaction(async tx=>{
+    const row=(await tx.query(`SELECT * FROM moment_link.config WHERE id='catalog_draft' FOR UPDATE`)).rows[0];if(row.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');
+    const old=await published(tx);const missing=old.products.filter(p=>!d.products.some(n=>n.id===p.id)).map(p=>({...p,visible:false,archived:true}));
+    const products=[...d.products,...missing];await tx.query(`UPDATE moment_link.config SET version=version+1,data=$1,updated_at=now() WHERE id='catalog_draft'`,[JSON.stringify(products)]);
+    if(d.publish)await tx.query('INSERT INTO moment_link.catalog_versions(version,products,actor_id) VALUES($1,$2,$3)',[old.version+1,JSON.stringify(products),user.id]);
+    await audit(tx,user.id,d.publish?'catalog.published':'catalog.draft.saved','catalog',{version:row.version+1});return {version:row.version+1,publishedVersion:d.publish?old.version+1:old.version};
+   }));
+  }
+  if(path==='/api/admin/settings'&&method==='GET'){authorize(user,true);return json({settings:await config(db,'settings'),gates:{sms:env.SMS_LIVE_ENABLED==='true',push:env.PUSH_LIVE_ENABLED==='true',ops:env.OPS_WRITES_ENABLED==='true'},vapidPublicKey:env.VAPID_PUBLIC_KEY||''});}
+  if(path==='/api/admin/settings'&&method==='PUT'){
+   authorize(user,true);const d=parse(z.object({version:z.number().int(),data:settingsSchema}).strict(),await body(request));
+   if(d.data.solapi&&env.SMS_LIVE_ENABLED!=='true')fail(403,'SMS_NOT_APPROVED','문자 실발송 승인이 적용되지 않았습니다.');
+   if(d.data.push&&env.PUSH_LIVE_ENABLED!=='true')fail(403,'PUSH_NOT_ENABLED','푸시 발송 연결을 먼저 설정해 주세요.');
+   return json(await db.transaction(async tx=>{const r=await tx.query(`UPDATE moment_link.config SET data=$1,version=version+1,updated_at=now() WHERE id='settings' AND version=$2 RETURNING version`,[JSON.stringify(d.data),d.version]);if(!r.rows.length)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');await audit(tx,user.id,'settings.updated','settings',{keys:Object.keys(d.data)});return {version:r.rows[0].version};}));
+  }
+  if(path==='/api/admin/media'&&method==='POST'){
+   authorize(user,true);const d=parse(z.object({data:z.string().max(1400000),alt:text(200,1)}).strict(),await body(request,1450000));const bytes=Buffer.from(d.data,'base64');if(bytes.length>1000000)fail(413,'IMAGE_TOO_LARGE','1MB 이하 이미지를 선택해 주세요.');
+   let image;try{const meta=await sharp(bytes,{limitInputPixels:20000000}).metadata();if(!['png','jpeg','webp'].includes(meta.format))throw Error('Unsupported format');image=await sharp(bytes,{limitInputPixels:20000000,animated:false}).rotate().resize({width:1600,height:1600,fit:'inside',withoutEnlargement:true}).webp({quality:82}).toBuffer();}catch{fail(400,'IMAGE','PNG·JPEG·WebP 이미지인지 확인해 주세요.');}
+   const id=randomUUID();await db.query('INSERT INTO moment_link.media(id,mime,bytes,alt,actor_id) VALUES($1,$2,$3,$4,$5)',[id,'image/webp',image,d.alt,user.id]);await audit(db,user.id,'media.created',id);return json({id,url:'/api/media/'+id,alt:d.alt},201);
+  }
+  if(path==='/api/admin/users'&&method==='GET'){authorize(user,true);return json({items:(await db.query('SELECT id,username,role,active FROM moment_link.admin_users ORDER BY username')).rows});}
+  if(path==='/api/admin/users'&&method==='POST'){
+   authorize(user,true);const d=parse(z.object({username:text(40,3),password:z.string().min(12).max(128),role:z.enum(['admin','counselor'])}).strict(),await body(request));const id=randomUUID();await db.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,d.username,await passwordHash(d.password),d.role]);await audit(db,user.id,'user.created',id,{role:d.role});return json({id},201);
+  }
+  if(path==='/api/admin/push'&&method==='POST'){
+   const d=parse(z.object({endpoint:z.string().url().max(2000),keys:z.object({p256dh:z.string().max(150),auth:z.string().max(100)}).strict()}).strict(),await body(request));
+   const host=new URL(d.endpoint).hostname;if(!['fcm.googleapis.com','updates.push.services.mozilla.com','web.push.apple.com'].some(h=>host===h||host.endsWith('.'+h))||new URL(d.endpoint).protocol!=='https:')fail(400,'PUSH_ENDPOINT','지원하지 않는 푸시 주소입니다.');
+   await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);return json({ok:true});
+  }
+  if(path==='/api/admin/push'&&method==='DELETE'){await db.query('UPDATE moment_link.push_subscriptions SET active=false WHERE user_id=$1',[user.id]);return json({ok:true});}
+  if(path==='/api/admin/jobs'&&method==='GET'){authorize(user,true);return json({notifications:(await db.query('SELECT id,channel,state,attempts,error_code,created_at FROM moment_link.outbox ORDER BY created_at DESC LIMIT 50')).rows,integrations:(await db.query('SELECT id,consultation_id,target,state,attempts,external_id,error_code,created_at FROM moment_link.integration_jobs ORDER BY created_at DESC LIMIT 50')).rows});}
+  if(path==='/api/admin/jobs/run'&&method==='POST'){authorize(user,true);await rateLimit(db,'jobs:'+user.id,10,60);const d=parse(z.object({kind:z.enum(['notification','integration']),id:z.string().uuid()}).strict(),await body(request));return json(await (d.kind==='notification'?processOutbox(db,d.id,env,adapters):processIntegration(db,d.id,env,adapters)));}
+  fail(404,'NOT_FOUND','요청한 기능을 찾을 수 없습니다.');
+ }catch(e){
+  if(!e.status)console.error(JSON.stringify({requestId,code:'INTERNAL_ERROR',type:e.name}));
+  return json({error:e.code||'INTERNAL_ERROR',message:e.status?e.message:'처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',requestId},e.status||500);
+ }
+ };
+}

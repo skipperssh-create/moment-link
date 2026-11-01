@@ -7,7 +7,7 @@ docs
 deployment
 *.md
 *.txt
-standalone-preview.html
-catalog.confirmed.json
-
 !robots.txt
+standalone-preview.html
+.local
+test-artifacts

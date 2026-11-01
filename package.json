@@ -1,14 +1,27 @@
 {
   "name": "moment-link-preview",
-  "version": "3.0.0",
+  "version": "4.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.25.0",
   "private": true,
   "description": "MOMENT LINK responsive preview, deployment, and complete Codex handoff",
   "engines": {
     "node": "24.x"
   },
   "scripts": {
-    "check": "node --check app.js && node --check sw.js && node --check scripts/build.mjs",
+    "check": "node --check app.js && node --check admin.js && node --check server/app.mjs && node --check server/jobs.mjs && node --check sw.js",
     "build": "node scripts/build.mjs",
-    "dev": "python3 -m http.server 4173 --bind 127.0.0.1"
+    "dev": "node --env-file-if-exists=.env.local scripts/dev.mjs",
+    "test": "node --test tests/server.test.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "pg": "8.23.1",
+    "sharp": "0.34.5",
+    "web-push": "3.6.7",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11"
   }
 }

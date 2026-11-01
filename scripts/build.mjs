@@ -4,7 +4,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = ['index.html','app.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html'];
+const allowed = ['index.html','app.js','admin.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);
 let files = {};
@@ -26,4 +26,4 @@ for (const name of allowed) {
   await mkdir(path.dirname(target),{recursive:true});
   await writeFile(target,files[name],'utf8');
 }
-console.log('Built safe preview: '+allowed.length+' static files. No API, credentials, instructions or reports published.');
+console.log('Built '+allowed.length+' public files. Server code, credentials and reports remain outside the static output.');

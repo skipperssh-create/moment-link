@@ -1,6 +1,6 @@
 /* Preview shell only. No API, private pages, or remote photos are cached. */
-const CACHE='moment-link-preview-v3';
-const FILES=['index.html','app.js','styles.css','manifest.webmanifest','assets/icon.svg'];
+const CACHE='moment-link-shell-v4';
+const FILES=['index.html','app.js','admin.js','styles.css','manifest.webmanifest','assets/icon.svg'];
 const urls=FILES.map(p=>new URL(p,self.registration.scope).href);
 const rootURL=new URL('./',self.registration.scope).href;
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(urls))));
@@ -10,3 +10,5 @@ self.addEventListener('fetch',e=>{
  const key=e.request.url===rootURL?new URL('index.html',self.registration.scope).href:e.request.url;
  e.respondWith(fetch(e.request).then(r=>{if(r.ok){const clone=r.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put(key,clone)))}return r}).catch(()=>caches.match(key).then(r=>r||Response.error())));
 });
+self.addEventListener('push',event=>{let data={};try{data=event.data?.json()||{};}catch{}event.waitUntil(self.registration.showNotification('모먼트링크 새 상담',{body:'접수함에서 신청 내용을 확인해 주세요.',tag:typeof data.tag==='string'?data.tag:'new-consultation',icon:'/assets/icon.svg',data:{url:'/#admin'}}));});
+self.addEventListener('notificationclick',event=>{event.notification.close();event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const win=windows.find(w=>new URL(w.url).origin===self.location.origin);if(win){await win.navigate('/#admin');return win.focus();}return clients.openWindow('/#admin');}));});

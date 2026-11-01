@@ -1,0 +1,21 @@
+// One-time v3 customer-view migration. Retains the original view markup and CSS.
+import {readFile,writeFile} from 'node:fs/promises';
+const file=new URL('../app.js',import.meta.url);
+let source=await readFile(file,'utf8');
+if(!source.includes('function adminPanel()'))throw Error('Already migrated');
+source=source.slice(0,source.indexOf('function adminPanel()'));
+source=source.replace(/\/\* MOMENT LINK[\s\S]*?\*\//,'/* MOMENT LINK. Customer data stays in memory; confirmed submissions are stored by the API. */');
+source=source.replace(/const PRODUCT_KEY[^\n]*\nconst SETTINGS_KEY[^\n]*\n/,'');
+source=source.replace(/function localRead[\s\S]*?const state=/,"let catalog=structuredClone(defaults);\nlet settings={...settingDefaults,accepting:false};\nlet catalogVersion=0,requestKey='',submitting=false,apiReady=false;\nconst state=");
+source=source.replace('const sessionRequests=[];','');
+source=source.replace(/const top=\(\)=>`[^`]*`;/,"const top=()=>`<div class=\"demo-banner\">${settings.accepting?'상담 신청 · 예약 확정은 상담 후 안내':'개발 미리보기 · 상담 접수 준비 중'}</div><header><div class=\"brand\">MOMENT LINK</div><nav class=\"nav\" aria-label=\"관리자\"><a class=\"tab\" href=\"#admin\">관리자 로그인</a></nav></header>`;");
+source=source.replace("if (!v) return '';","if (!v) return '';\n if (/^\\/api\\/media\\/[a-f0-9-]{36}$/.test(v)) return v;");
+source=source.replace('데모용 동의입니다. 실제 개인정보를 입력하지 마세요.','${settings.accepting?escapeHTML(settings.privacyController)+\' · 보유기간 \'+escapeHTML(settings.retentionDays)+\'일\':\'접수 준비 중입니다. 실제 개인정보를 입력하지 마세요.\'}');
+source=source.replace('<details class="request-summary">','<details><summary>개인정보 수집·이용 안내</summary><div class="detail-body">${escapeHTML(settings.privacyText||\'운영자가 개인정보 안내를 준비하고 있습니다.\')}</div></details><details class="request-summary">');
+source=source.replace("footer('상담 신청하기 · 체험','contact')","footer(submitting?'저장 중…':'상담 신청하기','contact',submitting||!apiReady||!settings.accepting,settings.accepting?'': '접수 준비 중 · 대표번호로 문의해 주세요.')");
+source=source.replace('상담 신청 완료 화면</h1><p class="muted">프로토타입이므로 실제 접수·알림은 발송되지 않았습니다.','상담 접수 완료</h1><p class="muted">접수번호 ${escapeHTML(state.receipt)}');
+source=source.replace('실제 서비스에서는 신청 내용이 관리자 PWA에 자동 등록됩니다. 고객 문자 발송은 선택사항입니다.','신청 내용이 저장되었습니다. 고객 문자 발송은 선택사항입니다.');
+source=source.replace('다시 체험하기','새 상담 신청');
+source=source.replace('[모먼트링크 프로포즈 상담 신청]\\n성함:', '[모먼트링크 프로포즈 상담 신청]\\n접수번호: ${state.receipt||\'\'}\\n성함:');
+const tail=await readFile(new URL('../server/client-tail.txt',import.meta.url),'utf8');
+await writeFile(file,source+tail);
