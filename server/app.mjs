@@ -3,7 +3,7 @@ import {z} from 'zod';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
-import {text,parse,catalogSchema,consultationSchema,validatePreferences,validDate} from './validation.mjs';
+import {text,parse,catalogSchema,consultationSchema,validatePreferences,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration} from './jobs.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
@@ -83,7 +83,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
   if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
   if(path==='/api/auth/password'&&method==='POST'){
-   csrf(request,user);const d=parse(z.object({current:z.string().max(128),username:text(40,3).optional(),password:z.string().min(8).max(128)}).strict(),await body(request));
+   csrf(request,user);const d=parse(z.object({current:z.string().max(128),username:text(40,3).optional(),password:passwordSchema}).strict(),await body(request));
    await rateLimit(db,'password:'+user.id,5,900);
    try{await db.transaction(async tx=>{
     const u=(await tx.query('SELECT username,password_hash FROM moment_link.admin_users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
@@ -155,7 +155,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   if(path==='/api/admin/users'&&method==='GET'){authorize(user,true);return json({items:(await db.query('SELECT id,username,role,active FROM moment_link.admin_users ORDER BY username')).rows});}
   if(path==='/api/admin/users'&&method==='POST'){
-   authorize(user,true);const d=parse(z.object({username:text(40,3),password:z.string().min(12).max(128),role:z.enum(['admin','counselor'])}).strict(),await body(request));const id=randomUUID();await db.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,d.username,await passwordHash(d.password),d.role]);await audit(db,user.id,'user.created',id,{role:d.role});return json({id},201);
+   authorize(user,true);const d=parse(z.object({username:text(40,3),password:passwordSchema,role:z.enum(['admin','counselor'])}).strict(),await body(request));const id=randomUUID();await db.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,d.username,await passwordHash(d.password),d.role]);await audit(db,user.id,'user.created',id,{role:d.role});return json({id},201);
   }
   const userMatch=path.match(/^\/api\/admin\/users\/([a-f0-9-]{36})$/);
   if(userMatch&&method==='PATCH'){

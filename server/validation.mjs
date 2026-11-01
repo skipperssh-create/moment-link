@@ -1,5 +1,6 @@
 import {z} from 'zod';
 import {fail} from './security.mjs';
+export const passwordSchema=z.string().min(8).max(128);
 export const text=(max,min=0)=>z.string().trim().min(min).max(max).refine(v=>!/[\u0000-\u0008\u000b\u000c\u000e-\u001f<>]/.test(v),'허용되지 않는 문자가 있습니다.');
 const id=text(80,1).refine(v=>/^[a-zA-Z0-9_-]+$/.test(v));
 const price=z.number().int().min(0).max(100000000).nullable();

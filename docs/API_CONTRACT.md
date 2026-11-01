@@ -19,7 +19,7 @@
 | GET/PUT /api/admin/settings | 관리자. version/data. 개인정보 고지 미확정 시 접수 활성화 거절 |
 | POST /api/admin/media | 관리자. base64 data/alt. JPEG/PNG/WebP만, 1MB/20MP 제한, 최대 1600px WebP 변환 |
 | GET /api/media/:id | 공개 상품 사진만 제공 |
-| GET/POST /api/admin/users | 관리자. 직원 목록 / username/password/role 생성 |
+| GET/POST /api/admin/users | 관리자. 직원 목록 / username/password(8자 이상)/role 생성. 비밀번호 변경과 동일 규칙 |
 | PATCH /api/admin/users/:id | 관리자. role/active. 자기 중지 금지, 마지막 관리자 보호, 세션 회수 |
 | POST/DELETE /api/admin/push | 관리자 기기 구독 저장 / 자기 구독 해제. expirationTime:null 허용 |
 | GET /api/admin/jobs | 관리자. 최근 알림·연동 작업 상태 |

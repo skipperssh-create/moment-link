@@ -121,6 +121,19 @@ test('cron cleanup requires a strong exact bearer and policy edits require a new
  assert.equal((await request('admin/settings',{auth:true,method:'PUT',data:{version:s.version,data:{...s.data,retentionDays:30}}})).status,409);
 });
 
+test('new staff can start with eight characters and complete first-login password change',async()=>{
+ const data={username:'eight-char-staff',password:'Start8!x',role:'counselor'};
+ assert.equal((await request('admin/users',{auth:true,method:'POST',data:{...data,password:'Short7!'}})).status,400);
+ const created=await request('admin/users',{auth:true,method:'POST',data});assert.equal(created.status,201);
+ const first=await request('auth/login',{method:'POST',data:{username:data.username,password:data.password}});assert.equal(first.status,200);assert.equal(first.data.user.mustChangePassword,true);
+ const headers={Cookie:first.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':first.data.csrf};
+ assert.equal((await request('admin/consultations',{headers})).status,403);
+ assert.equal((await request('auth/password',{method:'POST',headers,data:{current:data.password,password:'Next8!xy'}})).status,200);
+ assert.equal((await request('admin/consultations',{headers})).status,401);
+ const second=await request('auth/login',{method:'POST',data:{username:data.username,password:'Next8!xy'}});assert.equal(second.status,200);assert.equal(second.data.user.id,created.data.id);assert.equal(second.data.user.mustChangePassword,false);
+ assert.equal((await request('admin/consultations',{headers:{Cookie:second.headers.get('set-cookie').split(';')[0]}})).status,200);
+});
+
 test('account rename with eight-character password is atomic and revokes prior sessions',async()=>{
  const original='Synthetic-password-123!',next='Test8!xy';
  assert.equal((await request('auth/password',{auth:true,method:'POST',data:{current:original,password:'Short7!'}})).status,400);
