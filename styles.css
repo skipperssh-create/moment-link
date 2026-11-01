@@ -8,6 +8,17 @@
 @media(orientation:landscape) and (max-height:550px){.action-bar{position:static;transform:none;width:100%;margin-top:20px;box-shadow:none}.shell{padding-bottom:40px}.product-photo{height:120px}.page-title{font-size:28px}.step-bar{margin-bottom:16px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 
+/* Keep the inbox label with its field and align the search action to the input. */
+.inbox-search{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:22px 0 10px}
+.inbox-search-field{min-width:0}.inbox-search .admin-label{margin:0 0 8px}
+.inbox-search>.secondary{min-height:48px;min-width:148px;white-space:nowrap}
+.inbox-count{margin:0}.inbox-pagination{margin-top:14px}
+.inbox-results{display:grid;gap:14px;margin-top:22px}
+.inbox-results>.admin-card{margin-top:0}
+.inbox-item .inbox-product{margin:12px 0 6px;word-break:keep-all}
+.inbox-item .inbox-date{margin:0 0 16px}
+@media(max-width:600px){.inbox-search{grid-template-columns:1fr;gap:10px;margin-top:20px}.inbox-search>.secondary{width:100%}.inbox-results{margin-top:18px}}
+
 .recommendation{width:100%;margin:12px 0;text-align:center;background:#fafafa}.recommendation[aria-pressed=true]{border-color:#1d1d1f;box-shadow:inset 0 0 0 1px #1d1d1f}
 
 /* Yacht photo framing: consistent covers, uncropped detailed photographs. */
