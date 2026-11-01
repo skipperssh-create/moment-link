@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
+import {saveCommunication} from './communications.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf} from './security.mjs';
@@ -101,13 +102,14 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
    const r=await db.query(`SELECT * FROM moment_link.consultations WHERE expires_at>now() AND ($1='admin' OR assignee=$2) AND ($3='' OR person ILIKE $4 OR phone ILIKE $4 OR receipt ILIKE $4) ORDER BY created_at DESC LIMIT 50 OFFSET $5`,[user.role,user.id,search,'%'+search+'%',offset]);return json({items:r.rows.map(visibleRequest)});
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
     const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
     if(method==='DELETE'&&!action){authorize(user,true);await tx.query('UPDATE moment_link.consultations SET expires_at=now() WHERE id=$1',[id]);await audit(tx,user.id,'privacy.deletion.requested',id);return {ok:true};}
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
+    if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
     if(action==='confirm'&&method==='POST'){
      authorize(user,true);const d=parse(z.object({version:z.number().int(),date:text(10).refine(validDate),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(1).max(1440),amount:z.number().int().min(0).max(100000000),place:text(500,1),resourceId:text(100,1),approved:z.literal(true)}).strict(),await body(request));

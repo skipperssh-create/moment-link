@@ -9,6 +9,20 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
 
 /* Keep the inbox label with its field and align the search action to the input. */
+.message-composer{border-block:1px solid var(--line);margin:28px 0;padding:24px 0;scroll-margin-top:20px}
+.message-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0}
+.message-stages .secondary{min-width:0;padding:12px 9px}
+.message-stages [aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+.message-booking{background:#f5f5f7;border-radius:14px;padding:0 14px 14px}
+.message-booking:not([open]){padding-bottom:0}
+.message-checks{display:flex;flex-wrap:wrap;gap:0 20px;margin-top:14px}
+.message-body{line-height:1.85;min-height:300px}
+.message-send .primary{text-decoration:none;text-align:center}
+.message-notice{font-size:13px;line-height:1.7;white-space:pre-wrap;color:#444;overflow-wrap:anywhere}
+.message-history{padding-left:20px;font-size:13px;line-height:1.8}
+.message-history li{margin:10px 0}.message-history .micro{display:block}
+@media(max-width:850px){.message-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.message-composer{margin:22px 0;padding:20px 0}.message-stages .secondary{font-size:12px}.message-checks{display:block}.message-booking{padding-inline:10px}}
 .inbox-search{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:22px 0 10px}
 .inbox-search-field{min-width:0}.inbox-search .admin-label{margin:0 0 8px}
 .inbox-search>.secondary{min-height:48px;min-width:148px;white-space:nowrap}
