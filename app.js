@@ -170,7 +170,7 @@ if(state.step==='done')s+=`<p class="muted">${escapeHTML(settings.completionText
 else s+=footer('상담 신청 완료 화면 보기','review');
 }
 if(state.step==='sms')s+=`<h1 class="page-title">문자 발송 미리보기</h1><p class="muted">고객 본인의 휴대폰에서 담당자에게 보낼 문자입니다.</p><div class="info"><strong>받는 사람: ${escapeHTML(settings.smsNumber)}</strong></div><div class="message">${escapeHTML(smsText())}</div><p class="micro">문자 앱의 본문 자동 입력은 기기·운영체제·문자 앱에 따라 달라질 수 있습니다. 자동 전송은 하지 않습니다.</p><div class="btnrow" style="margin-top:16px"><button class="primary" data-action="openSms">휴대폰 문자 앱 열기</button><button class="secondary" data-action="copySms">내용 복사</button></div><button class="back" data-back="done">← 완료 화면으로 돌아가기</button>`;
-s+=`<p class="micro" style="text-align:center;margin-top:26px">대표번호 ${escapeHTML(settings.mainNumber)} · <a href="tel:${settings.mainNumber.replace(/[^0-9]/g,'')}">전화하기</a><br><a href="/privacy.html">개인정보 안내</a></p></div></main>`;
+s+=`<p class="micro" style="text-align:center;margin-top:26px">대표번호 ${escapeHTML(settings.mainNumber)} · <a href="tel:${settings.mainNumber.replace(/[^0-9]/g,'')}">전화하기</a><br><a href="/privacy.html">개인정보 안내</a><br><button type="button" class="pwa-install-link" data-pwa-install><img src="/assets/icon-192.png" width="20" height="20" alt="">모먼트링크 앱 설치</button></p></div></main>`;
 return s;
 }
 function smsText(){if(settings.manualSmsTemplate){const tokens={receipt:state.receipt||'',name:state.name,phone:state.phone,selection:choiceName(),price:displayChosenPrice(),first:dateLabel(state.firstDate)+' '+state.firstTime,second:state.secondDate?dateLabel(state.secondDate)+' '+state.secondTime:'',place:state.place,notes:state.notes||'없음'};return settings.manualSmsTemplate.replace(/\{(receipt|name|phone|selection|price|first|second|place|notes)\}/g,(_,key)=>tokens[key]);}return `[모먼트링크 프로포즈 상담 신청]\n접수번호: ${state.receipt||''}\n성함: ${state.name}\n번호: ${state.phone}\n상품: ${catName()}\n선택: ${choiceName()}\n가격: ${displayChosenPrice()}\n1순위: ${dateLabel(state.firstDate)} ${state.firstTime}${state.secondDate?'\n2순위: '+dateLabel(state.secondDate)+' '+state.secondTime:''}${['visit','trunk'].includes(state.category)?'\n장소: '+state.place:''}\n특이사항: ${state.notes||'없음'}\n위 내용으로 상담 부탁드립니다.`}
@@ -262,7 +262,7 @@ document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option|
 window.addEventListener('beforeunload',e=>{if(state.step!=='category'&&!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
 function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();if(!history.state?.momentLink){navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();}refreshCatalog();render();}}
 window.addEventListener('hashchange',route);
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
+window.addEventListener('online',()=>{if(!apiReady&&!location.hash.startsWith('#admin')&&!submitting){capture();refreshCatalog();}});
 initializeNavigation();
 route();
 })();

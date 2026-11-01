@@ -11,3 +11,10 @@ deployment-payload.b64
 .local/
 test-artifacts/
 output/
+# Platform icons are generated from assets/icon.svg during build/dev.
+assets/icon-192.png
+assets/icon-512.png
+assets/icon-maskable-512.png
+assets/apple-touch-icon.png
+assets/notification-badge.png
+assets/favicon-32.png

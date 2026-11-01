@@ -26,7 +26,7 @@ BOATN/KHT/설렘의 실제 예약 등록·변경·취소 연동은 운영 API �
 
 Node.js 24, pnpm 11.25.0. pnpm install --frozen-lockfile, pnpm run check, pnpm test, pnpm run build.
 
-PowerShell에서 $env:LOCAL_SYNTHETIC='true' 후 pnpm dev. http://127.0.0.1:4173 의 local-admin / Local-synthetic-test-2026! 는 메모리 합성 DB 전용입니다. Vercel에서는 이 모드를 사용하지 않습니다.
+PowerShell에서 LOCAL_SYNTHETIC=true와 LOCAL_TEST_PASSWORD(개별 로컬 전용 8자 이상)를 환경변수로 설정한 뒤 pnpm dev를 실행합니다. http://127.0.0.1:4173 의 local-admin은 입력한 비밀번호로 로그인하는 메모리 합성 DB 전용 계정입니다. 운영 비밀번호를 재사용하지 않으며 Vercel에서는 이 모드를 사용하지 않습니다.
 
 전용 운영 DB 초기화: MOMENT_LINK_DATABASE=true로 scripts/migrate.mjs 실행. 현재 스키마 2까지 적용됐고 RUN_DB_MIGRATIONS=false입니다. 실제 키는 Git에 올리지 않습니다.
 
@@ -37,3 +37,13 @@ PowerShell에서 $env:LOCAL_SYNTHETIC='true' 후 pnpm dev. http://127.0.0.1:4173
 - [검증 결과](tests/TEST_REPORT.md)
 
 원본 v2/v3 지시서의 미리보기/배포 상태는 역사 기록이며 최신 사용자 지시와 현재 배포 보고서가 우선합니다.
+
+## PWA 설치
+
+고객 화면 아래의 **모먼트링크 앱 설치**, 또는 관리자 상단 **앱 설치**에서 시작합니다. Chrome/Edge에서 설치가 지원되면 기본 설치 창으로 연결하며, 지원하지 않는 브라우저에는 기기별 안내가 표시됩니다. iPhone/iPad에서는 Safari의 공유 → 홈 화면에 추가 후 설치한 앱으로 엽니다.
+
+관리자는 설치한 앱에서 로그인한 뒤 **문자·알림 → 이 기기 푸시 구독**으로 알림을 허용합니다. 설치 자체가 푸시 권한을 허용하지는 않습니다. 앱 아이콘과 알림에는 기존 모먼트 로고에서 만든 PNG/단색 badge를 사용하며, 알림 모양은 OS·브라우저에 따라 다를 수 있습니다.
+
+첫 온라인 방문 후 공개 앱 화면만 오프라인에서 열 수 있습니다. 상담 접수·로그인·관리자 업무·사진은 인터넷 연결이 필요합니다. API 응답과 고객 정보는 서비스 워커 캐시에 저장하지 않습니다. 실기기 설치·수신 검증은 별도로 필요합니다.
+
+플랫폼 아이콘은 scripts/app-icons.mjs가 빌드와 로컬 개발 시 assets/icon.svg에서 생성합니다. 테스트: node --test tests/server.test.mjs tests/pwa.test.mjs.

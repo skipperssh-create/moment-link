@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import { brotliDecompressSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { APP_ICON_FILES, writeAppIcons } from './app-icons.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = ['index.html','app.js','admin.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
+const allowed = ['index.html','app.js','admin.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);
 let files = {};
@@ -26,4 +27,5 @@ for (const name of allowed) {
   await mkdir(path.dirname(target),{recursive:true});
   await writeFile(target,files[name],'utf8');
 }
-console.log('Built '+allowed.length+' public files. Server code, credentials and reports remain outside the static output.');
+await writeAppIcons(path.join(out,'assets'),files['assets/icon.svg']);
+console.log('Built '+(allowed.length+APP_ICON_FILES.length)+' public files. Server code, credentials and reports remain outside the static output.');

@@ -9,10 +9,10 @@
     "node": "24.x"
   },
   "scripts": {
-    "check": "node --check app.js && node --check admin.js && node --check server/app.mjs && node --check server/jobs.mjs && node --check sw.js",
+    "check": "node --check app.js && node --check admin.js && node --check server/app.mjs && node --check server/jobs.mjs && node --check sw.js && node --check pwa.js",
     "build": "node scripts/build.mjs",
     "dev": "node --env-file-if-exists=.env.local scripts/dev.mjs",
-    "test": "node --test tests/server.test.mjs",
+    "test": "node --test tests/server.test.mjs tests/pwa.test.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
   },
   "dependencies": {
