@@ -9,3 +9,5 @@ deployment
 *.txt
 standalone-preview.html
 catalog.confirmed.json
+
+!robots.txt

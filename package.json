@@ -4,7 +4,7 @@
   "private": true,
   "description": "MOMENT LINK responsive preview, deployment, and complete Codex handoff",
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "scripts": {
     "check": "node --check app.js && node --check sw.js && node --check scripts/build.mjs",
