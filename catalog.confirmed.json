@@ -306,10 +306,19 @@
     "packages": [
       {
         "id": "consult",
-        "name": "상담 후 추천",
-        "weekday": null,
-        "weekend": null,
-        "summary": "장소·차종·희망 구성 상담 후 안내",
+        "name": "해운대 사무실 방문",
+        "weekday": 219000,
+        "weekend": 219000,
+        "summary": "사무실 방문형",
+        "features": [],
+        "note": ""
+      },
+      {
+        "id": "busan",
+        "name": "부산지역 출장",
+        "weekday": 249000,
+        "weekend": 249000,
+        "summary": "부산지역 출장형",
         "features": [],
         "note": ""
       }
