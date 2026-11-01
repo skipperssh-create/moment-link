@@ -1,0 +1,1542 @@
+[
+  {
+    "screen": "category",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "category",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "category",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "category",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "category",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "category",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "category",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "category",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "category",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "category",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "category",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "category",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "category",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "category",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "category",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "yacht",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "heli",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "schedule",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "contact",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "done",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "done",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "done",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "done",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "done",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "done",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "done",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "done",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "done",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "done",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "done",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "done",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "done",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "done",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "done",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      320,
+      740
+    ],
+    "height": 740,
+    "overflow": false,
+    "priceClip": false,
+    "width": 320
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      740,
+      320
+    ],
+    "height": 320,
+    "overflow": false,
+    "priceClip": false,
+    "width": 740
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      344,
+      882
+    ],
+    "height": 882,
+    "overflow": false,
+    "priceClip": false,
+    "width": 344
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      882,
+      344
+    ],
+    "height": 344,
+    "overflow": false,
+    "priceClip": false,
+    "width": 882
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      360,
+      800
+    ],
+    "height": 800,
+    "overflow": false,
+    "priceClip": false,
+    "width": 360
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      800,
+      360
+    ],
+    "height": 360,
+    "overflow": false,
+    "priceClip": false,
+    "width": 800
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      375,
+      812
+    ],
+    "height": 812,
+    "overflow": false,
+    "priceClip": false,
+    "width": 375
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      812,
+      375
+    ],
+    "height": 375,
+    "overflow": false,
+    "priceClip": false,
+    "width": 812
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      390,
+      844
+    ],
+    "height": 844,
+    "overflow": false,
+    "priceClip": false,
+    "width": 390
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      844,
+      390
+    ],
+    "height": 390,
+    "overflow": false,
+    "priceClip": false,
+    "width": 844
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      412,
+      915
+    ],
+    "height": 915,
+    "overflow": false,
+    "priceClip": false,
+    "width": 412
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      915,
+      412
+    ],
+    "height": 412,
+    "overflow": false,
+    "priceClip": false,
+    "width": 915
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      768,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 768
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1024,
+      768
+    ],
+    "height": 768,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      820,
+      1180
+    ],
+    "height": 1180,
+    "overflow": false,
+    "priceClip": false,
+    "width": 820
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1180,
+      820
+    ],
+    "height": 820,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1180
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1024,
+      1366
+    ],
+    "height": 1366,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1024
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1366,
+      1024
+    ],
+    "height": 1024,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1366
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1440,
+      900
+    ],
+    "height": 900,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1440
+  },
+  {
+    "screen": "admin-products",
+    "requested": [
+      1920,
+      1080
+    ],
+    "height": 1080,
+    "overflow": false,
+    "priceClip": false,
+    "width": 1920
+  }
+]

@@ -1,3 +1,5 @@
+> 2026-11-01 v4 개발 반영: 이 문서의 v3 배포 상태는 원본 인계 기록입니다. 현재 완료/미완료 상태는 deployment/DEPLOYMENT.md, 실행 방법은 README.md, 새 검증은 tests/TEST_REPORT.md를 따릅니다. 최신 사용자는 link.teamboatn.com, Hobby 유지, 구매 제외 개발 진행을 승인했습니다. 문자 실발송·유료 활성화는 보류합니다.
+
 > 최신 실제 상태: `deployment/DEPLOYMENT.md`. 공개 미리보기는 READY, GitHub 연결은 미완료. 아래 지시서는 아직 없는 운영 기능을 완성하기 위한 작업 지시다.
 
 # MOMENT LINK 운영 개발·이관 지시서 v3

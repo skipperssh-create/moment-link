@@ -1,3 +1,5 @@
+> 2026-11-01 v4 개발 반영: 이 문서의 v3 배포 상태는 원본 인계 기록입니다. 현재 완료/미완료 상태는 deployment/DEPLOYMENT.md, 실행 방법은 README.md, 새 검증은 tests/TEST_REPORT.md를 따릅니다. 최신 사용자는 link.teamboatn.com, Hobby 유지, 구매 제외 개발 진행을 승인했습니다. 문자 실발송·유료 활성화는 보류합니다.
+
 첨부 ZIP 전체를 압축 해제하고 moment-link 폴더를 작업 루트로 사용해 주세요.
 
 이 프로젝트는 지시서만 있는 것이 아니라 실제 실행되는 MOMENT LINK 고객·관리자 프런트엔드와 Vercel 배포본이 있습니다.

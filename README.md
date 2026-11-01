@@ -1,50 +1,51 @@
-# MOMENT LINK · Codex 통합 개발 패키지 v3
+# MOMENT LINK v4
 
-**소스 + 지시서 + 디자인 기준 + 상품 데이터 + 테스트 + Vercel 배포 기록을 한 폴더에 담았습니다.**
+기존 Apple 스타일 고객 UI를 유지한 독립 상담 접수 앱입니다. 정적 시연용 v3에서 Node.js API·PostgreSQL·관리자 인증을 추가했습니다. `styles.css`는 원본을 유지합니다.
 
-## 가장 먼저
-`START_HERE_CODEX.txt` → `AGENTS.md` → `CODEX_MASTER.md` 순서로 읽으세요.
+- 현재 배포: https://moment-link-preview.vercel.app
+- 요청 도메인: https://link.teamboatn.com — Vercel 등록 완료, Cloudflare DNS 연결 미완료
+- 비공개 저장소: https://github.com/skipperssh-create/moment-link
+- 배포 방식: main 변경 → 기존 Vercel `moment-link-preview` 자동 빌드
+- Vercel Hobby / 별도 Neon Free `moment-link-db` / Singapore
+- 상세 현재 상태: [deployment/DEPLOYMENT.md](deployment/DEPLOYMENT.md)
 
-미리보기: https://moment-link-preview.vercel.app
+## 구현
 
-현재는 실제로 배포된 정적 프런트엔드입니다. 운영 DB·인증·접수 API·푸시·SOLAPI·OPS 연동은 아직 없습니다. 관리자 데모는 운영 로그인 화면이 아니며, 입력한 고객 정보는 메모리에만 있습니다. 실제 고객에게 접수 링크로 발송하지 마세요.
+로그인 없는 4단계 상담 신청, 서버 유효성 검사와 중복 방지, 상품·가격·동의 스냅샷, 관리자/상담자 권한, HttpOnly 세션·CSRF·속도 제한, 통합 접수함·담당자·상태·메모·감사 이력, 직원 생성/중지와 세션 회수, 카탈로그 초안/게시·상품/패키지 추가·보관·판매 중지·순서, WebP 사진 업로드/대표/순서/대체텍스트, 주중/주말/특정일 가격, 장소/지도/주차/현장 연락처/후보 상태, 개인정보 안내 설정을 구현했습니다.
 
-## 완료 / 남은 작업
-|항목|상태|
-|---|---|
-|고객/관리자 UI, 상품 편집·패키지 선택·일정·문자 작성 화면|프런트엔드 구현|
-|Apple-inspired minimal, 좁은 폰/폴드/태블릿/PC 가로세로 레이아웃|구현 + 대표 화면 크기 검사|
-|Vercel 프로젝트·공개 미리보기 주소|생성, READY 및 HTTP 응답 확인|
-|GitHub 새 저장소 및 Vercel Git 자동배포 연결|미완료, Codex에서 인증 후 진행|
-|실제 인증·DB·고객 접수·알림·예약 API|개발 필요|
-|실기기/Safari/키보드/OS SMS/PWA 설치·푸시|검증 필요|
+알림 outbox와 응답 후 실행, SOLAPI 그룹 식별자 기반 결과 조회, 푸시 구독/해제·접수 상세 이동, OPS 최종 승인 작업·가용성 검사·외부참조 대조·중단 복구를 구현했습니다. 실발송 및 실 OPS 연결이 완료됐다는 뜻은 아닙니다.
 
-## 실행
-Node.js 22 및 Python 3 권장. 프런트엔드 런타임 외부 패키지는 없습니다.
-```bash
-npm run check
-npm run build
-python3 -m http.server 4173 --bind 127.0.0.1 --directory dist
+## 현재 운영 보류 항목
+
+실제 접수는 개인정보 처리 주체·연락처·보유기간·고지문이 미확정이므로 `accepting=false`입니다. 문자/푸시/OPS 쓰기도 OFF입니다. 도메인 DNS, 대상 OPS의 외부 API 계약·인증, SOLAPI 번호/잔액/키, 실기기 SMS·PWA 푸시 검증, 실제 상품 사진, 확정 고지에 따른 보유기간 만료 삭제 작업이 남았습니다. 부가 선택옵션의 독립 가격 계산과 OPS 예약 변경/취소 동기화는 아직 구현되지 않았습니다.
+
+Hobby는 Vercel 공식 정책상 개인·비상업 용도입니다. 실제 사업용 공개에 적합한 요금제 또는 호스팅 결정이 필요합니다. 사용자 지시대로 유료 업그레이드/구매는 하지 않았습니다. https://vercel.com/docs/plans/hobby
+
+## 개발 및 검증
+
+Node.js 24, pnpm 11.25.0 사용.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm test
+pnpm run build
 ```
-Windows는 마지막 명령의 `python3` 대신 `py`를 사용할 수 있습니다. `http://127.0.0.1:4173`을 엽니다. `standalone-preview.html`은 파일로 열어 볼 수 있는 보조 UI이며 PWA 검증용이 아닙니다.
 
-## 검수
-- 기능 50개 통과, 반응형 20개 뷰포트의 161개 검사 통과.
-- 실제 CSS/JS를 Chromium에 넣어 실행, localStorage만 메모리 어댑터 사용.
-- 컨테이너 HTTP 탐색이 제한되어 라이브 서비스 E2E/실기기 시험은 미완료.
-- 자세한 실행 범위는 `tests/TEST_REPORT.md`.
+운영 DB를 사용하지 않는 로컬 합성 검수:
 
-## 폴더 안내
-- `app.js`, `styles.css`, `index.html`: 실제 프런트엔드 소스.
-- `catalog.confirmed.json`: 확정 상품 초기 데이터.
-- `CODEX_MASTER.md`: 배포 현황·구현 지시·디자인·상품·미확정·인수 기준 통합본.
-- `docs/DESIGN_LOCK.md`: 지킬 UI/UX 기준.
-- `scripts/build.mjs`, `vercel.json`: 공개 파일만 만드는 배포 구성.
-- `scripts/publish-github.mjs`: 인증된 Codex 환경에서 새 비공개 저장소를 생성/푸시하는 보조 스크립트. 기존 저장소 덮어쓰기 금지.
-- `deployment/`: 실제 Vercel ID/주소/검증 기록. 비밀키 없음.
-- `tests/`, `previews/`: 테스트 및 실제 UI 캡처.
+```powershell
+$env:LOCAL_SYNTHETIC='true'
+pnpm dev
+```
 
-## 배포 보안 경계
-`dist/`만 배포합니다. 지시서·테스트·환경 파일을 정적 루트로 공개하지 않습니다. 고객 정보는 localStorage에 저장하지 않고, 상품 설정은 해당 브라우저에만 보존합니다. 사진은 실제 상품 사진 등록 전 자리표시자입니다. 키·인증정보를 앱 코드에 넣지 마세요.
+http://127.0.0.1:4173 / 관리자 `local-admin` / 암호 `Local-synthetic-test-2026!`는 **LOCAL_SYNTHETIC 전용**이며 메모리 DB 종료 시 사라집니다. Vercel에서는 이 모드가 허용되지 않습니다.
 
-기존 서비스나 유료 요금제는 변경하지 않았습니다. 사용자 요청에 따라 독립 Vercel 미리보기만 배포했습니다.
+실제 전용 DB에 대한 초기 설치는 `.env.example`의 서버 변수를 채우고 `MOMENT_LINK_DATABASE=true pnpm db:migrate`를 실행합니다. 기존 OPS DB URL을 재사용하지 않습니다. 실제 연결 정보는 Git에 올리지 않습니다. 현재 배포 DB는 이미 초기화됐고 `RUN_DB_MIGRATIONS=false`, 초기 관리자 해시 환경변수도 비웠습니다.
+
+초기 관리자 자격증명은 작업 PC의 `.local/owner-credentials.json`에만 저장했습니다. Git/정적 배포에서 제외됩니다. 관리자 화면에서 비밀번호를 변경하면 기존 로그인 세션을 모두 회수합니다.
+
+- [API 계약](docs/API_CONTRACT.md)
+- [검증 결과](tests/TEST_REPORT.md)
+- [배포/운영 인계](deployment/DEPLOYMENT.md)
+- 원본 지시서와 v2/v3 증거는 역사 자료입니다. 완료 여부는 현재 배포 보고서를 따릅니다.

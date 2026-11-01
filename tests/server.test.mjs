@@ -37,3 +37,43 @@ test('OPS submission is separate from customer intake and blocked by default',as
 test('OPS unknown create outcome is reconciled before any retry',async()=>{const job=(await db.query('SELECT * FROM moment_link.integration_jobs')).rows[0];let creates=0,lookups=0;const adapters={ops:{boatn:{lookup:async()=>{lookups++;return null;},availability:async()=>({available:true,token:'synthetic'}),create:async()=>{creates++;throw Error('timeout');}}}};const r=await processIntegration(db,job.id,{OPS_WRITES_ENABLED:'true'},adapters);assert.equal(r.state,'uncertain');await processIntegration(db,job.id,{OPS_WRITES_ENABLED:'true'},adapters);assert.equal(creates,1);assert.equal(lookups,2);adapters.ops.boatn.lookup=async()=>({id:'synthetic-reservation'});assert.equal((await processIntegration(db,job.id,{OPS_WRITES_ENABLED:'true'},adapters)).state,'succeeded');assert.equal((await db.query('SELECT status FROM moment_link.consultations WHERE id=$1',[receiptId])).rows[0].status,'confirmed');});
 test('audit records never contain customer phone or password',async()=>{const logs=JSON.stringify((await db.query('SELECT * FROM moment_link.audit_logs')).rows);assert.ok(!logs.includes('01000000000'));assert.ok(!logs.includes('Synthetic-password'));});
 test('logout revokes server session',async()=>{assert.equal((await request('auth/logout',{method:'POST',auth:true,data:{}})).status,200);assert.equal((await request('admin/consultations',{auth:true})).status,401);});
+
+test('interrupted OPS workers reconcile; OFF does not erase unknown outcome',async()=>{
+ const j=(await db.query('SELECT * FROM moment_link.integration_jobs')).rows[0];
+ await db.query("UPDATE moment_link.integration_jobs SET state='checking',updated_at=now()-interval '5 minutes' WHERE id=$1",[j.id]);
+ assert.equal((await processIntegration(db,j.id,{})).state,'uncertain');
+ let creates=0;const adapters={ops:{boatn:{lookup:async()=>{throw Error('lookup unavailable');},create:async()=>{creates++;}}}};
+ assert.equal((await processIntegration(db,j.id,{OPS_WRITES_ENABLED:'true'},adapters)).state,'uncertain');
+ adapters.ops.boatn.lookup=async()=>null;
+ assert.equal((await processIntegration(db,j.id,{OPS_WRITES_ENABLED:'true'},adapters)).state,'uncertain');assert.equal(creates,0);
+});
+test('interrupted SMS queries the existing provider group without resending',async()=>{
+ const id=randomUUID();await db.query("INSERT INTO moment_link.outbox(id,event_key,consultation_id,channel,state,provider_id,updated_at) VALUES($1,$3,$2,'sms_customer','sending','synthetic-group',now()-interval '5 minutes')",[id,receiptId,id]);
+ const calls=[];const r=await processOutbox(db,id,{SMS_LIVE_ENABLED:'true'},{solapi:async(path,method='GET')=>{calls.push(method);return {status:'COMPLETE',count:{sentSuccess:1,sentFailed:0}};}});
+ assert.equal(r.state,'sent');assert.equal(r.delivery,'SMS_DELIVERED');assert.deepEqual(calls,['GET']);
+});
+test('new enabled notifications dispatch after commit and replay never redispatches',async()=>{
+ const prior=(await db.query("SELECT data FROM moment_link.config WHERE id='settings'")).rows[0].data;
+ await db.query("UPDATE moment_link.config SET data=$1 WHERE id='settings'",[JSON.stringify({...prior,solapi:true,customerAuto:true})]);
+ let sends=0;const work=[];
+ const handler=createApp({db,env:{...env,SMS_LIVE_ENABLED:'true'},schedule:p=>work.push(p),adapters:{solapi:async(path,method)=>{if(path==='/groups')return {groupId:'synthetic-enabled-group'};if(method==='PUT')return {errorCount:0,resultList:[{statusCode:'2000'}]};if(path.endsWith('/send')){sends++;assert.ok((await db.query('SELECT * FROM moment_link.consultations WHERE phone=$1',['01000000001'])).rows.length);return {};}}}});
+ const key=randomUUID(),make=()=>new Request(env.APP_ORIGIN+'/api/consultations',{method:'POST',headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json','Idempotency-Key':key},body:JSON.stringify({...payload(),catalogVersion:2,phone:'01000000001'})});
+ assert.equal((await handler(make())).status,201);await Promise.all(work);assert.equal(sends,1);assert.equal((await handler(make())).status,200);assert.equal(sends,1);
+ await db.query("UPDATE moment_link.config SET data=$1 WHERE id='settings'",[JSON.stringify(prior)]);
+});
+test('invalid images are rejected and disabling staff revokes active sessions',async()=>{
+ const a=await request('auth/login',{method:'POST',data:{username:'admin',password:'Synthetic-password-123!'}});cookie=a.headers.get('set-cookie').split(';')[0];csrf=a.data.csrf;
+ assert.equal((await request('admin/media',{auth:true,method:'POST',data:{data:Buffer.from('<svg/>').toString('base64'),alt:'합성'}})).status,400);
+ assert.equal((await request('admin/users/'+adminId,{auth:true,method:'PATCH',data:{role:'counselor',active:false}})).status,409);
+ assert.equal((await request('admin/users/'+counselorId,{auth:true,method:'PATCH',data:{role:'counselor',active:false}})).status,200);
+ assert.equal((await request('admin/consultations',{headers:counselor})).status,401);
+});
+
+test('catalog validates photo metadata, date exceptions, and paused sales',async()=>{
+ const current=(await request('admin/catalog',{auth:true})).data.draft;
+ const products=structuredClone(current.data);products[0].salePaused=true;products[0].media=[{url:'https://example.invalid/synthetic.webp',alt:'합성 검수 사진'}];products[0].packages[0].datePrices=[{date:'2099-11-01',amount:450000}];
+ const saved=await request('admin/catalog',{auth:true,method:'PUT',data:{version:current.version,products,publish:true}});assert.equal(saved.status,200);
+ assert.equal((await request('consultations',{method:'POST',data:{...payload(),catalogVersion:saved.data.publishedVersion},headers:{'Idempotency-Key':randomUUID()}})).status,400);
+ products[0].packages[0].datePrices.push({date:'2099-11-01',amount:1});
+ assert.equal((await request('admin/catalog',{auth:true,method:'PUT',data:{version:saved.data.version,products,publish:false}})).status,400);
+});
