@@ -75,7 +75,29 @@ const safeImageURL = value => {
 const photo=p=>safeImageURL(p.photo)?`<img src="${escapeHTML(safeImageURL(p.photo))}" alt="${escapeHTML(p.media?.[0]?.alt||p.name+' 대표사진')}" loading="lazy" decoding="async" />`:`<div class="photo-placeholder"><span class="photo-wordmark">MOMENT LINK</span><span>실제 상품 사진 등록 전</span></div>`;
 function packageCard(item,option){const yes=state.selection?.id===item.id&&state.selection?.packId===option.id;const bouquet=item.category==='yacht'&&item.sub==='sail'&&option.id==='all';let label='';if(bouquet){label=item.bouquet?'꽃다발 포함 (생화 또는 비누꽃)':'꽃다발 미포함'}
 return `<button type="button" class="package-option ${yes?'chosen':''}" data-select="${escapeHTML(item.id)}:${escapeHTML(option.id)}" aria-pressed="${yes}" ${item.salePaused?'disabled':''}><div class="package-title"><span>${escapeHTML(option.name)}</span><span class="selection-dot" aria-hidden="true">${yes?'●':'○'}</span></div>${option.weekday===null?`<div class="package-single">상담 후 안내</div>`:option.weekday===option.weekend?`<div class="package-single">${krw(option.weekday)}</div>`:`<div class="price-line"><small>주중</small><b>${krw(option.weekday)}</b></div><div class="price-line"><small>주말</small><b>${krw(option.weekend)}</b></div>`}<div class="package-notes">${escapeHTML(option.summary).split(' · ').map(t=>`<span>${t}</span>`).join('')}</div>${item.category==='heli'?`<div class="package-highlight">${option.id==='basic'?'헬기 비행·편지 낭독·샴페인':option.id==='original'?'촬영 원본 제공 · 편집본 제외':option.id==='edited'?'촬영 원본 + 추억영상 편집본':'구성 상세 확인'}</div>`:''}${label?`<div class="benefit ${item.bouquet?'good':''}">${label}</div>`:''}</button>`}
-function productCard(p){return `<article class="product"><div class="product-photo">${photo(p)}</div><h3 class="product-name">${escapeHTML(p.name)}</h3><p class="product-desc">${escapeHTML(p.short)}</p>${p.salePaused?'<p class="badge">현재 판매 중지</p>':''}${p.category==='visit'?'<div class="pill" style="margin-bottom:10px">라이트·올인원 장식 세팅 동일</div>':''}<div class="package-grid ${p.packages.length>2?'three':''}">${p.packages.map(pk=>packageCard(p,pk)).join('')}</div><details data-detail="${escapeHTML(p.id)}" ${state.openDetails.includes(p.id)?'open':''}><summary>구성·포함 서비스 자세히 보기</summary><div class="detail-body">${escapeHTML(p.description)}</div>${p.packages.map(pk=>`<div class="detail-body"><strong>${escapeHTML(pk.name)}</strong> · ${escapeHTML(priceDisplay(pk))}\n${escapeHTML(pk.features?.join(' · ')||'추후 안내')}${pk.note?'\n※ '+escapeHTML(pk.note):''}${pk.durationMinutes?'\n이용시간 '+pk.durationMinutes+'분':''}${(pk.datePrices||[]).map(x=>'\n'+escapeHTML(x.date)+' 확정 안내 가격 '+krw(x.amount)).join('')}</div>`).join('')}${(p.media||[]).slice(1).some(m=>safeImageURL(m.url))?`<div class="product-gallery">${(p.media||[]).slice(1).filter(m=>safeImageURL(m.url)).map(m=>`<img src="${escapeHTML(safeImageURL(m.url))}" alt="${escapeHTML(m.alt)}" loading="lazy" decoding="async"/>`).join('')}</div>`:''}</details></article>`}
+
+function comparisonTable(p){
+ const packages=p.packages;if(packages.length<2)return '';
+ const rows=[];
+ const featureLabels={"헬기탑승 및 비행":"헬기 비행","지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)":"헤드셋 편지 낭독 (운항 승인 전제)","착륙 후 WILL YOU MARRY ME? 손현수막":"착륙 후 손현수막","헬기 앞 테이블 세팅·샴페인":"테이블 세팅 · 샴페인","헬기 앞 기념촬영":"헬기 앞 기념촬영","헬기 내부 액션캠 영상":"헬기 내부 액션캠 영상","지상 편지 낭독 장면 촬영":"지상 편지 낭독 촬영","이·착륙 현장 반응 촬영":"이·착륙 반응 촬영","헬기 앞 DSLR 사진 촬영":"DSLR 사진 촬영","사진·영상 촬영 원본 제공":"사진·영상 원본","추억영상 편집본 제공":"추억영상 편집본"};
+ const heading=pk=>p.category==='heli'?({basic:'기본',original:'촬영 원본',edited:'원본 + 편집본'}[pk.id]||pk.name):pk.name;
+ const duration=(pk,kind)=>{
+  const text=[pk.summary,...(pk.features||[])].join(' · ');
+  const pattern=kind==='total'?/총(?: 이용시간)?\s*((?:약\s*)?\d+분)/:/실(?:운항|비행)(?:시간)?\s*((?:약\s*)?\d+분)/;
+  return text.match(pattern)?.[1]||'';
+ };
+ for(const [kind,label] of [['total','총 이용시간'],['travel',p.category==='heli'?'실비행 시간':'실운항 시간']]){
+  const values=packages.map(pk=>duration(pk,kind));if(values.every(Boolean))rows.push({label,values});
+ }
+ const features=[...new Set(packages.flatMap(pk=>pk.features||[]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
+ for(const feature of features)rows.push({label:featureLabels[feature]||feature,fullLabel:feature,values:packages.map(pk=>(pk.features||[]).includes(feature)?'포함':feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||'')?'미포함':'상담 확인')});
+ const options=[...new Set(packages.flatMap(pk=>(pk.options||[]).map(o=>o.name)))];
+ for(const name of options)rows.push({label:name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===name);return o?krw(o.amount)+' 추가':'상담 확인';})});
+ if(!rows.length)return '';
+ return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(v==='포함'?'included':'')+'">'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
+}
+
+function productCard(p){return `<article class="product"><div class="product-photo">${photo(p)}</div><h3 class="product-name">${escapeHTML(p.name)}</h3><p class="product-desc">${escapeHTML(p.short)}</p>${p.salePaused?'<p class="badge">현재 판매 중지</p>':''}${p.category==='visit'?'<div class="pill" style="margin-bottom:10px">라이트·올인원 장식 세팅 동일</div>':''}<div class="package-grid ${p.packages.length>2?'three':''}">${p.packages.map(pk=>packageCard(p,pk)).join('')}</div>${comparisonTable(p)}<details data-detail="${escapeHTML(p.id)}" ${state.openDetails.includes(p.id)?'open':''}><summary>구성·포함 서비스 자세히 보기</summary><div class="detail-body">${escapeHTML(p.description)}</div>${p.packages.map(pk=>`<div class="detail-body"><strong>${escapeHTML(pk.name)}</strong> · ${escapeHTML(priceDisplay(pk))}\n${escapeHTML(pk.features?.join(' · ')||'추후 안내')}${pk.note?'\n※ '+escapeHTML(pk.note):''}${pk.durationMinutes?'\n이용시간 '+pk.durationMinutes+'분':''}${(pk.datePrices||[]).map(x=>'\n'+escapeHTML(x.date)+' 확정 안내 가격 '+krw(x.amount)).join('')}</div>`).join('')}${(p.media||[]).slice(1).some(m=>safeImageURL(m.url))?`<div class="product-gallery">${(p.media||[]).slice(1).filter(m=>safeImageURL(m.url)).map(m=>`<img src="${escapeHTML(safeImageURL(m.url))}" alt="${escapeHTML(m.alt)}" loading="lazy" decoding="async"/>`).join('')}</div>`:''}</details></article>`}
 function yachtPlace(){return `<section class="info"><strong>요트 승선 장소 · 한국해양대학교</strong><div class="muted">${escapeHTML(settings.yachtAddress)}<br>${escapeHTML(settings.yachtPlace)}</div></section>`}
 function heliPlace(){return `<section class="info"><strong>헬기 탑승 장소 · 전날 최종 안내</strong><div class="muted">군산: ${escapeHTML(settings.heliGunsan)}<br>변산: ${escapeHTML(settings.heliByeonsan)}<br>비행 전날 기상 및 운영 상황 확인 후 최종 탑승장소를 개별 안내합니다.</div></section>`}
 function footer(buttonText,action,disabled=false,note=''){return `<div class="action-bar">${state.formError?`<p class="form-error" role="alert">${escapeHTML(state.formError)}</p>`:''}${note?`<div class="micro" style="margin-bottom:9px">${escapeHTML(note)}</div>`:''}<button class="primary" type="button" data-next="${action}" ${disabled?'disabled':''}>${buttonText}</button></div>`}
@@ -108,7 +130,7 @@ if(state.category==='yacht')s+=yachtPlace();if(state.category==='heli')s+=heliPl
 s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<section class="info"><strong>${escapeHTML(l.name)} · ${l.status==='confirmed'?'확정 안내 장소':'후보 · 미확정'}</strong><div class="muted">${escapeHTML(l.address)}${l.parking?'<br>주차: '+escapeHTML(l.parking):''}${l.contact?'<br>현장 연락: '+escapeHTML(l.contact):''}</div>${l.mapUrl?`<a href="${escapeHTML(l.mapUrl)}" target="_blank" rel="noopener noreferrer">지도 보기</a>`:''}</section>`).join('');
 s+=`<div class="fields"><div><label class="sectionlabel" for="name" style="display:block">성함</label><input class="field" id="name" maxlength="60" placeholder="성함" value="${escapeHTML(state.name)}" autocomplete="name" /></div><div><label class="sectionlabel" for="phone" style="display:block">휴대전화 번호</label><input class="field" id="phone" type="tel" inputmode="tel" maxlength="20" placeholder="010-0000-0000" autocomplete="tel" value="${escapeHTML(state.phone)}" /></div></div>`;
 if(['visit','trunk'].includes(state.category))s+=`<label for="place" class="sectionlabel" style="display:block">희망 세팅 장소</label><input id="place" maxlength="300" class="field" placeholder="호텔명 또는 주소·지역" value="${escapeHTML(state.place)}"/><p class="micro">정확한 주소를 모르시면 지역·건물명만 입력하셔도 됩니다.</p>`;
-s+=`<label for="notes" class="sectionlabel" style="display:block">특이사항 (선택)</label><textarea id="notes" maxlength="1500" class="field" placeholder="추가 요청사항이 있으면 적어주세요.">${escapeHTML(state.notes)}</textarea><label class="inline-check"><input id="consent" type="checkbox" ${state.consent?'checked':''}/><span>상담을 위한 개인정보 수집·이용에 동의합니다.<span class="micro consent-note">${settings.accepting?escapeHTML(settings.privacyController)+' · 보유기간 '+escapeHTML(settings.retentionDays)+'일':'접수 준비 중입니다. 실제 개인정보를 입력하지 마세요.'}</span></span></label><details><summary>개인정보 수집·이용 안내</summary><div class="detail-body">${escapeHTML(settings.privacyText||'운영자가 개인정보 안내를 준비하고 있습니다.')}</div></details><details class="request-summary"><summary>선택 내용 확인</summary><div class="detail-body">${escapeHTML(choiceName())}<br>${escapeHTML(displayChosenPrice())}<br>1순위 ${escapeHTML(dateLabel(state.firstDate)+' '+state.firstTime)}${state.secondDate?'<br>2순위 '+escapeHTML(dateLabel(state.secondDate)+' '+state.secondTime):''}</div></details>${footer(submitting?'저장 중…':'상담 신청하기','contact',submitting||!apiReady||!settings.accepting,settings.accepting?'': '접수 준비 중 · 대표번호로 문의해 주세요.')}`;
+s+=`<label for="notes" class="sectionlabel" style="display:block">특이사항 (선택)</label><textarea id="notes" maxlength="1500" class="field" placeholder="추가 요청사항이 있으면 적어주세요.">${escapeHTML(state.notes)}</textarea><label class="inline-check"><input id="consent" type="checkbox" ${state.consent?'checked':''}/><span>상담을 위한 개인정보 수집·이용에 동의합니다.<span class="micro consent-note">${settings.accepting?escapeHTML(settings.privacyController)+' · 보유기간 '+escapeHTML(settings.retentionDays)+'일':'접수 준비 중입니다. 실제 개인정보를 입력하지 마세요.'}</span></span></label><details><summary>개인정보 수집·이용 안내</summary><div class="detail-body">${escapeHTML(settings.privacyText||'운영자가 개인정보 안내를 준비하고 있습니다.')}</div></details><details class="request-summary"><summary>선택 내용 확인</summary><div class="detail-body">${escapeHTML(choiceName())}<br>${escapeHTML(displayChosenPrice())}<br>1순위 ${escapeHTML(dateLabel(state.firstDate)+' '+state.firstTime)}${state.secondDate?'<br>2순위 '+escapeHTML(dateLabel(state.secondDate)+' '+state.secondTime):''}</div></details>${footer(submitting?'저장 중…':state.complete?'이미 접수된 상담입니다':'상담 신청하기','contact',submitting||state.complete||!apiReady||!settings.accepting,settings.accepting?'': '접수 준비 중 · 대표번호로 문의해 주세요.')}`;
 }
 if(['review','done'].includes(state.step)){
 if(state.step==='review')s+=`<button class="back" data-back="contact">← 입력 내용 수정</button><h1 class="page-title">신청 내용을 확인해 주세요.</h1>`;else s+=`<div style="text-align:center;padding:24px 0 8px"><div style="color:#278854;font-size:38px">✓</div><h1 class="page-title">상담 접수 완료</h1><p class="muted">접수번호 ${escapeHTML(state.receipt)}</p></div>`;
@@ -124,7 +146,42 @@ return s;
 function smsText(){if(settings.manualSmsTemplate){const tokens={receipt:state.receipt||'',name:state.name,phone:state.phone,selection:choiceName(),price:displayChosenPrice(),first:dateLabel(state.firstDate)+' '+state.firstTime,second:state.secondDate?dateLabel(state.secondDate)+' '+state.secondTime:'',place:state.place,notes:state.notes||'없음'};return settings.manualSmsTemplate.replace(/\{(receipt|name|phone|selection|price|first|second|place|notes)\}/g,(_,key)=>tokens[key]);}return `[모먼트링크 프로포즈 상담 신청]\n접수번호: ${state.receipt||''}\n성함: ${state.name}\n번호: ${state.phone}\n상품: ${catName()}\n선택: ${choiceName()}\n가격: ${displayChosenPrice()}\n1순위: ${dateLabel(state.firstDate)} ${state.firstTime}${state.secondDate?'\n2순위: '+dateLabel(state.secondDate)+' '+state.secondTime:''}${['visit','trunk'].includes(state.category)?'\n장소: '+state.place:''}\n특이사항: ${state.notes||'없음'}\n위 내용으로 상담 부탁드립니다.`}
 function capture(){for(const k of ['name','phone','place','notes','firstDate','secondDate']){const n=document.getElementById(k);if(n)state[k]=n.value}const c=$('#consent');if(c)state.consent=c.checked}
 function render(){if(location.hash.startsWith('#admin'))return;if(state.selection&&(!getProduct()?.visible||getProduct()?.salePaused||!getPack()))state.selection=null;$('#app').innerHTML=`<div class="shell">${top()}${customer()}</div>`}
-function setStep(x){state.step=x;state.formError='';render();window.scrollTo({top:0,behavior:'instant'})}
+// History stores only public navigation choices. Contact details and dates stay in memory.
+let navigationFlow=crypto.randomUUID(),navigationDepth=0,returningToRoot=false;
+function navigationEntry(){return {flow:navigationFlow,depth:navigationDepth,step:state.step,category:state.category,sub:state.sub,selection:state.selection?{...state.selection}:null,optionIds:[...state.optionIds]};}
+function rememberStep(){if(!location.hash.startsWith('#admin'))history.replaceState({momentLink:navigationEntry()},'',location.href);}
+function showStep(x){state.step=x;state.formError='';render();window.scrollTo({top:0,behavior:'instant'});}
+function setStep(x){
+ rememberStep();
+ if(x!==state.step){navigationDepth++;state.step=x;history.pushState({momentLink:navigationEntry()},'',location.href);}
+ showStep(x);
+}
+function previousStep(fallback){capture();rememberStep();if(navigationDepth>0)history.back();else showStep(fallback);}
+function resetNavigation(){
+ if(navigationDepth>0){returningToRoot=true;history.go(-navigationDepth);}
+ else{navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();}
+}
+window.addEventListener('popstate',event=>{
+ if(location.hash.startsWith('#admin'))return;
+ capture();const entry=event.state?.momentLink;
+ if(returningToRoot){returningToRoot=false;navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();return;}
+ if(!entry)return;
+ // A finished/reloaded flow's forward entries cannot resurrect cleared inputs.
+ if(entry.flow!==navigationFlow){if(entry.depth>0){returningToRoot=true;history.go(-entry.depth);}else{navigationDepth=0;navigationFlow=entry.flow;showStep('category');}return;}
+ navigationDepth=entry.depth;
+ Object.assign(state,{category:entry.category,sub:entry.sub,selection:entry.selection,optionIds:entry.optionIds||[]});
+ let step=entry.step;
+ if(['schedule','contact'].includes(step)&&!state.selection)step='products';
+ if(step==='contact'&&(!state.firstDate||!state.firstTime))step='schedule';
+ if(['done','sms'].includes(step)&&!state.complete)step='category';
+ showStep(step);
+});
+function initializeNavigation(){
+ if(location.hash.startsWith('#admin'))return;
+ const previous=history.state?.momentLink;
+ if(previous?.depth>0){navigationDepth=previous.depth;returningToRoot=true;history.go(-previous.depth);}
+ else rememberStep();
+}
 function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
 function formError(message){state.formError=message;render();document.querySelector('[role=alert]')?.scrollIntoView({block:'nearest'});return false}
 async function refreshCatalog(){try{const r=await fetch('/api/catalog',{cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();catalog=data.products;catalogVersion=data.version;settings={...settingDefaults,...data.settings};apiReady=true;}catch{apiReady=false;settings.accepting=false;}render();}
@@ -133,20 +190,22 @@ async function submit(){
  if(!navigator.onLine)return formError('오프라인입니다. 신청이 저장되지 않았습니다. 연결 후 다시 시도해 주세요.');
  if(!apiReady||!settings.accepting)return formError('상담 접수 준비 중입니다. 대표번호로 문의해 주세요.');
  requestKey ||= crypto.randomUUID();submitting=true;render();
+ const submittedSnapshot={product:structuredClone(getProduct()),package:structuredClone(getPack()),options:structuredClone(selectedOptions())};
+ const submittedFields=Object.fromEntries(['category','sub','selection','optionIds','firstDate','firstTime','secondDate','secondTime','secondEnabled','name','phone','place','notes','consent'].map(key=>[key,structuredClone(state[key])]));
  try {const preferences=[{date:state.firstDate,time:state.firstTime}];if(state.secondDate)preferences.push({date:state.secondDate,time:state.secondTime});
  const r=await fetch('/api/consultations',{method:'POST',headers:{'Content-Type':'application/json','Idempotency-Key':requestKey},body:JSON.stringify({catalogVersion,productId:state.selection.id,packageId:state.selection.packId,optionIds:state.optionIds,category:state.category,person:state.name,phone:state.phone,preferences,place:state.place,notes:state.notes,consent:state.consent,consentVersion:settings.consentVersion})});const data=await r.json();
  if(!r.ok){if(['CATALOG_CHANGED','CONSENT_CHANGED','IDEMPOTENCY_CONFLICT'].includes(data.error)){requestKey='';await refreshCatalog();state.consent=false;}throw Error(data.message||'접수하지 못했습니다. 다시 시도해 주세요.');}
- state.submitted={product:structuredClone(getProduct()),package:structuredClone(getPack()),options:structuredClone(selectedOptions())};state.receipt=data.receipt;state.complete=true;submitting=false;setStep('done');
+ Object.assign(state,submittedFields);state.submitted=submittedSnapshot;state.receipt=data.receipt;state.complete=true;submitting=false;setStep('done');
  }catch(e){submitting=false;formError(e.message||'통신 오류입니다. 저장 여부를 확인할 수 없습니다. 같은 내용으로 다시 시도하면 중복 접수되지 않습니다.');}
 }
 document.addEventListener('click',async ev=>{
  if(location.hash.startsWith('#admin'))return;
  const btn=ev.target.closest('button');if(!btn||submitting)return;
  if(btn.dataset.category){state.category=btn.dataset.category;if(state.category==='heli')for(const key of ['firstTime','secondTime'])if(!['오전','오후','시간 무관'].includes(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
- if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;render();return;}
- if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;render();return;}
+ if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;state.optionIds=[];rememberStep();render();return;}
+ if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;rememberStep();render();return;}
  if(btn.dataset.time){capture();const[i,t]=btn.dataset.time.split(':');if(i==='1')state.firstTime=t;else state.secondTime=t;render();return;}
- if(btn.dataset.back){capture();setStep(btn.dataset.back);return;}
+ if(btn.dataset.back){previousStep(btn.dataset.back);return;}
  if(btn.dataset.next){const a=btn.dataset.next;
   if(a==='start')return setStep('category');if(a==='products'){if(state.selection)return setStep('schedule');return;}
   if(a==='schedule'){capture();if(!state.firstDate||!state.firstTime)return formError('1순위 날짜와 시간대를 선택해 주세요.');if(!validDate(state.firstDate)||state.firstDate<localToday())return formError('오늘 이후의 올바른 날짜를 선택해 주세요.');if(state.secondDate&&(!validDate(state.secondDate)||state.secondDate<localToday()))return formError('2순위 날짜를 확인해 주세요.');if(state.secondDate===state.firstDate&&state.secondTime===state.firstTime)return formError('2순위는 다른 날짜 또는 시간으로 선택해 주세요.');if(state.secondDate&&!state.secondTime)return formError('2순위 시간을 선택하거나 일정을 비워 주세요.');return setStep('contact');}
@@ -154,18 +213,19 @@ document.addEventListener('click',async ev=>{
   if(a==='done'&&state.complete)return setStep('sms');
  }
  const a=btn.dataset.action;
- if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.optionIds=[];state.complete=false;render();}
+ if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.optionIds=[];state.complete=false;rememberStep();render();}
  if(a==='clearSecond'||a==='toggleSecond'){capture();state.secondEnabled=a==='toggleSecond'?!state.secondEnabled:false;if(!state.secondEnabled){state.secondDate='';state.secondTime='';}render();}
- if(a==='restart'){Object.assign(state,{step:'category',category:null,selection:null,firstDate:'',secondDate:'',firstTime:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,secondEnabled:false,formError:'',receipt:'',submitted:null,openDetails:[]});requestKey='';render();}
+ if(a==='restart'){Object.assign(state,{step:'category',category:null,selection:null,firstDate:'',secondDate:'',firstTime:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,secondEnabled:false,formError:'',receipt:'',submitted:null,openDetails:[]});requestKey='';state.optionIds=[];resetNavigation();}
  if(a==='copySms'){try{await navigator.clipboard.writeText(smsText());alert('문자 내용을 복사했습니다.');}catch{alert('내용을 직접 선택해 복사해 주세요.');}}
  if(a==='openSms'){const dest=settings.smsNumber.replace(/\D/g,''),platform=(/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))?'&':'?';location.href=`sms:${dest}${platform}body=${encodeURIComponent(smsText())}`;}
 });
 document.addEventListener('toggle',ev=>{const id=ev.target.dataset?.detail;if(!id)return;state.openDetails=state.openDetails.filter(x=>x!==id);if(ev.target.open)state.openDetails.push(id);},true);
 document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(k==='consent')state.consent=ev.target.checked;});
-document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option){state.optionIds=el.checked?[...state.optionIds,el.dataset.option]:state.optionIds.filter(id=>id!==el.dataset.option);render();return;}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
-window.addEventListener('beforeunload',e=>{if(!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
-function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();refreshCatalog();render();}}
+document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option){state.optionIds=el.checked?[...state.optionIds,el.dataset.option]:state.optionIds.filter(id=>id!==el.dataset.option);rememberStep();render();return;}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
+window.addEventListener('beforeunload',e=>{if(state.step!=='category'&&!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
+function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();if(!history.state?.momentLink){navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();}refreshCatalog();render();}}
 window.addEventListener('hashchange',route);
 if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
+initializeNavigation();
 route();
 })();
