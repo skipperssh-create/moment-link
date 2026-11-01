@@ -132,7 +132,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(r.status==='confirmed'&&d.status){
       const manual=r.communication?.reservation?.source==='manual';
       const external=(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0];
-      if(d.status!=='closed'&&(!manual||external||d.status!=='cancelled'))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 행사 완료·취소로 변경할 수 있습니다. OPS 등록 건의 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
+      if(d.status!=='closed'&&(!manual||external||d.status!=='cancelled'))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 이벤트 완료·취소로 변경할 수 있습니다. OPS 등록 건의 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
      }
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}

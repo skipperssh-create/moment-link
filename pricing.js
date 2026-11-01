@@ -14,7 +14,7 @@ const policy='주중 월~목 / 주말 금~일·공휴일 전날·당일 (대체�
 const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const holiday=date=>calendars[date.slice(0,4)]?.[date.slice(5)];
 function dayRate(date){
- if(!validDate(date))return {rate:null,label:'행사 날짜를 선택해 주세요.'};
+ if(!validDate(date))return {rate:null,label:'이벤트 날짜를 선택해 주세요.'};
  const next=new Date(Date.parse(date)+86400000).toISOString().slice(0,10),day=new Date(date).getUTCDay();
  if(holiday(date))return {rate:'weekend',label:'주말 요금 · '+holiday(date)};
  if(holiday(next))return {rate:'weekend',label:'주말 요금 · '+holiday(next)+' 전날'};
@@ -23,7 +23,7 @@ function dayRate(date){
  return {rate:'weekday',label:'주중 요금 · '+['일','월','화','수','목','금','토'][day]+'요일'};
 }
 function quote(r,date){
- if(!validDate(date))return {amount:null,label:'행사 날짜를 선택해 주세요.'};
+ if(!validDate(date))return {amount:null,label:'이벤트 날짜를 선택해 주세요.'};
  const price=r.snapshot?.price||{},pack=r.snapshot?.package||{};
  const optionAmount=price.optionAmount??(r.snapshot?.options||[]).reduce((sum,o)=>sum+(o.amount||0),0);
  const recorded=price.dateOverrides?.find(x=>x.date===date)?.override;

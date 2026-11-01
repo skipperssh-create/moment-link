@@ -15,7 +15,7 @@ const booking={date:'2099-11-01',time:'13:30',amount:390000,place:'합성 검수
 test('all four stages cover every category and preserve quoted facts',()=>{
  for(const id of ['classic','premium','signature','docked','visit','trunk','heli']){
   const r=sample(id);for(const stage of Object.keys(M.stages)){
-   const message=M.generate(r,stage,booking);assert.ok(message.includes(r.person));assert.ok(message.includes(booking.date));assert.ok(message.length<5000);assert.doesNotMatch(message,/undefined|NaN|풍랑주의보시에도/);
+   const message=M.generate(r,stage,booking);assert.ok(message.includes(r.person));assert.ok(message.includes(booking.date));assert.ok(message.length<5000);assert.doesNotMatch(message,/undefined|NaN|풍랑주의보시에도|행사/);
    if(stage==='receipt'){assert.match(message,/우리은행 1005-703-823528/);assert.match(message,/390,000원/);assert.match(message,/확인.*예약 확정/s);}
    if(stage==='confirmed')assert.match(message,/입금 확인이 완료/);
    if(stage==='thanks')assert.doesNotMatch(message,/입금 부탁/);
@@ -50,6 +50,37 @@ test('SMS URI encodes Korean, newlines and reserved characters for both mobile f
  }
  assert.throws(()=>M.smsURI('01000000000?body=evil',body));
 });
+test('payment deadline is two hours after preparation and uses Korea time across date boundaries',()=>{
+ for(const [prepared,expected] of [
+  ['2026-11-01T13:05:00Z','2026년 11월 2일(월) 오전 12:05'],
+  ['2026-12-31T14:40:00Z','2027년 1월 1일(금) 오전 1:40'],
+  ['2028-02-28T14:10:00Z','2028년 2월 29일(화) 오전 1:10'],
+  ['2026-11-01T01:00:00Z','2026년 11월 1일(일) 오후 12:00']
+ ]){
+  const deadline=M.paymentDeadlineFrom(prepared);
+  assert.equal(Date.parse(deadline)-Date.parse(prepared),7200000);
+  assert.equal(M.paymentDeadlineLabel(deadline),expected);
+  const message=M.generate(sample(),'receipt',booking,deadline);
+  assert.match(message,/입금 기한:/);assert.ok(message.includes(expected+'까지 입금 부탁드립니다.'));
+  assert.doesNotMatch(message,/2시간 이내|행사/);
+  assert.equal(M.paymentDeadlineError(sample(),'receipt',deadline,prepared),'');
+  assert.match(M.paymentDeadlineError(sample(),'receipt',deadline,deadline),/다시/);
+ }
+ assert.equal(M.paymentDeadlineLabel('bad'), '');
+ assert.match(M.paymentDeadlineError(sample(),'receipt',undefined),/다시/);
+ assert.equal(M.paymentDeadlineError(sample(),'confirmed',undefined),'');
+ assert.equal(M.paymentDeadlineError(sample('visit'),'receipt',undefined),'');
+ assert.doesNotMatch(M.generate(sample('visit'),'receipt',booking),/입금 기한:/);
+});
+test('refreshing receipt deadlines preserves custom text and migrates old event wording',()=>{
+ const legacy={receipt:'고객별 안내\n이 안내를 받은 후 2시간 이내 입금 부탁드립니다. 입금 후 회신 부탁드립니다.\n행사 날짜 / 행사 7일 전 / 행사까지 / 행사장',thanks:'직접 작성한 행사 감사 인사'};
+ const first=M.prepareDrafts(sample(),legacy,M.paymentDeadlineFrom('2026-11-01T01:00:00Z'));
+ const second=M.prepareDrafts(sample(),first,M.paymentDeadlineFrom('2026-11-01T02:00:00Z'));
+ assert.match(second.receipt,/오후 1:00까지/);assert.doesNotMatch(second.receipt,/오후 12:00|2시간 이내|행사/);
+ assert.equal(second.receipt.match(/입금 기한:/g).length,1);assert.match(second.receipt,/고객별 안내/);assert.match(second.receipt,/입금 후 회신 부탁드립니다/);assert.match(second.receipt,/이벤트 장소/);
+ assert.equal(second.thanks,'직접 작성한 이벤트 감사 인사');assert.match(legacy.receipt,/2시간 이내/);
+ assert.match(M.prepareDrafts(sample(),{receipt:'직접 작성한 문구'},M.paymentDeadlineFrom())["receipt"],/^직접 작성한 문구\n\n입금 기한:/);
+});
 test('private guidance persists with version checks, accurate manual logs, expiry and no sends',async()=>{
  const pg=new PGlite(),db={query:(s,a)=>pg.query(s,a),transaction:fn=>pg.transaction(fn)},origin='https://test.moment-link.invalid';
  try{
@@ -77,6 +108,16 @@ test('private guidance persists with version checks, accurate manual logs, expir
   assert.equal(out.data.item.idempotency_hash,undefined);assert.deepEqual(out.data.item.snapshot,r.snapshot);
   assert.equal((await req(path,'PUT',save,auth)).status,409);
   assert.deepEqual((await req('admin/consultations/'+r.id,'GET',undefined,auth)).data.item.communication.booking,booking);
+  const before=Date.now(),customDrafts={...drafts,receipt:'고객별 추가 안내\n이 안내를 받은 후 2시간 이내 입금 부탁드립니다.\n행사 날짜를 확인해 주세요.'};
+  out=await req(path,'PUT',{version,booking,drafts:customDrafts,prepareStage:'receipt'},auth);assert.equal(out.status,200);version=out.data.item.version;
+  const prepared=out.data.item.communication,deadline=prepared.paymentDeadline;
+  assert.ok(Date.parse(deadline)>=before+7200000&&Date.parse(deadline)<=Date.now()+7200000);
+  assert.match(prepared.drafts.receipt,/고객별 추가 안내/);assert.doesNotMatch(prepared.drafts.receipt,/2시간 이내|행사/);
+  assert.ok(prepared.drafts.receipt.includes(M.paymentDeadlineLabel(deadline)));
+  assert.deepEqual((await req('admin/consultations/'+r.id,'GET',undefined,auth)).data.item.communication,prepared);
+  out=await req(path,'PUT',{version,booking,drafts:prepared.drafts,prepareStage:'confirmed'},auth);assert.equal(out.status,200);version=out.data.item.version;
+  assert.equal(out.data.item.communication.paymentDeadline,deadline);
+  assert.equal(out.data.item.communication.drafts.receipt,prepared.drafts.receipt);
   const event={version,stage:'confirmed',kind:'composer_requested',eventId:randomUUID()};
   out=await req(path,'POST',event,auth);assert.equal(out.status,200);version=out.data.item.version;
   assert.deepEqual(out.data.item.communication.events.map(e=>e.kind),['composer_requested']);
@@ -85,6 +126,13 @@ test('private guidance persists with version checks, accurate manual logs, expir
   assert.equal(out.data.item.communication.events.at(-1).kind,'manual_sent');assert.equal(out.data.item.status,'new');
   out=await req(path,'PUT',{version,booking:{...booking,paymentConfirmed:false},drafts},auth);version=out.data.item.version;
   assert.equal((await req(path,'POST',{version,stage:'confirmed',kind:'composer_requested',eventId:randomUUID()},auth)).status,400);
+  const expired=new Date(Date.now()-60000).toISOString();
+  await db.query("UPDATE moment_link.consultations SET communication=jsonb_set(communication,'{paymentDeadline}',$1::jsonb) WHERE id=$2",[JSON.stringify(expired),r.id]);
+  assert.equal((await req(path,'POST',{version,stage:'receipt',kind:'composer_requested',eventId:randomUUID()},auth)).data.error,'PAYMENT_DEADLINE_EXPIRED');
+  out=await req(path,'POST',{version,stage:'receipt',kind:'manual_sent',eventId:randomUUID()},auth);assert.equal(out.status,200);version=out.data.item.version;
+  const events=out.data.item.communication.events;
+  out=await req(path,'PUT',{version,booking,drafts:customDrafts,prepareStage:'receipt'},auth);assert.equal(out.status,200);version=out.data.item.version;
+  assert.ok(Date.parse(out.data.item.communication.paymentDeadline)>Date.now());assert.deepEqual(out.data.item.communication.events,events);
   await db.query('UPDATE moment_link.consultations SET assignee=$1 WHERE id=$2',[otherId,r.id]);
   assert.equal((await req(path,'PUT',{version,booking,drafts},staff)).status,200);
   for(const table of ['outbox','integration_jobs'])assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
