@@ -10,3 +10,4 @@ __pycache__/
 deployment-payload.b64
 .local/
 test-artifacts/
+output/
