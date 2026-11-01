@@ -22,15 +22,15 @@ const heliFootage=['헬기 내부 액션캠 영상','지상 편지 낭독 장면
 const defaults = [
 product('classic','yacht','sail','CLASSIC','레오파드 · 합리적인 가격의 로맨틱 요트',[
 pack('light','라이트',390000,440000,'총 이용시간 30분 · 실운항 약 25분',baseYacht,'',yachtExtra),
-pack('all','올인원',440000,540000,'총 이용시간 50분 · 실운항 약 45분',allYacht,'꽃다발 미포함')
+pack('all','올인원',440000,540000,'총 이용시간 50분 · 실운항 약 45분',allYacht)
 ],'합리적인 가격으로 즐기는 로맨틱한 요트 프로포즈.'),
 product('premium','yacht','sail','PREMIUM','메가 · 넓고 쾌적한 프리미엄 공간',[
-pack('light','라이트',490000,590000,'총 이용시간 30분 · 실운항 약 25분',baseYacht,'',yachtExtra),
-pack('all','올인원',590000,690000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'꽃다발'],'꽃다발: 생화 또는 비누꽃')
+pack('light','라이트',490000,590000,'총 이용시간 30분 · 실운항 약 25분',[...baseYacht,'케이크','꽃다발'],'',yachtExtra),
+pack('all','올인원',590000,690000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'케이크','꽃다발'],'꽃다발: 생화 또는 비누꽃')
 ],'넓고 쾌적한 공간에서 즐기는 프리미엄 요트 프로포즈.',{bouquet:true}),
 product('signature','yacht','sail','SIGNATURE','리파리 · 프라이빗 럭셔리 요트',[
-pack('light','라이트',590000,690000,'총 이용시간 30분 · 실운항 약 25분',baseYacht,'',yachtExtra),
-pack('all','올인원',690000,790000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'꽃다발'],'꽃다발: 생화 또는 비누꽃')
+pack('light','라이트',590000,690000,'총 이용시간 30분 · 실운항 약 25분',[...baseYacht,'케이크','꽃다발'],'',yachtExtra),
+pack('all','올인원',690000,790000,'총 이용시간 50분 · 실운항 약 45분',[...allYacht,'케이크','꽃다발'],'꽃다발: 생화 또는 비누꽃')
 ],'더욱 특별하고 프라이빗한 최고급 럭셔리 요트 프로포즈.',{bouquet:true}),
 product('docked','yacht','dock','미출항 · 요트 단독 대관','출항 없이 정박한 요트에서 프라이빗하게 진행',[
 pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하선 포함',['요트 단독 대관','영상촬영 (마케팅 동의 시)']),
@@ -74,8 +74,8 @@ const safeImageURL = value => {
  try { const u=new URL(v); return ['https:','http:'].includes(u.protocol)?u.href:''; } catch { return ''; }
 };
 const photo=p=>safeImageURL(p.photo)?`<img src="${escapeHTML(safeImageURL(p.photo))}" alt="${escapeHTML(p.media?.[0]?.alt||p.name+' 대표사진')}" loading="lazy" decoding="async" />`:`<div class="photo-placeholder"><span class="photo-wordmark">MOMENT LINK</span><span>실제 상품 사진 등록 전</span></div>`;
-function packageCard(item,option){const yes=state.selection?.id===item.id&&state.selection?.packId===option.id;const bouquet=item.category==='yacht'&&item.sub==='sail'&&option.id==='all';let label='';if(bouquet){label=item.bouquet?'꽃다발 포함 (생화 또는 비누꽃)':'꽃다발 미포함'}
-return `<button type="button" class="package-option ${yes?'chosen':''}" data-select="${escapeHTML(item.id)}:${escapeHTML(option.id)}" aria-pressed="${yes}" ${item.salePaused?'disabled':''}><div class="package-title"><span>${escapeHTML(option.name)}</span><span class="selection-dot" aria-hidden="true">${yes?'●':'○'}</span></div>${option.weekday===null?`<div class="package-single">상담 후 안내</div>`:option.weekday===option.weekend?`<div class="package-single">${krw(option.weekday)}</div>`:`<div class="price-line"><small>주중</small><b>${krw(option.weekday)}</b></div><div class="price-line"><small>주말</small><b>${krw(option.weekend)}</b></div>`}<div class="package-notes">${escapeHTML(option.summary).split(' · ').map(t=>`<span>${t}</span>`).join('')}</div>${item.category==='heli'?`<div class="package-highlight">${option.id==='basic'?'헬기 비행·편지 낭독·샴페인':option.id==='original'?'촬영 원본 제공 · 편집본 제외':option.id==='edited'?'촬영 원본 + 추억영상 편집본':'구성 상세 확인'}</div>`:''}${label?`<div class="benefit ${item.bouquet?'good':''}">${label}</div>`:''}</button>`}
+function packageCard(item,option){const yes=state.selection?.id===item.id&&state.selection?.packId===option.id;
+return `<button type="button" class="package-option ${yes?'chosen':''}" data-select="${escapeHTML(item.id)}:${escapeHTML(option.id)}" aria-pressed="${yes}" ${item.salePaused?'disabled':''}><div class="package-title"><span>${escapeHTML(option.name)}</span><span class="selection-dot" aria-hidden="true">${yes?'●':'○'}</span></div>${option.weekday===null?`<div class="package-single">상담 후 안내</div>`:option.weekday===option.weekend?`<div class="package-single">${krw(option.weekday)}</div>`:`<div class="price-line"><small>주중</small><b>${krw(option.weekday)}</b></div><div class="price-line"><small>주말</small><b>${krw(option.weekend)}</b></div>`}<div class="package-notes">${escapeHTML(option.summary).split(' · ').map(t=>`<span>${t}</span>`).join('')}</div>${item.category==='heli'?`<div class="package-highlight">${option.id==='basic'?'헬기 비행·편지 낭독·샴페인':option.id==='original'?'촬영 원본 제공 · 편집본 제외':option.id==='edited'?'촬영 원본 + 추억영상 편집본':'구성 상세 확인'}</div>`:''}</button>`}
 
 function packageDuration(pk,kind){
  if(!pk)return '';
@@ -86,7 +86,7 @@ function packageDuration(pk,kind){
 }
 function yachtInclusionTable(p){
  const packages=p.packages;
- const features=[...new Set(packages.flatMap(pk=>[...(pk.features||[]),...(pk.excludedFeatures||[])]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
+ const features=[...new Set(packages.flatMap(pk=>[...(pk.features||[]),...(pk.excludedFeatures||[])]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f));
  if(!features.length)return '';
  let unknown=false;
  const rows=features.map(f=>`<tr><th scope="row">${escapeHTML(f)}</th>${packages.map(pk=>{
