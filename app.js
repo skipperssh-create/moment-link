@@ -108,17 +108,18 @@ function comparisonTable(p){
  }
  const features=[...new Set(packages.flatMap(pk=>[...(pk.features||[]),...(pk.excludedFeatures||[])]))].filter(f=>!/^총(?: 이용시간)?\s/.test(f)&&!f.includes('꽃다발'));
  for(const feature of features)rows.push({label:p.category==='visit'&&feature==='맞춤 영상편지 제작·현장 세팅'?'영상편지 제작':featureLabels[feature]||feature,fullLabel:feature,values:packages.map(pk=>{
-  if((pk.features||[]).includes(feature))return p.category==='visit'&&feature==='맞춤 영상편지 제작·현장 세팅'?'기본 포함':'포함';
+  if((pk.features||[]).includes(feature))return '포함';
   const video=p.category==='visit'&&feature==='맞춤 영상편지 제작·현장 세팅'&&pk.options?.find(o=>o.id==='video-letter');
-  if(video)return '선택 +'+krw(video.amount);
+  if(video)return krw(video.amount);
   return pk.excludedFeatures?.includes(feature)||(feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||''))?'미포함':'상담 확인';
  })});
  if(p.category==='visit'){
   const at=rows.findIndex(r=>r.label==='영상편지 제작');
-  rows.splice(at<0?rows.length:at+1,0,{label:'소장용 USB',values:packages.map(pk=>{const usb=pk.options?.find(o=>o.id==='usb');return usb?'선택 +'+krw(usb.amount):'상담 확인';})});
+  if(at>=0)rows.push(...rows.splice(at,1));
+  rows.push({label:'영상편지 제작후 소장용 USB 구매',values:packages.map(pk=>{const usb=pk.options?.find(o=>o.id==='usb');return usb?krw(usb.amount):'상담 확인';})});
  }
- const options=[...new Set(packages.flatMap(pk=>(pk.options||[]).map(o=>o.name)))];
- for(const name of options.filter(name=>!(p.category==='visit'&&['영상편지 제작','소장용 USB'].includes(name))))rows.push({label:name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===name);return o?krw(o.amount)+' 추가':'상담 확인';})});
+ const options=[...new Map(packages.flatMap(pk=>(pk.options||[]).filter(o=>!(p.category==='visit'&&['video-letter','usb'].includes(o.id))).map(o=>[o.name,o]))).values()];
+ for(const option of options)rows.push({label:p.category==='visit'&&option.id==='bouquet'?'꽃다발':option.name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===option.name);return o?krw(o.amount)+(p.category==='visit'?'':' 추가'):'상담 확인';})});
  if(!rows.length)return '';
  return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(v==='포함'?'included':'')+'">'+escapeHTML(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
 }
