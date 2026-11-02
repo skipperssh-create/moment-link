@@ -16,7 +16,7 @@
   ],
   "functions": {
     "api/index.mjs": {
-      "maxDuration": 60
+      "maxDuration": 180
     }
   },
   "headers": [

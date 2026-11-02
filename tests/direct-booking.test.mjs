@@ -38,7 +38,7 @@ test('admin direct bookings use existing reservations, snapshots, messaging and 
   const originalSnapshot=r.snapshot;
   out=await req('admin/consultations/'+r.id+'/reservation','POST',{version:r.version,booking:{...data.booking,scheduleConfirmed:true,paymentConfirmed:true},drafts:{},approved:true},auth);assert.equal(out.status,200,JSON.stringify(out.data));r=out.data.item;
   assert.equal(r.status,'confirmed');assert.deepEqual(r.snapshot,originalSnapshot);assert.equal(r.communication.reservation.source,'manual');assert.equal(r.communication.entry.source,'admin_direct');
-  const confirmed=payload('yacht',{mode:'confirmed',assignee:staffId});confirmed.booking.scheduleConfirmed=true;confirmed.booking.paymentConfirmed=true;
+  const confirmed=payload('yacht',{mode:'confirmed',assignee:staffId});confirmed.booking.scheduleConfirmed=true;confirmed.booking.paymentConfirmed=true;confirmed.booking.opsPax=2;confirmed.booking.opsPaymentMethod='transfer';
   out=await create(confirmed);assert.equal(out.status,201,JSON.stringify(out.data));const yacht=out.data.item;
   assert.equal(yacht.snapshot.price.weekend,yacht.communication.booking.amount);
   assert.equal((await req('admin/consultations?view=reservations','GET',undefined,staff)).data.items[0].id,yacht.id);
@@ -50,7 +50,7 @@ test('admin direct bookings use existing reservations, snapshots, messaging and 
   out=await create(visit);assert.equal(out.status,201,JSON.stringify(out.data));assert.equal(out.data.item.snapshot.price.optionAmount,40000);
   for(const category of ['trunk','heli']){const d=payload(category);if(d.booking.amount===null){d.booking.amountMode='manual';d.booking.amount=990000;}out=await create(d);assert.equal(out.status,201,JSON.stringify(out.data));assert.equal(out.data.item.category,category);}
   const manual=payload();manual.booking.amountMode='manual';manual.booking.amount=123000;assert.equal((await create(manual)).status,201);
-  for(const table of ['outbox','integration_jobs'])assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.outbox')).rows[0].n,0);assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.integration_jobs')).rows[0].n,1);
   assert.ok((await db.query("SELECT count(*)::int AS n FROM moment_link.audit_logs WHERE action='reservation.direct_created'")).rows[0].n>=5);
   await db.query('UPDATE moment_link.consultations SET expires_at=now() WHERE id=$1',[r.id]);assert.equal((await create(data)).status,409);
   await db.query("UPDATE moment_link.consultations SET deleted_at=now(),delete_after=now()+interval '7 days' WHERE id=$1",[yacht.id]);assert.equal((await create(confirmed)).status,409);

@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf,SESSION_SECONDS} from './security.mjs';
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
-import {processOutbox,processIntegration} from './jobs.mjs';
+import {processOutbox,processIntegration,dispatchIntegrations,opsAdapter} from './jobs.mjs';
 import {changeTrash,emptyTrash} from './trash.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
@@ -28,9 +28,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   const method=request.method;
   if(path==='/api/health')return json({status:'ok',version:'4.1.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
   const db=givenDb||database();
+  const dispatch=async id=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=dispatchIntegrations(db,env,adapters,id).catch(()=>{});if(schedule)schedule(work);else await work;};
   if(path==='/api/cron/retention'&&method==='GET'){
    if(!authorizedCron(request,env.CRON_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
-   return json(await purgeExpired(db));
+   const result=await purgeExpired(db);await dispatch();return json(result);
   }
   if(writeMethods.includes(method))sameOrigin(request,env);
   if(path==='/api/catalog'&&method==='GET'){
@@ -103,13 +104,20 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
+  if(path==='/api/admin/ops/boatn'&&method==='GET'){
+   if(env.OPS_WRITES_ENABLED!=='true')return json({enabled:false,paymentMethods:[]});
+   const metadata=await (adapters.ops?.boatn||opsAdapter('boatn',env)).metadata();
+   return json({...metadata,enabled:!!metadata?.installed});
+  }
   if(path==='/api/admin/reservations'&&method==='POST'){
    authorize(user,true);
    const result=await createDirectBooking(db,user,await body(request));
-   return json({...result,item:visibleRequest(result.item)},result.replayed?200:201);
+   await dispatch(result.item.id);
+   const item=visibleRequest(result.item);item.integration=(await db.query('SELECT id,state,error_code,external_id,updated_at FROM moment_link.integration_jobs WHERE consultation_id=$1',[item.id])).rows[0]||null;return json({...result,item},result.replayed?200:201);
   }
   if(path==='/api/admin/trash/empty'&&method==='POST'){authorize(user,true);return json(await emptyTrash(db,user,await body(request)));}
   if(path==='/api/admin/consultations/updates'&&method==='GET'){
+   await dispatch();
    const since=url.searchParams.has('since')?parse(z.string().datetime({offset:true}),url.searchParams.get('since')):null;
    // Aggregate counts only, with the same visibility scope as the inbox.
    const result=await db.query(`SELECT now() AS checked_at,
@@ -137,6 +145,13 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const r=await db.query('SELECT c.* FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
    return json({items:r.rows.map(visibleRequest),counts,trashBefore});
   }
+  const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
+  if(retryMatch&&method==='POST'){
+   const row=(await db.query("SELECT j.id FROM moment_link.integration_jobs j JOIN moment_link.consultations c ON c.id=j.consultation_id WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3)",[retryMatch[1],user.role,user.id])).rows[0];
+   if(!row)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
+   await rateLimit(db,'ops-retry:'+user.id,5,60);
+   return json(await processIntegration(db,row.id,env,adapters));
+  }
   const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|reservation|restore|permanent))?$/);
   if(match){
    const [,id,action]=match;
@@ -149,6 +164,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(action==='reservation'&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
     if(action==='confirm'&&method==='POST'){
+     if(r.category==='yacht')fail(400,'USE_RESERVATION','위쪽 예약 확정에서 탑승 인원·결제수단을 확인해 주세요. 확정 시 OPS에 자동 등록됩니다.');
      authorize(user,true);const d=parse(z.object({version:z.number().int(),date:text(10).refine(validDate),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(1).max(1440),amount:z.number().int().min(0).max(100000000),place:text(500,1),resourceId:text(100,1),approved:z.literal(true)}).strict(),await body(request));
      if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');validatePreferences([{date:d.date,time:d.time}]);
      if(['cancelled','closed'].includes(r.status))fail(409,'STATE','종결된 상담은 확정할 수 없습니다.');
@@ -174,7 +190,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });return json(result);
+   });if(method!=='GET')await dispatch(id);if(result.item)result.item.integration=(await db.query('SELECT id,state,error_code,external_id,updated_at FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0]||null;return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
   if(path==='/api/admin/retention'&&method==='POST'){authorize(user,true);return json(await purgeExpired(db));}

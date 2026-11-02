@@ -4,6 +4,7 @@
 const e=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const names={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
 const P=window.MomentLinkPricing;
+const O=window.MomentLinkOps;
 window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
  let draft=null,catalog=null,staff=[],busy=false,error='',attempt=null;
  const value=id=>document.getElementById(id)?.value||'';
@@ -11,7 +12,7 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
  const pack=()=>product()?.packages.find(p=>p.id===draft?.packageId);
  function record(){const p=product(),pk=pack();if(!p||!pk)return {category:'',snapshot:{}};const options=(pk.options||[]).filter(o=>draft.optionIds.includes(o.id)),extra=options.reduce((sum,o)=>sum+o.amount,0);return {category:p.category,snapshot:{product:p,package:pk,options,price:{weekday:pk.weekday===null?null:pk.weekday+extra,weekend:pk.weekend===null?null:pk.weekend+extra,optionAmount:extra}}};}
  function price(){if(draft.amountMode==='auto')draft.amount=P.quote(record(),draft.date).amount;}
- function capture(){if(!draft||!document.getElementById('directBooking'))return;for(const k of ['person','phone','date','time','place','notes','assignee','amountMode'])draft[k]=value('direct_'+k);const amount=value('direct_amount');draft.amount=amount===''?null:Number(amount);for(const k of ['scheduleConfirmed','paymentConfirmed'])draft[k]=!!document.getElementById('direct_'+k)?.checked;}
+ function capture(){if(!draft||!document.getElementById('directBooking'))return;if(document.getElementById('direct_opsPax')){draft.opsPax=Number(value('direct_opsPax'));draft.opsPaymentMethod=value('direct_opsPaymentMethod');}for(const k of ['person','phone','date','time','place','notes','assignee','amountMode'])draft[k]=value('direct_'+k);const amount=value('direct_amount');draft.amount=amount===''?null:Number(amount);for(const k of ['scheduleConfirmed','paymentConfirmed'])draft[k]=!!document.getElementById('direct_'+k)?.checked;}
  const field=(k,label,type='text',extra='')=>`<div><label class="admin-label" for="direct_${k}">${label}</label><input class="admin-input" id="direct_${k}" type="${type}" value="${e(draft[k]??'')}" ${extra}/></div>`;
  function render(){
   if(!draft)return '';
@@ -25,7 +26,7 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
   ${p?.category==='heli'?'<p class="micro">헬기는 주간에만 운항합니다. 담당자와 확인한 주간 시간을 입력해 주세요.</p>':''}
   <div class="admin-cols"><div><label class="admin-label" for="direct_amountMode">금액 적용</label><select class="admin-select" id="direct_amountMode"><option value="auto" ${draft.amountMode==='auto'?'selected':''}>상품·날짜 기준 자동 계산</option><option value="manual" ${draft.amountMode==='manual'?'selected':''}>협의한 금액 직접 입력</option></select></div>${field('amount','최종 금액 (원)','number',`required min="0" max="100000000" step="1" ${draft.amountMode==='auto'?'readonly':''}`)}</div>
   <p class="micro" id="directPriceHint" role="status">${draft.amountMode==='auto'?e(quote.label)+(pk?' · 선택 옵션 금액 포함':''):'직접 입력한 최종 금액으로 저장합니다.'}</p>
-  ${field('place','이벤트 장소·주소','text','required maxlength="500"')}
+  ${field('place','이벤트 장소·주소','text','required maxlength="500"')}${O.fields(record(),draft,'direct',busy)}
   <label class="admin-label" for="direct_notes">요청사항·메모 (선택)</label><textarea class="admin-input" id="direct_notes" maxlength="2000" rows="3">${e(draft.notes)}</textarea>
   <label class="admin-label" for="direct_assignee">담당자</label><select class="admin-select" id="direct_assignee" required>${staff.filter(u=>u.active).map(u=>`<option value="${e(u.id)}" ${draft.assignee===u.id?'selected':''}>${e(u.username)}</option>`).join('')}</select>
   <div class="info"><label class="inline-check"><input type="checkbox" id="direct_scheduleConfirmed" ${draft.scheduleConfirmed?'checked':''}/>고객과 일정·장소를 확정했습니다.</label><label class="inline-check"><input type="checkbox" id="direct_paymentConfirmed" ${draft.paymentConfirmed?'checked':''}/>담당자가 입금을 확인했습니다.</label><p class="micro">입금 전에는 ‘접수로 등록’을 이용하세요. 두 항목을 확인하면 ‘예약 확정 등록’으로 바로 확정 예약에서 관리할 수 있습니다.</p></div>
@@ -34,7 +35,7 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
  }
  function repaint(focusId){const node=document.getElementById('directBooking');if(node){node.outerHTML=render();if(focusId)document.getElementById(focusId)?.focus({preventScroll:true});}}
  function changed(){onDirty();error='';}
- document.addEventListener('input',ev=>{if(!draft||busy||!ev.target.closest('#directBooking'))return;capture();changed();if(['direct_date','direct_amountMode','direct_amount','direct_place','direct_time'].includes(ev.target.id)){draft.paymentConfirmed=false;draft.scheduleConfirmed=false;for(const k of ['paymentConfirmed','scheduleConfirmed'])document.getElementById('direct_'+k).checked=false;}});
+ document.addEventListener('input',ev=>{if(!draft||busy||!ev.target.closest('#directBooking'))return;capture();changed();if(['direct_date','direct_amountMode','direct_amount','direct_place','direct_time','direct_opsPax','direct_opsPaymentMethod'].includes(ev.target.id)){draft.paymentConfirmed=false;draft.scheduleConfirmed=false;for(const k of ['paymentConfirmed','scheduleConfirmed'])document.getElementById('direct_'+k).checked=false;}});
  document.addEventListener('change',ev=>{
   if(!draft||busy||!ev.target.closest('#directBooking'))return;capture();changed();const id=ev.target.id;
   if(id==='direct_productId'||id==='direct_packageId'){
@@ -59,8 +60,9 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
   if(ev.target.id!=='directBooking')return;ev.preventDefault();if(busy||!draft)return;capture();price();
   const mode=ev.submitter?.value||'pending';
   if(!product()||!pack()){error='상품과 패키지를 선택해 주세요.';repaint();return;}
-  const booking={date:draft.date,time:draft.time,amount:draft.amount,amountMode:draft.amountMode,place:draft.place,scheduleConfirmed:draft.scheduleConfirmed,paymentConfirmed:draft.paymentConfirmed,extra:''};
+  const booking={date:draft.date,time:draft.time,amount:draft.amount,amountMode:draft.amountMode,place:draft.place,scheduleConfirmed:draft.scheduleConfirmed,paymentConfirmed:draft.paymentConfirmed,extra:'',...(O.eligible(record())?{opsPax:draft.opsPax,opsPaymentMethod:draft.opsPaymentMethod}:{})};
   error=MomentLinkMessages.validate(mode==='confirmed'?'confirmed':'receipt',booking,{...record(),phone:draft.phone.replace(/[\s-]/g,'')});
+  error ||= mode==='confirmed'?O.validate(record(),booking):'';
   if(error){repaint('directError');return;}
   const data={catalogVersion:catalog.version,person:draft.person,phone:draft.phone,productId:draft.productId,packageId:draft.packageId,optionIds:draft.optionIds,notes:draft.notes,assignee:draft.assignee,booking,mode};
   // Keep the same key/payload after an uncertain response; edits cannot create a second booking on retry.
@@ -71,6 +73,6 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
   catch(err){if(err.status&&err.status<500)attempt=null;error=err.message;}
   finally{busy=false;onBusy(false);if(draft)repaint();}
  });
- return {render,isOpen:()=>!!draft,close:()=>{draft=null;attempt=null;error='';},open:async(user,users)=>{catalog=await api('catalog');staff=users;attempt=null;error='';draft={person:'',phone:'',productId:'',packageId:'',optionIds:[],date:'',time:'',amount:null,amountMode:'auto',place:'',notes:'',assignee:user.id,scheduleConfirmed:false,paymentConfirmed:false};}};
+ return {render,isOpen:()=>!!draft,close:()=>{draft=null;attempt=null;error='';},open:async(user,users)=>{catalog=await api('catalog');await O.load(api);staff=users;attempt=null;error='';draft={opsPax:2,opsPaymentMethod:'',person:'',phone:'',productId:'',packageId:'',optionIds:[],date:'',time:'',amount:null,amountMode:'auto',place:'',notes:'',assignee:user.id,scheduleConfirmed:false,paymentConfirmed:false};}};
 };
 })();

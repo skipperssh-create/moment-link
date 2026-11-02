@@ -54,13 +54,13 @@ export function opsAdapter(target,env){
  // No live endpoint is assumed from a matching name or an existing OPS login session.
  if(env[prefix+'_CONTRACT_VERIFIED']!=='true'||!base||!secret)fail(503,'OPS_UNCONFIGURED','대상 OPS의 독립 API 계약과 인증 연결이 필요합니다.');
  const origin=new URL(base);if(origin.protocol!=='https:')fail(503,'OPS_URL','HTTPS OPS 주소가 필요합니다.');
- async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(10000)});if(r.status===404&&method==='GET')return null;if(r.status===409)return {available:false,conflict:true};if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:'OPS_HTTP_'+r.status});return r.json();}
- return {lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking)};
+ async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET')return null;const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,safe:r.status>=400&&r.status<500});return result;}
+ return {safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking)};
 }
 export async function processIntegration(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
-  if(j.state==='checking'&&stale(j))j.state='uncertain';
-  if(['succeeded','checking','conflict'].includes(j.state))return j;
+  if(j.state==='checking'&&Date.now()-new Date(j.updated_at).getTime()>240000)j.state='uncertain';
+  if(['succeeded','checking'].includes(j.state))return j;
   const active=(await tx.query('SELECT id FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[j.consultation_id])).rows[0];
   if(!active){await tx.query("UPDATE moment_link.integration_jobs SET state='blocked',error_code='CONSULTATION_UNAVAILABLE' WHERE id=$1",[id]);return {...j,state:'blocked'};}
   if(env.OPS_WRITES_ENABLED!=='true'){const state=j.state==='uncertain'?'uncertain':'blocked';await tx.query("UPDATE moment_link.integration_jobs SET state=$1,error_code='OPS_WRITES_DISABLED' WHERE id=$2",[state,id]);return {...j,state};}
@@ -70,16 +70,24 @@ export async function processIntegration(db,id,env,adapters={}){
  try{
   const adapter=adapters.ops?.[job.target]||opsAdapter(job.target,env);
   const prior=await adapter.lookup(job.external_ref);
-  if(job.state==='uncertain'&&!prior?.id){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
+  if(job.state==='uncertain'&&!prior?.id&&!adapter.safeRetry){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
   let booking=prior;
   if(!booking?.id){
    const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[job.consultation_id])).rows[0];
    if(!consultation||['closed','cancelled'].includes(consultation.status)){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='CONSULTATION_CLOSED' WHERE id=$1",[id]);return {state:'conflict'};}
-   const availability=await adapter.availability(job.booking);if(availability?.available!==true||!availability.token){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='AVAILABILITY_UNCONFIRMED' WHERE id=$1",[id]);return {state:'conflict'};}
+   const availability=await adapter.availability({...job.booking,externalRef:job.external_ref});if(availability?.id){booking=availability;}else{
+   if(availability?.available!==true||!availability.token){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='AVAILABILITY_UNCONFIRMED' WHERE id=$1",[id]);return {state:'conflict'};}
    if(env.OPS_WRITES_ENABLED!=='true')fail(503,'OPS_WRITES_DISABLED','OPS 쓰기가 중지되었습니다.');
    creating=true;booking=await adapter.create({...job.booking,externalRef:job.external_ref,availabilityToken:availability.token});
+   }
   }
   if(typeof booking?.id!=='string')throw Error('OPS response missing booking ID');
-  await db.transaction(async tx=>{await tx.query("UPDATE moment_link.integration_jobs SET state='succeeded',external_id=$1,error_code=NULL,updated_at=now() WHERE id=$2",[booking.id,id]);await tx.query("UPDATE moment_link.consultations SET status='confirmed',version=version+1,updated_at=now() WHERE id=$1",[job.consultation_id]);await audit(tx,job.approved_by,'ops.confirmed',job.consultation_id,{jobId:id,target:job.target,externalId:booking.id});});return {state:'succeeded',externalId:booking.id};
- }catch(e){const state=creating||job.state==='uncertain'?'uncertain':e.code==='OPS_UNCONFIGURED'?'blocked':'failed';await db.query('UPDATE moment_link.integration_jobs SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'OPS_UNAVAILABLE',id]);return {state};}
+  await db.transaction(async tx=>{await tx.query("UPDATE moment_link.integration_jobs SET state='succeeded',external_id=$1,error_code=NULL,updated_at=now() WHERE id=$2",[booking.id,id]);await tx.query("UPDATE moment_link.consultations SET status='confirmed',version=version+1,updated_at=now() WHERE id=$1 AND status NOT IN ('confirmed','closed','cancelled')",[job.consultation_id]);await audit(tx,job.approved_by,'ops.confirmed',job.consultation_id,{jobId:id,target:job.target,externalId:booking.id});});return {state:'succeeded',externalId:booking.id};
+ }catch(e){const state=['OPS_UNCONFIGURED','OPS_DISABLED','OPS_AUTH_REQUIRED'].includes(e.code)?'blocked':e.safe?'conflict':creating||job.state==='uncertain'?'uncertain':'failed';await db.query('UPDATE moment_link.integration_jobs SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'OPS_UNAVAILABLE',id]);return {state};}
+}
+
+// Durable outbox: retry transient failures on later admin visits; conflict requires review.
+export async function dispatchIntegrations(db,env,adapters={},consultationId){
+ const jobs=(await db.query(`SELECT id FROM moment_link.integration_jobs WHERE target='boatn' AND ($1::uuid IS NULL OR consultation_id=$1) AND (state='pending' OR (state IN ('failed','uncertain','blocked','checking') AND attempts<10 AND updated_at<now()-interval '4 minutes')) ORDER BY created_at LIMIT 1`,[consultationId||null])).rows;
+ for(const job of jobs)await processIntegration(db,job.id,env,adapters);
 }
