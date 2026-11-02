@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {saveCommunication,confirmReservation} from './communications.mjs';
+import {createDirectBooking} from './direct-booking.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf,SESSION_SECONDS} from './security.mjs';
@@ -102,6 +103,11 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
+  if(path==='/api/admin/reservations'&&method==='POST'){
+   authorize(user,true);
+   const result=await createDirectBooking(db,user,await body(request));
+   return json({...result,item:visibleRequest(result.item)},result.replayed?200:201);
+  }
   if(path==='/api/admin/trash/empty'&&method==='POST'){authorize(user,true);return json(await emptyTrash(db,user,await body(request)));}
   if(path==='/api/admin/consultations/updates'&&method==='GET'){
    const since=url.searchParams.has('since')?parse(z.string().datetime({offset:true}),url.searchParams.get('since')):null;
@@ -110,7 +116,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     count(*) FILTER (WHERE status='new')::int AS pending,
     count(*) FILTER (WHERE created_at>$3::timestamptz)::int AS arrivals
     FROM moment_link.consultations
-    WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2)`,[user.role,user.id,since]);
+    WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2)
+    AND COALESCE(communication->'entry'->>'source','')<>'admin_direct'`,[user.role,user.id,since]);
    const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals});
   }
   if(path==='/api/admin/consultations'&&method==='GET'){
