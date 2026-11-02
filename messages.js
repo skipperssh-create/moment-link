@@ -10,6 +10,7 @@ const timeOK=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 const P=globalThis.MomentLinkPricing;
 const money=value=>Number.isInteger(value)?value.toLocaleString('ko-KR')+'원':'금액 확인 필요';
 const eventWording=value=>value.replace(/행사장/g,'이벤트 장소').replace(/행사/g,'이벤트');
+const videoSubmissionNotice='자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.';
 function paymentDeadlineFrom(now=Date.now()){return new Date(Number(new Date(now))+2*60*60*1000).toISOString();}
 function paymentDeadlineLabel(value){
  const ms=Date.parse(value);if(!Number.isFinite(ms))return '';
@@ -20,6 +21,7 @@ function paymentLine(deadline){const label=paymentDeadlineLabel(deadline);return
 function prepareDrafts(r,drafts,deadline){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
   let text=eventWording(body);
+  if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
   if(r.category==='yacht'&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
    text=old.test(text)?text.replace(old,paymentLine(deadline)):text+'\n\n'+paymentLine(deadline);
@@ -69,7 +71,7 @@ function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\
 function videoGuide(r,b){
  if(!hasVideo(r))return '';
  const deadline=dateOK(b.date)?new Date(Date.parse(b.date)-7*86400000).toISOString().slice(0,10):'';
- return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 boatn@naver.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+(r.category==='yacht'?'제출 기한: '+(deadline||'이벤트 7일 전')+' (이벤트 7일 전까지)\n기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.':'자료 전달·제작 일정은 담당자와 확인해 주세요.');
+ return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 boatn@naver.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+(r.category==='yacht'?'제출 기한: '+(deadline||'이벤트 7일 이전')+' (이벤트 7일 이전까지)\n'+videoSubmissionNotice:'자료 전달·제작 일정은 담당자와 확인해 주세요.');
 }
 function preparation(r,b,short=false){
  switch(r.category){
