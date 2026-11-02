@@ -103,6 +103,16 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
   if(path==='/api/admin/trash/empty'&&method==='POST'){authorize(user,true);return json(await emptyTrash(db,user,await body(request)));}
+  if(path==='/api/admin/consultations/updates'&&method==='GET'){
+   const since=url.searchParams.has('since')?parse(z.string().datetime({offset:true}),url.searchParams.get('since')):null;
+   // Aggregate counts only, with the same visibility scope as the inbox.
+   const result=await db.query(`SELECT now() AS checked_at,
+    count(*) FILTER (WHERE status='new')::int AS pending,
+    count(*) FILTER (WHERE created_at>$3::timestamptz)::int AS arrivals
+    FROM moment_link.consultations
+    WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2)`,[user.role,user.id,since]);
+   const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals});
+  }
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
    const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','consulting','hold','confirmed','closed','cancelled']),url.searchParams.get('status')||'all');
