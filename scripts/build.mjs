@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { APP_ICON_FILES, writeAppIcons } from './app-icons.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const allowed = ['index.html','app.js','admin.js','notification-sound.js','pricing.js','messages.js','message-ui.js','booking-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
+const binaryAllowed = ['assets/moment-new-consultation.mp3'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);
 let files = {};
@@ -20,6 +21,7 @@ if (await exists(path.join(root, 'app.js'))) {
   files = JSON.parse(raw.toString('utf8'));
   if (Object.keys(files).length !== allowed.length || Object.keys(files).some(n=>!allowed.includes(n))) throw Error('Invalid deployment file list');
 }
+const binaries=await Promise.all(binaryAllowed.map(name=>readFile(path.join(root,name))));
 await rm(out,{recursive:true,force:true});
 for (const name of allowed) {
   if (typeof files[name] !== 'string') throw Error('Missing runtime file: '+name);
@@ -28,4 +30,5 @@ for (const name of allowed) {
   await writeFile(target,files[name],'utf8');
 }
 await writeAppIcons(path.join(out,'assets'),files['assets/icon.svg']);
-console.log('Built '+(allowed.length+APP_ICON_FILES.length)+' public files. Server code, credentials and reports remain outside the static output.');
+for(const [i,name] of binaryAllowed.entries())await writeFile(path.join(out,name),binaries[i]);
+console.log('Built '+(allowed.length+binaryAllowed.length+APP_ICON_FILES.length)+' public files. Server code, credentials and reports remain outside the static output.');
