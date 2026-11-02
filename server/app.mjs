@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {saveCommunication,confirmReservation} from './communications.mjs';
+import {saveCommunication,confirmReservation,reservationSchema} from './communications.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
@@ -123,7 +123,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
-   const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','consulting','hold','confirmed','closed','cancelled']),url.searchParams.get('status')||'all');
+   const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','consulting','awaiting_payment','confirmed','hold','closed','cancelled']),url.searchParams.get('status')||'all');
    if(view==='trash')authorize(user,true);
    const reserved="(c.status='confirmed' OR c.communication ? 'reservation' OR EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id AND j.state='succeeded'))";
    const scope="c.expires_at>now() AND ($1='admin' OR c.assignee=$2) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)";
@@ -131,7 +131,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const filter=view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'';
    const order=view==='trash'?'c.deleted_at DESC':view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
    const trashBefore=new Date().toISOString(),args=[user.role,user.id,search,'%'+search+'%'];
-   const counts={all:0,new:0,consulting:0,hold:0,confirmed:0,closed:0,cancelled:0};
+   const counts={all:0,new:0,consulting:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
    const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
    for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
    const r=await db.query('SELECT c.* FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
@@ -158,9 +158,11 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      const jobId=randomUUID();await tx.query('INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,approved_by,booking) VALUES($1,$2,$3,$4,$5,$6)',[jobId,id,target,'moment-link:'+id,user.id,JSON.stringify({...d,person:r.person,phone:r.phone,productId:r.product_id,packageId:r.package_id,timezone:'Asia/Seoul'})]);await audit(tx,user.id,'ops.approved',id,{jobId,target});return {job:{id:jobId,state:'pending'}};
     }
     if(method==='PATCH'&&!action){
-     const d=parse(z.object({version:z.number().int(),status:z.enum(['new','consulting','hold','closed','cancelled']).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
+     const d=parse(z.object({version:z.number().int(),status:z.enum(['new','consulting','awaiting_payment','confirmed','hold','closed','cancelled']).optional(),confirmation:reservationSchema.omit({version:true}).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
      if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');if(d.assignee!==undefined)authorize(user,true);
-     if(r.status==='confirmed'&&d.status){
+     if(d.confirmation&&d.status!=='confirmed')fail(400,'STATE','예약 확정 정보를 함께 저장하려면 확정을 선택해 주세요.');
+     if(d.status==='confirmed'&&r.status!=='confirmed'&&!d.confirmation)fail(400,'BOOKING_NOT_READY','일정·금액·장소와 입금 확인 후 확정해 주세요.');
+     if(r.status==='confirmed'&&d.status&&d.status!=='confirmed'){
       const manual=r.communication?.reservation?.source==='manual';
       const external=(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0];
       if(d.status!=='closed'&&(!manual||external||d.status!=='cancelled'))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 이벤트 완료·취소로 변경할 수 있습니다. OPS 등록 건의 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
@@ -168,6 +170,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
      if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND state IN ('pending','checking','uncertain','failed')",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     // Confirm through the same validation and audit path, atomically with assignment/contact changes.
+     if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
    });return json(result);

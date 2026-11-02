@@ -15,6 +15,15 @@ function init(r,request,onUpdate,settings={}){
  else item=r;
 }
 function openStage(next='receipt'){if(M.stages[next])stage=next;prepared=false;notice='';render();root()?.scrollIntoView({behavior:'smooth',block:'start'});}
+function confirmation(){
+ const problem=M.validate('confirmed',booking,item);if(problem)throw Error(problem);
+ if(!drafts.confirmed?.trim())throw Error('예약 확정 안내 내용을 입력해 주세요.');
+ return {booking:{...booking},drafts:{...drafts},approved:true};
+}
+function acceptConfirmation(r){
+ item=r;booking={...r.communication.booking};drafts={...r.communication.drafts};paymentDeadline=r.communication.paymentDeadline||paymentDeadline;
+ stage='confirmed';prepared=true;changed=false;notice='예약을 확정했습니다. 아래 번호를 눌러 예약 확정 문자를 보낼 수 있습니다.';render();
+}
 function reservationControls(){
  if(item.status==='cancelled'||item.status==='closed'&&item.communication?.reservation)return '';
  if(item.status==='confirmed'&&!item.communication?.reservation)return '<p class="micro">OPS에서 확정된 예약입니다. 일정 변경은 OPS에서 확인해 주세요.</p>';
@@ -106,5 +115,5 @@ document.addEventListener('click',async ev=>{
  }catch(err){prepared=false;notice=err.message;}
  finally{pending=false;render();}
 });
-window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed,isBusy:()=>pending,openStage,focus(){root()?.scrollIntoView({behavior:'smooth',block:'start'});}};
+window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed,isBusy:()=>pending,openStage,confirmation,acceptConfirmation,focus(){root()?.scrollIntoView({behavior:'smooth',block:'start'});}};
 })();

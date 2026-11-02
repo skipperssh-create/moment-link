@@ -6,7 +6,7 @@ const categories={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:
 const composer=window.MomentLinkComposer;
 const sound=window.MomentLinkSound(paintSound);
 const messageLabel=phone=>`<span class="customer-message-label">문자 안내</span><span class="customer-message-phone">${e(phone)}</span>`;
-const statuses={new:'접수중',consulting:'상담중',hold:'보류',confirmed:'예약 완료',closed:'종결',cancelled:'취소'};
+const statuses={new:'접수중',consulting:'상담중',awaiting_payment:'입금대기',confirmed:'확정',hold:'보류',closed:'종결',cancelled:'취소'};
 const tabs={inbox:'상담 접수함',reservations:'확정 예약',trash:'휴지통',products:'상품 관리',settings:'문자·알림',places:'장소 관리',privacy:'접수·개인정보',ops:'OPS 연동',users:'직원 계정'};
 let user=null,anti='',tab='inbox',notice='',busy=false,dirty=false,items=[],users=[],products=[],draftVersion=0,settings={},settingsVersion=0,gates={},jobs={notifications:[],integrations:[]},editId='',productCategory='all',productState='active',detail=null,search='',offset=0,reservationStatus='confirmed',requestStatus='all',counts={},trashBefore='',deletionPrompt=null;
 const val=id=>document.getElementById(id)?.value||'';
@@ -137,14 +137,14 @@ function inbox(){
 }
 function inboxListing(){
  const reserved=tab==='reservations',filterStatus=reserved?reservationStatus:requestStatus;
- return `<div class="reservation-filters" role="group" aria-label="진행 상황별 보기">${(reserved?[['confirmed','예약 완료'],['closed','이벤트 완료'],['cancelled','취소'],['all','전체 예약']]:[['all','전체'],...Object.entries(statuses).filter(([id])=>id!=='closed')]).map(([id,n])=>`<button class="secondary" data-ml="${reserved?'reservationFilter':'requestFilter'}" data-status="${id}" aria-pressed="${filterStatus===id}">${n} <span>${counts[id]??0}</span></button>`).join('')}${!reserved&&user.role==='admin'?'<button type="button" class="secondary" data-ml="tab" data-tab="trash">휴지통</button>':''}</div><p class="micro inbox-count">${reserved?'이벤트 일정순':'최근 접수순'} · ${items.length?'현재 '+(offset+1)+'–'+(offset+items.length)+'건 표시':'표시할 내역 없음'}${user.role==='admin'?'':' · 내 담당 고객'}</p>${offset||items.length===50?`<div class="btnrow inbox-pagination">${offset?button('previousPage','이전 50건'):''}${items.length===50?button('nextPage','다음 50건'):''}</div>`:''}<div class="inbox-results">${items.map(r=>{
+ return `<div class="reservation-filters" role="group" aria-label="진행 상황별 보기">${(reserved?[['confirmed','확정'],['closed','이벤트 완료'],['cancelled','취소'],['all','전체 예약']]:[['all','전체'],...Object.entries(statuses).filter(([id])=>id!=='closed')]).map(([id,n])=>`<button class="secondary" data-ml="${reserved?'reservationFilter':'requestFilter'}" data-status="${id}" aria-pressed="${filterStatus===id}">${n} <span>${counts[id]??0}</span></button>`).join('')}${!reserved&&user.role==='admin'?'<button type="button" class="secondary" data-ml="tab" data-tab="trash">휴지통</button>':''}</div><p class="micro inbox-count">${reserved?'이벤트 일정순':'최근 접수순'} · ${items.length?'현재 '+(offset+1)+'–'+(offset+items.length)+'건 표시':'표시할 내역 없음'}${user.role==='admin'?'':' · 내 담당 고객'}</p>${offset||items.length===50?`<div class="btnrow inbox-pagination">${offset?button('previousPage','이전 50건'):''}${items.length===50?button('nextPage','다음 50건'):''}</div>`:''}<div class="inbox-results">${items.map(r=>{
  const b=r.communication?.booking,hasReservation=reserved||r.status==='confirmed';
  return `<div class="admin-card inbox-item" data-request-id="${e(r.id)}"><div class="admin-row"><div><strong>${e(r.person)}</strong><div class="micro">${e(r.receipt)} · ${e(categories[r.category])}${r.communication?.entry?.source==='admin_direct'?' · 관리자 직접 등록':''}</div></div><span class="badge">${e(hasReservation&&r.status==='closed'?'이벤트 완료':statuses[r.status])}</span></div><p class="inbox-product">${e(r.snapshot.product.name)} · ${e(r.snapshot.package.name)}</p><p class="muted inbox-date">${hasReservation?'확정 일정':'희망 일정'} · ${e(hasReservation&&b?b.date:r.preferences[0].date)} ${e(hasReservation&&b?b.time:r.preferences[0].time)}</p>${hasReservation&&b?`<p class="muted">${e(b.place)} · ${Number.isInteger(b.amount)?b.amount.toLocaleString('ko-KR')+'원':'금액 확인 필요'}</p>`:''}<div class="btnrow"><button class="secondary" data-ml="detail" data-id="${e(r.id)}">${hasReservation?'예약 상세':'상담 상세'}</button><button class="secondary customer-message-button" data-ml="messageCustomer" data-id="${e(r.id)}">${messageLabel(r.phone)}</button>${user.role==='admin'?`<button class="secondary" data-ml="trashRequest" data-id="${e(r.id)}">삭제</button>`:''}</div>${hasReservation&&r.status!=='cancelled'?`<div class="reservation-messages" aria-label="고객 안내 문자">${Object.entries(MomentLinkMessages.stages).filter(([id])=>r.status!=='closed'||id==='thanks').map(([id,n])=>{const sent=r.communication?.events?.some(x=>x.stage===id&&x.kind==='manual_sent');return `<button class="secondary" data-ml="messageCustomer" data-id="${e(r.id)}" data-stage="${id}">${n}<span class="micro">${sent?'발송 기록 있음':'문구 준비'}</span></button>`;}).join('')}</div>`:''}</div>`;
  }).join('')||'<div class="empty">해당하는 내역이 없습니다.</div>'}</div>`;
 }
 function trash(){return `<div class="btnrow"><button type="button" class="secondary" data-ml="tab" data-tab="inbox">← 상담 접수함</button></div><p class="muted">삭제한 상담은 7일 동안 복원할 수 있습니다. 기존 개인정보 보유기한이 먼저 끝나면 그날 만료됩니다. 만료된 내역은 숨겨지고 매일 자동으로 영구 삭제됩니다.</p><div class="inbox-tools">${button('refreshInbox','목록 새로고침')}${button('emptyTrash','휴지통 비우기')}<span class="micro">전체 ${counts.all??0}건</span></div>${offset||items.length===50?'<div class="btnrow inbox-pagination">'+(offset?button('previousPage','이전 50건'):'')+(items.length===50?button('nextPage','다음 50건'):'')+'</div>':''}<div class="inbox-results">${items.map(r=>`<div class="admin-card inbox-item"><div class="admin-row"><strong>${e(r.person)}</strong><span class="badge">${e(statuses[r.status])}</span></div><p class="micro">${e(r.receipt)} · ${e(r.phone)}</p><p>${e(r.snapshot.product.name)} · ${e(r.snapshot.package.name)}</p><p class="muted">복원 가능 기한 · ${e(new Date(r.delete_after).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}</p><div class="btnrow"><button class="secondary" data-ml="restoreRequest" data-id="${e(r.id)}">복원</button><button class="secondary" data-ml="permanentRequest" data-id="${e(r.id)}">영구 삭제</button></div></div>`).join('')||'<div class="empty">휴지통이 비어 있습니다.</div>'}</div>`;}
 
-function requestStatusOptions(r){return Object.entries(statuses).filter(([id])=>r.communication?.reservation?(r.status==='confirmed'?['confirmed','closed','cancelled'].includes(id):id===r.status):(id!=='confirmed'||r.status==='confirmed')&&(id!=='closed'||r.status==='closed')).map(([id,n])=>`<option value="${id}" ${id===r.status?'selected':''} ${id==='closed'&&!r.communication?.reservation?'disabled hidden':''}>${id==='closed'&&r.communication?.reservation?'이벤트 완료':n}</option>`).join('');}
+function requestStatusOptions(r){return Object.entries(statuses).filter(([id])=>r.communication?.reservation?(r.status==='confirmed'?['confirmed','closed','cancelled'].includes(id):id===r.status):id!=='closed'||r.status==='closed').map(([id,n])=>`<option value="${id}" ${id===r.status?'selected':''} ${id==='closed'&&!r.communication?.reservation?'disabled hidden':''}>${id==='closed'&&r.communication?.reservation?'이벤트 완료':n}</option>`).join('');}
 function statusFeedback(state,text){
  const root=$('#requestStatusEditor');if(!root)return;
  root.dataset.state=state;
@@ -157,11 +157,15 @@ function statusFeedback(state,text){
 function statusEdited(){if(!busy){dirty=true;statusFeedback('changed','변경 사항이 있습니다. 상태 저장을 눌러 주세요.');}}
 async function saveRequestState(){
  const root=$('#requestStatusEditor'),r=detail?.item;if(!root||!r||busy)return;
- if(composer.isDirty()){statusFeedback('error','문자·예약 정보 변경을 먼저 저장하거나 예약 확정해 주세요.');return;}
+ const selected=val('requestStatus'),confirming=selected==='confirmed'&&r.status!=='confirmed';
+ let confirmation;
+ if(confirming){try{confirmation=composer.confirmation();}catch(err){composer.openStage('confirmed');statusFeedback('error','확정하지 못했습니다. '+err.message);return;}}
+ else if(composer.isDirty()){statusFeedback('error','문자·예약 정보 변경을 먼저 저장하거나 예약 확정해 주세요.');return;}
  const data={version:r.version,contacted:$('#requestContacted').checked,read:true};
- if(val('requestStatus')!=='confirmed')data.status=val('requestStatus');
+ if(selected!=='confirmed'||confirming)data.status=selected;
+ if(confirmation)data.confirmation=confirmation;
  if(user.role==='admin')data.assignee=val('requestAssignee')||null;
- const messageRoot=$('#messageComposer'),controller=new AbortController();
+ let messageRoot=$('#messageComposer');const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),20000);
  suspendLive();busy=true;closeAssignee();statusFeedback('saving','상태를 저장하고 있습니다…');paintLive();
  if(messageRoot)messageRoot.inert=true;
@@ -171,6 +175,7 @@ async function saveRequestState(){
   if(!current())return;
   detail.item=out.item;
   composer.init(out.item,api,item=>{if(detail?.item.id===item.id)detail.item=item;},settings);
+  if(confirming){composer.acceptConfirmation(out.item);messageRoot=$('#messageComposer');if(messageRoot)messageRoot.inert=true;const focusButton=$('.reservation-heading [data-ml=reservationFocus]');if(focusButton)focusButton.textContent='예약 정보 확인·수정';}
   $('#requestStatus').innerHTML=requestStatusOptions(out.item);
   const label=out.item.communication?.reservation&&out.item.status==='closed'?'이벤트 완료':statuses[out.item.status];
   $('.reservation-heading .badge').textContent=label;
@@ -181,7 +186,7 @@ async function saveRequestState(){
   // Keep the editor and its unsaved memo/OPS fields in place after saving status.
   dirty=[...root.closest('.admin-card').querySelectorAll('input,textarea')].some(el=>!root.contains(el)&&!messageRoot?.contains(el)&&(el.type==='checkbox'?el.checked!==el.defaultChecked:el.value!==el.defaultValue));
   const assigned=users.find(x=>x.id===out.item.assignee)?.username||(out.item.assignee===user.id?user.username:out.item.assignee?'담당자 배정됨':'미배정');
-  statusFeedback('success','상태가 저장되었습니다. '+label+' · '+assigned+' · '+(out.item.contacted?'연락 완료':'연락 전'));
+  statusFeedback('success',(confirming?'예약을 확정했습니다. 확정 예약 목록에서 관리할 수 있습니다. ':'상태가 저장되었습니다. ')+label+' · '+assigned+' · '+(out.item.contacted?'연락 완료':'연락 전'));
   // Refresh audit history separately; a failed read must not turn a successful write into a failed save.
   void api('admin/consultations/'+r.id).then(fresh=>{if(current()&&detail.item.version===out.item.version){detail.notes=fresh.notes;detail.history=fresh.history;$('#requestHistory').innerHTML=requestHistory();}}).catch(()=>{});
  }catch(err){

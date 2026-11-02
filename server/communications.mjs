@@ -8,6 +8,7 @@ const stages=z.enum(['receipt','confirmed','reminder','thanks']);
 export const bookingSchema=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),amountMode:z.enum(['auto','manual']).optional(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000)}).strict();
 const booking=bookingSchema;
 const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks'].map(k=>[k,text(5000).optional()]))).strict();
+export const reservationSchema=z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict();
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
  const d=parse(method==='PUT'?z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict():z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
@@ -39,7 +40,7 @@ export async function saveCommunication(tx,r,user,method,input){
 }
 
 export async function confirmReservation(tx,r,user,input){
- const d=parse(z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict(),input);
+ const d=parse(reservationSchema,input);
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
  if(r.status==='cancelled'||(r.status==='closed'&&r.communication?.reservation))fail(409,'STATE','취소·완료된 예약은 다시 확정할 수 없습니다.');
  const problem=MomentLinkMessages.validate('confirmed',d.booking,r);if(problem)fail(400,'BOOKING_NOT_READY',problem);

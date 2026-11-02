@@ -7,6 +7,48 @@ import {createApp} from '../server/app.mjs';
 import {passwordHash} from '../server/security.mjs';
 import {initialSettings} from '../server/seed.mjs';
 const booking={date:'2099-11-21',time:'14:00',amount:249000,place:'합성 장소',scheduleConfirmed:true,paymentConfirmed:true,extra:''};
+test('payment waiting and dropdown confirmation persist, filter and enforce reservation checks atomically',async()=>{
+ const pg=new PGlite(),db={query:(s,a)=>pg.query(s,a),transaction:fn=>pg.transaction(fn)},origin='https://test.moment-link.invalid';
+ try{
+  await migrate(db);const secret=randomUUID(),adminId=randomUUID(),staffId=randomUUID();
+  for(const [id,name,role] of [[adminId,'status-admin','admin'],[staffId,'status-staff','counselor']])await db.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role,must_change_password) VALUES($1,$2,$3,$4,false)',[id,name,await passwordHash(secret),role]);
+  await db.query("UPDATE moment_link.config SET data=$1 WHERE id='settings'",[JSON.stringify({...initialSettings,accepting:true,privacyController:'합성',privacyContact:'합성',privacyText:'합성 검수',retentionDays:1,consentVersion:'test'})]);
+  const app=createApp({db,env:{APP_ORIGIN:origin}});
+  const req=async(path,method='GET',data,auth={})=>{const r=await app(new Request(origin+'/api/'+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...auth},...(data===undefined?{}:{body:JSON.stringify(data)})}));return {status:r.status,data:await r.json(),headers:r.headers};};
+  const login=async username=>{const r=await req('auth/login','POST',{username,password:secret});return {Cookie:r.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':r.data.csrf};};
+  const auth=await login('status-admin'),staff=await login('status-staff');
+  assert.equal((await req('consultations','POST',{catalogVersion:1,productId:'visit',packageId:'light',category:'visit',person:'합성 상태 검수',phone:'01000000000',preferences:[{date:'2099-11-21',time:'오후'}],place:'합성 장소',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test'},{'Idempotency-Key':randomUUID()})).status,201);
+  const original=(await db.query('SELECT * FROM moment_link.consultations')).rows[0],base='admin/consultations/'+original.id;
+  let data={version:original.version,status:'awaiting_payment',contacted:true};
+  assert.equal((await req(base,'PATCH',data)).status,401);
+  assert.equal((await req(base,'PATCH',data,staff)).status,404);
+  assert.equal((await req(base,'PATCH',data,{...auth,'X-CSRF-Token':'wrong'})).status,403);
+  let out=await req(base,'PATCH',data,auth);assert.equal(out.status,200);let current=out.data.item;
+  assert.equal(current.status,'awaiting_payment');assert.equal(current.contacted,true);
+  assert.equal((await req(base,'PATCH',data,auth)).status,409);
+  await migrate(db); // Safe to re-run against populated databases with the new state.
+  assert.equal((await req(base,'GET',undefined,auth)).data.item.status,'awaiting_payment');
+  let list=await req('admin/consultations?view=all&status=awaiting_payment','GET',undefined,auth);
+  assert.deepEqual(list.data.items.map(x=>x.id),[original.id]);assert.equal(list.data.counts.awaiting_payment,1);assert.equal(list.data.counts.all,1);
+  assert.equal((await req('admin/consultations?status=awaiting_payment','GET',undefined,staff)).data.counts.awaiting_payment,0);
+  const confirmation={booking,drafts:{confirmed:'합성 확정 안내'},approved:true};
+  data={version:current.version,status:'confirmed',assignee:staffId,contacted:false};
+  assert.equal((await req(base,'PATCH',data,auth)).status,400); // Cannot set a label without confirming the booking.
+  assert.equal((await req(base,'PATCH',{...data,confirmation:{...confirmation,booking:{...booking,paymentConfirmed:false}}},auth)).status,400);
+  assert.equal((await req(base,'PATCH',{...data,status:'hold',confirmation},auth)).status,400);
+  const unchanged=(await req(base,'GET',undefined,auth)).data.item;
+  assert.equal(unchanged.status,'awaiting_payment');assert.equal(unchanged.version,current.version);assert.equal(unchanged.assignee,null);assert.equal(unchanged.contacted,true);
+  out=await req(base,'PATCH',{...data,confirmation},auth);assert.equal(out.status,200,JSON.stringify(out.data));current=out.data.item;
+  assert.equal(current.status,'confirmed');assert.equal(current.assignee,staffId);assert.equal(current.contacted,false);
+  assert.equal(current.communication.reservation.source,'manual');assert.equal(current.communication.booking.amount,booking.amount);
+  assert.deepEqual(current.snapshot,original.snapshot);assert.deepEqual(current.preferences,original.preferences);
+  list=await req('admin/consultations?view=reservations&status=confirmed','GET',undefined,staff);assert.equal(list.data.items[0].id,original.id);
+  assert.equal((await req('admin/consultations?status=awaiting_payment','GET',undefined,auth)).data.counts.awaiting_payment,0);
+  assert.equal((await req(base,'PATCH',{version:current.version,status:'awaiting_payment'},auth)).status,409);
+  for(const table of ['outbox','integration_jobs'])assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
+  const audit=(await req(base,'GET',undefined,auth)).data.history;assert.ok(audit.some(x=>x.action==='reservation.confirmed'));
+ }finally{await pg.close();}
+});
 test('manual reservation lifecycle, filtered search, permissions and messages remain independent of OPS',async()=>{
  const pg=new PGlite(),db={query:(s,a)=>pg.query(s,a),transaction:fn=>pg.transaction(fn)},origin='https://test.moment-link.invalid';
  try{
