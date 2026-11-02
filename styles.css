@@ -121,3 +121,12 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .inbox-sound-actions button{width:auto;white-space:nowrap}
 .inbox-sound p{margin:10px 0 0;line-height:1.6}
 @media(max-width:540px){.inbox-sound-actions button{flex:1}.inbox-sound-actions [role=status]{flex-basis:100%}}
+
+/* Save feedback stays beside the status controls without moving the page. */
+.request-status-editor fieldset{border:0;padding:0;margin:0;min-width:0}
+.request-status-editor legend{position:absolute;width:1px;height:1px;padding:0;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}
+.request-save-feedback{margin:10px 0 0;border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.7;word-break:keep-all;overflow-wrap:anywhere;background:var(--soft);color:var(--muted)}
+.request-save-feedback:empty{display:none}
+.request-status-editor[data-state=success] .request-save-feedback{background:#f0f7f2;color:#286744}
+.request-status-editor[data-state=error] .request-save-feedback{background:#fff2f2;color:#a03535}
+.request-status-editor[data-state=saving] [data-ml=saveRequest]{background:#55555b;color:#fff;cursor:wait}
