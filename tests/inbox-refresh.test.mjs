@@ -18,15 +18,15 @@ test('live counts require authentication, respect assignment and ignore expired/
   const login=async username=>(await req('auth/login',null,{username,password})).headers.get('set-cookie').split(';')[0];
   const auth=await login('refresh-admin'),staff=await login('refresh-staff'),endpoint='admin/consultations/updates';
   assert.equal((await req(endpoint)).status,401);
-  const baseline=await req(endpoint,auth);assert.equal(baseline.status,200);assert.equal(baseline.data.pending,0);assert.equal(baseline.data.arrivals,0);
+  const baseline=await req(endpoint,auth);assert.equal(baseline.status,200);assert.equal(baseline.data.pending,0);assert.equal(baseline.data.arrivals,0);assert.equal(baseline.data.latestAt,null);
   const add=async({assigned=null,status='new',old=false,expired=false,trashed=false}={})=>{const id=randomUUID();await db.query(`INSERT INTO moment_link.consultations(id,receipt,idempotency_hash,payload_hash,person,phone,category,product_id,package_id,snapshot,preferences,place,notes,consent,status,assignee,created_at,expires_at,deleted_at,delete_after)
    VALUES($1::uuid,$2,$1::text,$1::text,'합성 검수','01000000000','visit','visit','light','{}','[]','','','{}',$3,$4,now()-make_interval(days=>$5),now()+make_interval(days=>$6),CASE WHEN $7 THEN now() ELSE NULL END,CASE WHEN $7 THEN now()+interval '7 days' ELSE NULL END)`,[id,'ML-'+id,status,assigned,old?1:0,expired?-1:30,trashed]);};
   await add({old:true});await add({assigned:staffId});await add({assigned:staffId,status:'consulting'});
   for(let i=0;i<53;i++)await add();
   await add({expired:true,assigned:staffId});await add({trashed:true,assigned:staffId});
   const path=endpoint+'?since='+encodeURIComponent(baseline.data.checkedAt);
-  const all=await req(path,auth);assert.equal(all.data.pending,55);assert.equal(all.data.arrivals,55);assert.match(all.headers.get('cache-control'),/no-store/);
-  assert.deepEqual(Object.keys(all.data).sort(),['arrivals','checkedAt','pending']);
+  const all=await req(path,auth);assert.equal(all.data.pending,55);assert.equal(all.data.arrivals,55);assert.ok(all.data.latestAt>baseline.data.checkedAt);assert.match(all.headers.get('cache-control'),/no-store/);
+  assert.deepEqual(Object.keys(all.data).sort(),['arrivals','checkedAt','latestAt','pending']);
   const scoped=await req(path,staff);assert.equal(scoped.data.pending,1);assert.equal(scoped.data.arrivals,2);
   assert.equal((await req(endpoint+'?since='+encodeURIComponent(all.data.checkedAt),auth)).data.arrivals,0);
   assert.equal((await req(endpoint+'?since=not-a-date',auth)).status,400);
@@ -35,15 +35,15 @@ test('live counts require authentication, respect assignment and ignore expired/
 });
 
 async function browserHarness(){
- const listeners={},timers=new Map(),requests=[];let timerId=0;
+ const listeners={},timers=new Map(),requests=[],sounds=[];let timerId=0;
  const element=()=>({textContent:'',hidden:false,disabled:false,classList:{toggle(){}},querySelector(){return element();}});
  const elements={'#inboxLive':element(),'#inboxLiveSummary':element(),'#inboxLiveTime':element()},document={title:'MOMENT LINK',hidden:false,querySelector:s=>elements[s]||null,addEventListener:(n,fn)=>{listeners[n]=fn;}};
  const composer={clear(){},isBusy:()=>false,isDirty:()=>false};
- const context=vm.createContext({window:{MomentLinkComposer:composer,MomentLinkDirectBooking:()=>({close(){},isOpen:()=>false}),addEventListener:(n,fn)=>{listeners[n]=fn;},scrollTo(){},scrollBy(){}},document,location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,confirm:()=>false,
+ const context=vm.createContext({window:{MomentLinkSound:()=>({state:()=>({}),reset(){sounds.push('reset');},stop(){sounds.push('stop');},notify(){sounds.push('new');}}),MomentLinkComposer:composer,MomentLinkDirectBooking:()=>({close(){},isOpen:()=>false}),addEventListener:(n,fn)=>{listeners[n]=fn;},scrollTo(){},scrollBy(){}},document,location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,confirm:()=>false,
   setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),fetch:(url,options)=>new Promise((resolve,reject)=>{options.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')));requests.push({url,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data}),reject});})});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
  vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:()=>user={id:'synthetic',role:'admin'},getDetail:()=>detail};render=()=>{};`),context);
- const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements};
+ const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('polling retains edited details, counts across filters, survives errors, pauses offline/hidden and stops on logout',async()=>{
@@ -79,4 +79,20 @@ test('expired authentication clears live counts and stops polling',async()=>{
 test('a failed first poll waits 30 seconds before retrying',async()=>{
  const h=await browserHarness();const running=h.api.refreshLive();h.requests[0].reject(Error('network unavailable'));await running;
  assert.equal(h.api.live.checkedAt,'');assert.ok([...h.timers.values()].some(t=>t.delay===30000));assert.ok(![...h.timers.values()].some(t=>t.delay===500));
+});
+
+test('voice cue ignores the initial list, repeated polls and removals, but notices a new request even when counts stay equal',async()=>{
+ const h=await browserHarness();
+ async function update(checkedAt,latestAt,arrivals){const running=h.api.refreshLive();h.requests.at(-1).resolve({checkedAt,latestAt,pending:arrivals,arrivals});await running;}
+ await update('2026-11-02T01:00:00.000Z','2026-11-02T00:59:00.000Z',0);
+ assert.deepEqual(h.sounds,[]);
+ await update('2026-11-02T01:01:00.000Z','2026-11-02T01:00:30.000Z',1);
+ assert.deepEqual(h.sounds,['new']);
+ await update('2026-11-02T01:02:00.000Z','2026-11-02T01:00:30.000Z',1);
+ await update('2026-11-02T01:03:00.000Z','2026-11-02T00:59:00.000Z',0);
+ assert.deepEqual(h.sounds,['new']);
+ await update('2026-11-02T01:04:00.000Z','2026-11-02T01:03:30.000Z',0);
+ assert.deepEqual(h.sounds,['new','new']);
+ h.document.hidden=true;h.listeners.visibilitychange();assert.equal(h.sounds.at(-1),'stop');
+ h.api.clear();assert.equal(h.sounds.at(-1),'reset');
 });

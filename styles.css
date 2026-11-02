@@ -111,3 +111,13 @@ textarea.message-place{field-sizing:content;min-height:96px}
 
 /* Direct reservations reuse the existing form and card layout. */
 .direct-booking-launch{display:flex;justify-content:flex-end;margin-top:20px}.direct-booking-launch .primary{width:auto}.direct-booking fieldset{border:0;padding:0;margin:0;min-width:0}.direct-booking legend{font-size:14px;font-weight:650;padding:8px 0 0}.direct-booking h2{font-size:20px;margin:0;word-break:keep-all}.direct-options{margin-top:22px}.direct-booking .admin-cols>div{min-width:0}.direct-booking input[readonly]{background:#f5f5f7}.direct-booking .form-error:empty{display:none}.direct-booking .form-error{scroll-margin:24px}
+
+/* Keep message labels readable without splitting words on narrow cards. */
+.btnrow>.customer-message-button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0}
+.customer-message-label,.customer-message-phone{white-space:nowrap;word-break:normal;overflow-wrap:normal}
+.customer-message-phone{font-size:12px;font-weight:400;line-height:1.4;font-variant-numeric:tabular-nums;color:var(--muted)}
+.inbox-sound{flex-basis:100%;border-top:1px solid var(--line);padding-top:12px}
+.inbox-sound-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.inbox-sound-actions button{width:auto;white-space:nowrap}
+.inbox-sound p{margin:10px 0 0;line-height:1.6}
+@media(max-width:540px){.inbox-sound-actions button{flex:1}.inbox-sound-actions [role=status]{flex-basis:100%}}
