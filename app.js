@@ -100,6 +100,8 @@ function yachtInclusionTable(p){
 function comparisonTable(p){
  const packages=p.packages;if(packages.length<2)return '';
  if(p.category==='yacht')return yachtInclusionTable(p);
+ // Visit services absent from a package are not included (owner confirmed 2026-11-02).
+ const unavailable=p.category==='visit'?'미포함':'상담 확인';
  const rows=[];
  const featureLabels={"헬기탑승 및 비행":"헬기 비행","지상 남자친구의 헤드셋 편지 낭독 (운항 승인 전제)":"헤드셋 편지 낭독 (운항 승인 전제)","착륙 후 WILL YOU MARRY ME? 손현수막":"착륙 후 손현수막","헬기 앞 테이블 세팅·샴페인":"테이블 세팅 · 샴페인","헬기 앞 기념촬영":"헬기 앞 기념촬영","헬기 내부 액션캠 영상":"헬기 내부 액션캠 영상","지상 편지 낭독 장면 촬영":"지상 편지 낭독 촬영","이·착륙 현장 반응 촬영":"이·착륙 반응 촬영","헬기 앞 DSLR 사진 촬영":"DSLR 사진 촬영","사진·영상 촬영 원본 제공":"사진·영상 원본","추억영상 편집본 제공":"추억영상 편집본"};
  const heading=pk=>p.category==='heli'?({basic:'기본',original:'촬영 원본',edited:'원본 + 편집본'}[pk.id]||pk.name):pk.name;
@@ -111,17 +113,17 @@ function comparisonTable(p){
   if((pk.features||[]).includes(feature))return '포함';
   const video=p.category==='visit'&&feature==='맞춤 영상편지 제작·현장 세팅'&&pk.options?.find(o=>o.id==='video-letter');
   if(video)return krw(video.amount);
-  return pk.excludedFeatures?.includes(feature)||(feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||''))?'미포함':'상담 확인';
+  return pk.excludedFeatures?.includes(feature)||(feature==='추억영상 편집본 제공'&&/편집본.*포함되지/.test(pk.note||''))?'미포함':unavailable;
  })});
  if(p.category==='visit'){
   const at=rows.findIndex(r=>r.label==='영상편지 제작');
   if(at>=0)rows.push(...rows.splice(at,1));
-  rows.push({label:'영상편지 제작후 소장용 USB 구매',values:packages.map(pk=>{const usb=pk.options?.find(o=>o.id==='usb');return usb?krw(usb.amount):'상담 확인';})});
+  rows.push({label:'영상편지 제작후 소장용 USB 구매',values:packages.map(pk=>{const usb=pk.options?.find(o=>o.id==='usb');return usb?krw(usb.amount):unavailable;})});
  }
  const options=[...new Map(packages.flatMap(pk=>(pk.options||[]).filter(o=>!(p.category==='visit'&&['video-letter','usb'].includes(o.id))).map(o=>[o.name,o]))).values()];
- for(const option of options)rows.push({label:p.category==='visit'&&option.id==='bouquet'?'꽃다발':option.name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===option.name);return o?krw(o.amount)+(p.category==='visit'?'':' 추가'):'상담 확인';})});
+ for(const option of options)rows.push({label:p.category==='visit'&&option.id==='bouquet'?'꽃다발':option.name+' (선택)',values:packages.map(pk=>{const o=pk.options?.find(o=>o.name===option.name);return o?krw(o.amount)+(p.category==='visit'?'':' 추가'):unavailable;})});
  if(!rows.length)return '';
- const cellValue=value=>p.category==='visit'&&value==='포함'?'<span class="inclusion-mark" role="img" aria-label="포함">✓</span>':escapeHTML(value);
+ const cellValue=value=>p.category==='visit'&&['포함','미포함'].includes(value)?'<span class="inclusion-mark'+(value==='미포함'?' excluded':'')+'" role="img" aria-label="'+value+'">'+(value==='포함'?'✓':'–')+'</span>':escapeHTML(value);
  return '<section class="package-comparison" aria-label="'+escapeHTML(p.name)+' 제공사항 비교"><div class="comparison-scroll" tabindex="0" role="region" aria-label="'+escapeHTML(p.name)+' 패키지 비교표"><table class="compare-table'+(packages.length===3?' three-options':'')+'" '+(packages.length>3?'style="min-width:'+ (120+packages.length*85)+'px"':'')+'><caption>제공사항 한눈에 비교</caption><thead><tr><th scope="col">제공사항</th>'+packages.map(pk=>'<th scope="col" aria-label="'+escapeHTML(pk.name)+'">'+escapeHTML(heading(pk))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr><th scope="row" aria-label="'+escapeHTML(row.fullLabel||row.label)+'">'+escapeHTML(row.label)+'</th>'+row.values.map(v=>'<td class="'+(v==='포함'?'included':'')+'">'+cellValue(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'+(rows.some(r=>r.values.includes('상담 확인'))?'<p class="micro comparison-note">상담 확인: 제공 여부·조건을 상담 시 안내합니다.</p>':'')+'</section>';
 }
 
