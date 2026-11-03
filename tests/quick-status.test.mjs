@@ -1,0 +1,59 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
+
+async function harness(){
+ const requests=[],stages=[],initializations=[],elements={};let composerDirty=false;
+ const el=()=>({dataset:{},textContent:'',innerHTML:'',value:'',checked:false,disabled:false,hidden:true,setAttribute(k,v){this[k]=v;},focus(){},querySelector(){return null;}});
+ for(const id of ['quickStatus','quickStatusTrigger','quickStatusMenu','quickStatusFeedback','requestStatus','requestAssignee','requestContacted','requestSaveFeedback','requestHistory','messageComposer','requestNote'])elements['#'+id]=el();
+ const fieldset=el(),saveButton=el();elements['#requestStatusEditor']={...el(),querySelector:s=>s==='fieldset'?fieldset:saveButton};
+ elements['#requestNote'].value='저장 전 합성 메모';elements['#requestAssignee'].value='unsaved-assignee';elements['#requestContacted'].checked=true;
+ const composer={isBusy:()=>false,isDirty:()=>composerDirty,clear(){},init:item=>initializations.push(item),openStage:s=>stages.push(s)};
+ const context=vm.createContext({window:{MomentLinkComposer:composer,MomentLinkSound:()=>({reset(){},stop(){}}),MomentLinkDirectBooking:()=>({close(){}}),addEventListener(){}},document:{title:'test',hidden:false,querySelector:s=>elements[s]||null,getElementById:id=>elements['#'+id],addEventListener(){}},location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,setTimeout:()=>1,clearTimeout(){},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data}),reject}))});
+ const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
+ vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={saveQuickStatus,requestStatusEntries,getDetail:()=>detail,setDetail:x=>detail=x};user={id:'synthetic',role:'admin'};render=()=>{};`),context);
+ const item={id:'synthetic',version:3,status:'new',assignee:null,contacted:false,communication:{}};
+ context.window.test.setDetail({item,notes:[],history:[]});
+ return {api:context.window.test,item,elements,requests,stages,initializations,fieldset,setComposerDirty:v=>composerDirty=v};
+}
+
+test('quick change saves only status, blocks duplicate clicks and preserves other edited fields',async()=>{
+ const h=await harness();h.setComposerDirty(true);
+ const saving=h.api.saveQuickStatus('consulting');
+ assert.equal(h.elements['#quickStatusFeedback'].dataset.state,'saving');assert.equal(h.fieldset.disabled,true);assert.equal(h.elements['#messageComposer'].inert,true);
+ await h.api.saveQuickStatus('hold');assert.equal(h.requests.length,1);
+ assert.equal(h.requests[0].options.method,'PATCH');assert.deepEqual(JSON.parse(h.requests[0].options.body),{version:3,status:'consulting'});
+ h.requests[0].resolve({item:{...h.item,version:4,status:'consulting'}});await saving;
+ assert.equal(h.api.getDetail().item.status,'consulting');assert.equal(h.api.getDetail().item.version,4);assert.equal(h.initializations.length,1);
+ assert.match(h.elements['#quickStatusFeedback'].textContent,/상담중 상태로 저장했습니다/);
+ assert.match(h.elements['#requestStatus'].innerHTML,/value="consulting" selected/);
+ assert.equal(h.elements['#requestNote'].value,'저장 전 합성 메모');assert.equal(h.elements['#requestAssignee'].value,'unsaved-assignee');assert.equal(h.elements['#requestContacted'].checked,true);
+ assert.match(h.elements['#requestSaveFeedback'].textContent,/아직 저장하지 않았습니다/);assert.equal(h.fieldset.disabled,false);assert.equal(h.elements['#messageComposer'].inert,false);
+});
+
+test('same status does nothing and confirmation opens the existing validated booking flow',async()=>{
+ const h=await harness();await h.api.saveQuickStatus('new');await h.api.saveQuickStatus('confirmed');
+ assert.equal(h.requests.length,0);assert.deepEqual(h.stages,['confirmed']);assert.equal(h.api.getDetail().item.status,'new');assert.match(h.elements['#quickStatusFeedback'].textContent,/입금 확인/);
+ await h.api.saveQuickStatus('closed');assert.equal(h.requests.length,0,'legacy closed state cannot be chosen');
+ h.setComposerDirty(true);await h.api.saveQuickStatus('cancelled');assert.equal(h.requests.length,0);assert.match(h.elements['#quickStatusFeedback'].textContent,/먼저 저장/);
+});
+
+test('failed saves keep the existing status and show a retryable result',async()=>{
+ for(const kind of ['conflict','network']){
+  const h=await harness(),saving=h.api.saveQuickStatus('awaiting_payment');
+  if(kind==='conflict')h.requests[0].resolve({message:'다른 직원이 변경했습니다.'},409);else h.requests[0].reject(Error('offline'));
+  await saving;assert.equal(h.api.getDetail().item.status,'new');assert.equal(h.elements['#quickStatusFeedback'].dataset.state,'error');assert.equal(h.fieldset.disabled,false);assert.equal(h.elements['#quickStatusTrigger'].disabled,false);
+ }
+});
+
+test('late save responses cannot overwrite a different consultation',async()=>{
+ const h=await harness(),saving=h.api.saveQuickStatus('hold');const next={item:{...h.item,id:'another'},notes:[],history:[]};h.api.setDetail(next);
+ h.requests[0].resolve({item:{...h.item,version:4,status:'hold'}});await saving;assert.equal(h.api.getDetail(),next);assert.equal(h.initializations.length,0);
+});
+
+test('confirmed bookings expose only valid completion/cancellation transitions',async()=>{
+ const h=await harness(),r={...h.item,status:'confirmed',communication:{reservation:{}}};
+ assert.deepEqual(JSON.parse(JSON.stringify(h.api.requestStatusEntries(r))),[['confirmed','확정'],['closed','이벤트 완료'],['cancelled','취소']]);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.api.requestStatusEntries({...r,status:'cancelled'}))),[['cancelled','취소']]);
+});
