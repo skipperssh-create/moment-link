@@ -190,7 +190,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });if(method!=='GET')await dispatch(id);if(result.item)result.item.integration=(await db.query('SELECT id,state,error_code,external_id,updated_at FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0]||null;return json(result);
+   });await dispatch(id);if(result.item)result.item.integration=(await db.query('SELECT id,state,attempts,error_code,external_id,updated_at FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0]||null;return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
   if(path==='/api/admin/retention'&&method==='POST'){authorize(user,true);return json(await purgeExpired(db));}
