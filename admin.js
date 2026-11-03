@@ -94,10 +94,10 @@ async function refreshLive(){
   if(!user){resetLive();notice='로그인을 다시 확인해 주세요.';render();}
  }finally{clearTimeout(timeout);if(generation===live.generation){live.controller=null;paintLive();scheduleLive();}}
 }
-async function showNewInquiries(){
+async function showNewInquiries(home=false){
  if((dirty||composer.isDirty())&&!confirm('저장하지 않은 변경을 버리고 새 접수를 볼까요?'))return;
  suspendLive();const acknowledged=live.checkedAt;busy=true;paintLive();
- try{const result=await api('admin/consultations?view=all&status=all');composer.clear();direct.close();dirty=false;detail=null;tab='inbox';search='';offset=0;requestStatus='all';items=result.items;counts=result.counts;live.since=acknowledged;live.arrivals=0;notice='새로 들어온 상담부터 표시합니다.';}
+ try{const result=await api('admin/consultations?view=all&status=all');composer.clear();direct.close();dirty=false;detail=null;tab='inbox';search='';offset=0;requestStatus='all';items=result.items;counts=result.counts;live.since=acknowledged;live.arrivals=0;live.error='';if(home){deletionPrompt=null;window.history.replaceState(null,'','#admin');}notice=home?'상담 접수함을 새로고침했습니다.':'새로 들어온 상담부터 표시합니다.';}
  catch(err){notice=err.message;}
  finally{busy=false;render();window.scrollTo(0,0);}
 }
@@ -106,7 +106,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){suspendLiv
 window.addEventListener('offline',()=>{suspendLive();paintLive();});
 window.addEventListener('online',resumeLive);
 window.addEventListener('focus',resumeLive);
-function header(){return `<header><div class="brand">MOMENT LINK</div><nav class="nav"><a class="tab" href="#">고객 화면</a><button type="button" class="tab" data-pwa-install>앱 설치</button>${user?button('logout','로그아웃'):''}</nav></header>`;}
+function header(){return `<header><div class="brand">${user&&!user.mustChangePassword?'<button type="button" data-ml="homeInbox" aria-label="상담 접수함 새로고침" title="상담 접수함 새로고침" style="font:inherit;letter-spacing:inherit;background:none;border:0;border-radius:0;padding:0;color:inherit;text-align:left;cursor:pointer">MOMENT LINK</button>':'MOMENT LINK'}</div><nav class="nav"><a class="tab" href="#">고객 화면</a><button type="button" class="tab" data-pwa-install>앱 설치</button>${user?button('logout','로그아웃'):''}</nav></header>`;}
 function login(){return `<main class="layout"><section class="page"><div class="hero-card"><h1 class="page-title">관리자 로그인</h1><p class="muted">허가된 직원만 상담 내역을 확인할 수 있습니다.</p><p class="micro">이 기기에서 로그인이 자동으로 유지됩니다.</p><form id="mlLogin">${input('loginUser','아이디','','text')}${input('loginPassword','비밀번호','','password')}<button class="primary" style="width:100%;margin-top:20px" ${busy?'disabled':''}>${busy?'확인 중…':'로그인'}</button></form></div></section></main>`;}
 function passwordPanel(){return `<div class="admin-card"><h2>아이디·비밀번호 변경</h2>${input('accountUsername','로그인 아이디',user.username)}${input('currentPassword','현재 비밀번호','','password')}${input('newPassword','새 비밀번호 · 8자 이상','','password')}${button('password','변경 후 다시 로그인')}</div>`;}
 function assigneePicker(value){
@@ -301,7 +301,7 @@ document.addEventListener('ml:reservation-confirmed',()=>{tab='reservations';res
 document.addEventListener('submit',async ev=>{if(ev.target.id==='requestSearchForm'){ev.preventDefault();if(busy)return;suspendLive();busy=true;search=val('requestSearch').trim();offset=0;notice='';try{await load();}catch(err){notice=err.message;}finally{busy=false;render();}return;}if(ev.target.id!=='mlLogin')return;ev.preventDefault();if(busy)return;suspendLive();const credentials={username:val('loginUser'),password:val('loginPassword')};busy=true;notice='';try{const s=await api('auth/login','POST',credentials);resetLive();user=s.user;anti=s.csrf;tab='inbox';await load();await followRequest();}catch(err){notice=err.message;}finally{busy=false;render();}});
 document.addEventListener('change',ev=>{if(location.hash.startsWith('#admin')&&['requestStatus','requestContacted'].includes(ev.target.id))statusEdited();});
 document.addEventListener('input',ev=>{if(location.hash.startsWith('#admin')&&ev.target.closest('.admin-card')&&!ev.target.closest('#messageComposer'))dirty=true;});
-document.addEventListener('click',async ev=>{if(!location.hash.startsWith('#admin'))return;const b=ev.target.closest('[data-ml]');if(!b||busy||composer.isBusy())return;let action=b.dataset.ml;if(action==='saveRequest'){await saveRequestState();return;}if(action==='toggleSound'){sound.toggle();return;}if(action==='previewSound'){sound.preview();return;}if(action==='refreshLive'){await refreshLive();return;}if(action==='newInquiries'){await showNewInquiries();return;}suspendLive();const approved=action==='approveDeletion';if(approved){action=b.dataset.kind;deletionPrompt=null;}if(action==='cancelDeletion'){deletionPrompt=null;render();return;}
+document.addEventListener('click',async ev=>{if(!location.hash.startsWith('#admin'))return;const b=ev.target.closest('[data-ml]');if(!b||busy||composer.isBusy())return;let action=b.dataset.ml;if(action==='saveRequest'){await saveRequestState();return;}if(action==='toggleSound'){sound.toggle();return;}if(action==='previewSound'){sound.preview();return;}if(action==='refreshLive'){await refreshLive();return;}if(action==='newInquiries'){await showNewInquiries();return;}if(action==='homeInbox'){await showNewInquiries(true);return;}suspendLive();const approved=action==='approveDeletion';if(approved){action=b.dataset.kind;deletionPrompt=null;}if(action==='cancelDeletion'){deletionPrompt=null;render();return;}
 if(!approved&&['deleteRequest','trashRequest','permanentRequest','emptyTrash'].includes(action)){
  const r=action==='deleteRequest'?detail?.item:items.find(r=>r.id===b.dataset.id),permanent=['permanentRequest','emptyTrash'].includes(action);
  deletionPrompt={kind:action,id:r?.id,permanent,message:action==='emptyTrash'?'휴지통의 모든 페이지에 있는 상담·문자·메모를 영구 삭제합니다. 복원할 수 없습니다.':permanent?r.person+'님의 상담·문자·메모를 영구 삭제합니다. 복원할 수 없습니다.':r.person+'님의 상담을 휴지통으로 이동합니다. 7일 이내에 복원할 수 있으며, 기존 개인정보 보유기한이 먼저 적용됩니다. 외부 OPS 예약은 취소되지 않습니다.'};render();return;
