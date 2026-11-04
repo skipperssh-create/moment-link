@@ -401,3 +401,58 @@ textarea.message-place{field-sizing:content;min-height:96px}
 @media(max-width:650px){.catalog-product-list{grid-template-columns:minmax(0,1fr)}.catalog-package>summary{grid-template-columns:minmax(0,1fr) auto}.catalog-package-prices{grid-column:1;justify-content:flex-start}.catalog-package>summary:after{grid-column:2;grid-row:1/span 2}}
 @media(max-width:600px){.catalog-manager{margin-top:12px}.catalog-editor{padding:14px}.catalog-field-grid{grid-template-columns:minmax(0,1fr)}.catalog-filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.catalog-visibility{display:grid;gap:0}.catalog-package{padding-inline:11px}.catalog-package-prices{gap:8px 12px}.catalog-section{padding-block:14px}.catalog-photos{padding-block:0}.catalog-package-prices strong{font-size:18px}.catalog-toolbar{gap:8px}.catalog-toolbar>.micro{flex-basis:100%}.catalog-editor-heading h2{font-size:18px}}
 @media(prefers-reduced-motion:reduce){.catalog-product-choice{transition:none}}
+
+/* Message settings share the same labelled action tiles as the catalog. */
+.notification-manager{margin-top:16px}
+.notification-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.notification-toolbar>.micro{margin:0;max-width:580px}
+.notification-card{padding:18px 20px;margin-top:12px;border-radius:14px}
+.notification-card h2{font-size:15px;line-height:1.6;font-weight:650;margin:0 0 14px}
+.notification-section-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-bottom:12px}
+.notification-section-heading h2{margin:0}
+.notification-gates{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11px}
+.notification-gates>.micro{font-size:10px;margin-right:2px}
+.notification-gate{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border:1px solid #e7e7eb;border-radius:7px;background:#f7f7f9;color:#66676d;font-size:11px;font-weight:550;white-space:nowrap}
+.notification-gate .admin-icon{width:13px;height:13px}
+.notification-gate[data-enabled=true]{background:#f0f7f3;border-color:#d3e5d9;color:#28634b}
+.notification-switches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;min-width:0;border:0;padding:0;margin:0}
+.notification-toggle{display:flex;align-items:center;gap:10px;min-width:0;min-height:68px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
+.notification-toggle:has(input:checked){background:#f4f7fa;border-color:#ccdbe6}
+.notification-toggle:focus-within{outline:2px solid #4578c4;outline-offset:2px}
+.notification-toggle>input{flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#315a78}
+.notification-toggle>span{display:grid;gap:3px;min-width:0}
+.notification-toggle strong{font-size:13px;font-weight:600;line-height:1.5;word-break:keep-all}
+.notification-toggle .micro{font-size:11px;line-height:1.5}
+.notification-hint{font-size:11px;line-height:1.7;margin:10px 0 0}
+.notification-contact-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.notification-contact-grid>div{min-width:0}
+.notification-manager .admin-label{font-size:12px;line-height:1.6;margin:0 0 5px}
+.notification-manager .admin-input{min-height:44px;width:100%;min-width:0;max-width:100%;padding:9px 11px;margin:0;border-radius:10px;font-size:16px}
+.notification-templates{display:grid}
+.notification-template{border-top:1px solid #eeeef1}
+.notification-template:first-child{border-top:0}
+.notification-template>summary{min-height:64px;gap:12px;padding:12px 0}
+.notification-template>summary>span{display:grid;gap:3px;min-width:0}
+.notification-template>summary strong{font-size:13px;line-height:1.5;font-weight:600}
+.notification-template>summary .micro{font-size:11px;font-weight:400}
+.notification-template-body{padding:0 0 14px}
+.notification-template-body textarea.admin-input{min-height:118px;font-size:14px;line-height:1.8;resize:vertical}
+.notification-template-body .notification-hint{overflow-wrap:anywhere}
+.notification-save-row{margin:14px 0 18px}
+.notification-device{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.notification-device>div:first-child{flex:1 1 250px;min-width:0}
+.notification-device h2{margin-bottom:6px}
+.notification-device p{font-size:12px;line-height:1.7;margin:0;max-width:620px}
+.notification-device-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+@media(max-width:650px){.notification-switches,.notification-contact-grid{grid-template-columns:minmax(0,1fr)}.notification-card{padding:14px}.notification-card h2{font-size:14px}.notification-template-body textarea.admin-input{font-size:16px}.notification-toolbar{align-items:center;gap:10px}.notification-section-heading{align-items:flex-start}.notification-device>div:first-child{flex-basis:100%}}
+
+/* Compact live controls on message/notification settings. */
+.notification-live{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;background:#fff;padding:16px;border-color:var(--line)}
+.notification-live .inbox-live-copy strong{font-size:14px}
+.notification-live .inbox-live-actions{width:auto;align-items:center}
+.notification-live .inbox-live-actions .admin-icon-button,.notification-live .inbox-sound-actions .admin-icon-button{flex:0 0 64px;width:64px;min-height:64px;padding:7px 3px;white-space:normal}
+.notification-live .inbox-sound{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding-top:14px}
+.notification-live .inbox-sound-actions{flex:none;gap:8px}
+.notification-sound-copy{min-width:0}
+.notification-sound-copy p{font-size:12px;margin:5px 0 0;color:var(--muted)}
+@media(max-width:600px){.notification-live{padding:14px}.notification-live .inbox-live-actions .admin-icon-button,.notification-live .inbox-sound-actions .admin-icon-button{flex-basis:56px;width:56px;min-height:60px}.notification-live .inbox-sound{align-items:flex-start;flex-wrap:wrap;gap:10px}.notification-sound-copy{flex-basis:100%}}
