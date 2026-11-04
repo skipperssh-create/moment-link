@@ -19,6 +19,15 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   const auth=await login('status-admin'),staff=await login('status-staff');
   assert.equal((await req('consultations','POST',{catalogVersion:1,productId:'visit',packageId:'light',category:'visit',person:'합성 상태 검수',phone:'01000000000',preferences:[{date:'2099-11-21',time:'오후'}],place:'합성 장소',notes:'SYNTHETIC ONLY',consent:true,consentVersion:'test'},{'Idempotency-Key':randomUUID()})).status,201);
   const original=(await db.query('SELECT * FROM moment_link.consultations')).rows[0],base='admin/consultations/'+original.id;
+  for(const status of ['initial_unreachable','consulting','no_response']){
+   const data={version:original.version,status};
+   assert.equal((await req(base,'PATCH',data,staff)).status,404);
+   const changed=await req(base,'PATCH',data,auth);assert.equal(changed.status,200);original.version=changed.data.item.version;
+   await migrate(db); // Earlier migrations must not reintroduce a restrictive status constraint.
+   const filtered=(await req('admin/consultations?view=inbox&status='+status,'GET',undefined,auth)).data;
+   assert.deepEqual(filtered.items.map(x=>x.id),[original.id]);assert.equal(filtered.items[0].status,status);assert.equal(filtered.counts[status],1);
+   assert.equal((await req('admin/consultations?status='+status,'GET',undefined,staff)).data.counts[status],0);
+  }
   let data={version:original.version,status:'awaiting_payment',contacted:true};
   assert.equal((await req(base,'PATCH',data)).status,401);
   assert.equal((await req(base,'PATCH',data,staff)).status,404);
@@ -45,6 +54,7 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   list=await req('admin/consultations?view=reservations&status=confirmed','GET',undefined,staff);assert.equal(list.data.items[0].id,original.id);
   assert.equal((await req('admin/consultations?status=awaiting_payment','GET',undefined,auth)).data.counts.awaiting_payment,0);
   assert.equal((await req(base,'PATCH',{version:current.version,status:'awaiting_payment'},auth)).status,409);
+  for(const status of ['initial_unreachable','no_response'])assert.equal((await req(base,'PATCH',{version:current.version,status},auth)).status,409);
   for(const table of ['outbox','integration_jobs'])assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
   const audit=(await req(base,'GET',undefined,auth)).data.history;assert.ok(audit.some(x=>x.action==='reservation.confirmed'));
  }finally{await pg.close();}

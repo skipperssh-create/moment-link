@@ -164,5 +164,12 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .request-note-editor .quick-status-feedback{margin:12px 0}
 .request-note{border-top:1px solid var(--line);padding:12px 0}
 .request-note p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;font-size:14px;line-height:1.7;margin:0 0 4px}
+.list-note-editor{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.list-note-editor>.admin-label{margin:0 0 10px}
+.list-note-editor .request-note{padding:8px 0;border-top:0}
+.list-note-editor .admin-input{margin:4px 0 0;min-height:76px;resize:vertical}
+.list-note-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px}
+.list-note-footer .quick-status-feedback{margin:0;min-width:0}
+.list-note-footer button{flex-shrink:0;min-height:44px;padding:10px 18px}
 @media(max-width:600px){.list-confirmation-fields{grid-template-columns:1fr}.list-confirmation,.request-note-editor{padding:12px}.list-quick-status .quick-status-menu{right:0;left:auto}}
 @media(max-width:600px){.quick-status-menu{left:0;right:auto}.reservation-heading .primary{margin-left:auto}}
