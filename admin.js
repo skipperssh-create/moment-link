@@ -55,6 +55,7 @@ async function saveListStatus(id,status,confirmation){
  if(listStatusState.saving||busy||composer.isBusy())return;
  const item=items.find(r=>r.id===id);if(!item||!requestStatusEntries(item).some(([key])=>key===status))return;
  closeListStatus(true);if(item.status===status)return;
+ if(status==='cancelled'&&item.status==='confirmed'&&!approveCancellation(item))return;
  if(status==='confirmed'&&!confirmation){
   if(listStatusState.confirmationId&&listStatusState.confirmationId!==id&&!confirm('작성 중인 예약 확정 정보를 닫을까요?'))return;
   suspendLive();busy=true;
@@ -68,7 +69,7 @@ async function saveListStatus(id,status,confirmation){
  suspendLive();listStatusState.saving=true;busy=true;paintLive();
  listStatusFeedback('saving','상태를 저장하고 있습니다…');
  document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select').forEach(el=>{el.disabled=true;});
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),status==='cancelled'?60000:12000);
  try{
   const result=await api('admin/consultations/'+encodeURIComponent(id),'PATCH',{version:item.version,status,...(confirmation?{confirmation}:{})},controller.signal);
   if(!current())return;
@@ -76,13 +77,13 @@ async function saveListStatus(id,status,confirmation){
   counts[item.status]=Math.max(0,(counts[item.status]||0)-1);counts[updated.status]=(counts[updated.status]||0)+1;
   const filter=tab==='reservations'?reservationStatus:requestStatus;
   items=items.map(r=>r.id===id?{...r,...updated}:r).filter(r=>filter==='all'||r.status===filter);
-  listStatusFeedback('success',item.person+' · '+statusLabel(updated)+' 상태로 저장했습니다.');
+  listStatusFeedback('success',item.person+' · '+(cancellationMessage(updated)||statusLabel(updated)+' 상태로 저장했습니다.'));
   try{const fresh=await api(path,'GET',undefined,controller.signal);if(current()){items=fresh.items;counts=fresh.counts;}}
-  catch{if(current())listStatusFeedback('success',item.person+' · '+statusLabel(updated)+' 상태로 저장했습니다. 목록 갱신은 새로고침을 눌러 주세요.');}
+  catch{if(current())listStatusFeedback('success',item.person+' · '+(cancellationMessage(updated)||statusLabel(updated)+' 상태로 저장했습니다.')+' 목록 갱신은 새로고침을 눌러 주세요.');}
   if(current()){root.innerHTML=inboxListing();(root.querySelector('[data-list-status-toggle="'+id+'"]')||document.getElementById('requestSearch'))?.focus({preventScroll:true});}
  }catch(err){
   if(!user){notice='로그인이 만료되었습니다. 다시 로그인해 주세요.';render();}
-  else if(current())listStatusFeedback('error',!err.status?'저장 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.':err.status===409?'다른 곳에서 변경된 내역입니다. 새로고침 후 다시 선택해 주세요.':err.message);
+  else if(current())listStatusFeedback('error',!err.status?'저장 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.':err.message);
  }finally{clearTimeout(timeout);listStatusState.saving=false;busy=false;if(current())document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select').forEach(el=>{el.disabled=false;});paintLive();scheduleLive();}
 }
 document.addEventListener('click',ev=>{
@@ -114,7 +115,11 @@ document.addEventListener('submit',ev=>{
  const drafts={...r.communication?.drafts,confirmed:MomentLinkMessages.generate(r,'confirmed',booking)};
  void saveListStatus(r.id,'confirmed',{booking,drafts,approved:true});
 });
-const statusLabel=r=>r.communication?.reservation&&r.status==='closed'?'이벤트 완료':statuses[r.status];
+const cancellationPending=r=>r.integration?.operation==='cancel'&&r.integration.state!=='succeeded';
+const cancellationMessage=r=>r.integration?.operation==='cancel'?(r.status==='cancelled'?'예약을 취소했습니다. 연결된 OPS에도 반영되었습니다. 환불은 별도로 확인해 주세요.':r.integration.state==='conflict'?'OPS 취소를 완료하지 못했습니다. 기존 예약은 유지됩니다. 상세 화면의 OPS 상태를 확인해 주세요.':'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.') : '';
+const approveCancellation=r=>confirm(r.person+' · '+(r.communication?.booking?.date||'')+' '+(r.communication?.booking?.time||'')+' 예약을 취소할까요?'+(r.integration?'\n연결된 OPS 예약도 함께 취소합니다. 환불은 별도로 확인해 주세요.':''));
+function syncCancellationPanel(r){if(r.integration?.operation!=='cancel')return;const node=$('#boatnOpsStatus');if(node){node.outerHTML=window.MomentLinkOps.panel(r);window.MomentLinkOps.mount(r,api);}composer.clear();composer.init(r,api,item=>{if(detail?.item.id===item.id)detail.item=item;},settings);const message=$('#messageComposer');if(message)message.outerHTML=composer.html();}
+const statusLabel=r=>cancellationPending(r)?'취소 확인 중':r.communication?.reservation&&r.status==='closed'?'이벤트 완료':statuses[r.status];
 const tabs={inbox:'상담 접수함',reservations:'확정 예약',trash:'휴지통',products:'상품 관리',settings:'문자·알림',places:'장소 관리',privacy:'접수·개인정보',ops:'OPS 연동',users:'직원 계정'};
 let user=null,anti='',tab='inbox',notice='',busy=false,dirty=false,items=[],users=[],products=[],draftVersion=0,settings={},settingsVersion=0,gates={},jobs={notifications:[],integrations:[]},editId='',productCategory='all',productState='active',detail=null,search='',offset=0,reservationStatus='confirmed',requestStatus='all',counts={},trashBefore='',deletionPrompt=null;
 const val=id=>document.getElementById(id)?.value||'';
@@ -271,7 +276,7 @@ function inboxListing(){
 }
 function trash(){return `<div class="btnrow"><button type="button" class="secondary" data-ml="tab" data-tab="inbox">← 상담 접수함</button></div><p class="muted">삭제한 상담은 7일 동안 복원할 수 있습니다. 기존 개인정보 보유기한이 먼저 끝나면 그날 만료됩니다. 만료된 내역은 숨겨지고 매일 자동으로 영구 삭제됩니다.</p><div class="inbox-tools">${button('refreshInbox','목록 새로고침')}${button('emptyTrash','휴지통 비우기')}<span class="micro">전체 ${counts.all??0}건</span></div>${offset||items.length===50?'<div class="btnrow inbox-pagination">'+(offset?button('previousPage','이전 50건'):'')+(items.length===50?button('nextPage','다음 50건'):'')+'</div>':''}<div class="inbox-results">${items.map(r=>`<div class="admin-card inbox-item"><div class="admin-row"><strong>${e(r.person)}</strong><span class="badge">${e(statuses[r.status])}</span></div><p class="micro">${e(r.receipt)} · ${e(r.phone)}</p><p>${e(r.snapshot.product.name)} · ${e(r.snapshot.package.name)}</p><p class="muted">복원 가능 기한 · ${e(new Date(r.delete_after).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}</p><div class="btnrow"><button class="secondary" data-ml="restoreRequest" data-id="${e(r.id)}">복원</button><button class="secondary" data-ml="permanentRequest" data-id="${e(r.id)}">영구 삭제</button></div></div>`).join('')||'<div class="empty">휴지통이 비어 있습니다.</div>'}</div>`;}
 
-function requestStatusEntries(r){return Object.entries(statuses).filter(([id])=>r.communication?.reservation?(r.status==='confirmed'?['confirmed','closed','cancelled'].includes(id):id===r.status):id!=='closed').map(([id,n])=>[id,id==='closed'&&r.communication?.reservation?'이벤트 완료':n]);}
+function requestStatusEntries(r){if(cancellationPending(r))return [[r.status,statusLabel(r)]];return Object.entries(statuses).filter(([id])=>r.communication?.reservation?(r.status==='confirmed'?['confirmed','closed','cancelled'].includes(id):id===r.status):id!=='closed').map(([id,n])=>[id,id==='closed'&&r.communication?.reservation?'이벤트 완료':n]);}
 function requestStatusOptions(r){const entries=requestStatusEntries(r);if(r.status==='closed'&&!r.communication?.reservation)entries.push(['closed','종결']);return entries.map(([id,n])=>`<option value="${id}" ${id===r.status?'selected':''} ${id==='closed'&&!r.communication?.reservation?'disabled hidden':''}>${n}</option>`).join('');}
 const actionCaptions={'목록 새로고침':'새로고침','상태 확인 / 안전 재시도':'확인·재시도','상태 확인 / 재시도':'확인·재시도','직원 계정 생성':'계정 생성','변경 후 다시 로그인':'정보 변경','접수 설정 저장':'설정 저장','만료 개인정보 정리':'만료 정리','장소 안내 저장':'안내 저장','음성 알림 켜기':'음성 켜기','음성 알림 끄기':'음성 끄기','새 접수 보기':'새 접수','이 기기 푸시 구독':'알림 구독','푸시 구독 해제':'구독 해제','상담 목록으로 돌아가기':'목록','예약·문자 안내 열기':'문자 안내','확정됨 · 정보 수정':'예약 수정','휴지통으로 이동':'삭제','직접 예약 등록':'예약 등록','검색 초기화':'초기화','이전 50건':'이전','다음 50건':'다음','메모 저장 중':'저장 중','메모 저장 완료':'저장 완료','메모 다시 저장':'다시 저장','메모 저장 다시 시도':'다시 저장','상태 저장 중':'저장 중','상태 저장 완료':'저장 완료','상태 저장 다시 시도':'다시 저장'};
 function detailIconContent(name,label){return icon(name)+'<span class="admin-action-text">'+e(actionCaptions[label]||label)+'</span>';}
@@ -300,8 +305,9 @@ async function saveQuickStatus(selected){
   catch(err){const message='확정하지 못했습니다. '+err.message;quickStatusFeedback('error',message);composer.openStage('confirmed',message);return;}
  }
  if(['cancelled','closed'].includes(selected)&&composer.isDirty()){quickStatusFeedback('error','작성 중인 문자·예약 정보를 먼저 저장해 주세요.');return;}
+ if(selected==='cancelled'&&r.status==='confirmed'&&!approveCancellation(r))return;
  let messageRoot=$('#messageComposer');
- const fieldset=root.querySelector('fieldset'),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+ const fieldset=root.querySelector('fieldset'),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),selected==='cancelled'?60000:20000);
  const current=()=>detail?.item.id===r.id&&$('#requestStatusEditor')===root;
  suspendLive();busy=true;closeAssignee();fieldset.disabled=true;if(messageRoot)messageRoot.inert=true;
  quickStatusFeedback('saving','상태를 저장하고 있습니다…');paintLive();
@@ -313,11 +319,11 @@ async function saveQuickStatus(selected){
   if(!current())return;
   detail.item=out.item;composer.init(out.item,api,item=>{if(detail?.item.id===item.id)detail.item=item;},settings);
   if(confirmation){composer.acceptConfirmation(out.item);messageRoot=$('#messageComposer');if(messageRoot)messageRoot.inert=true;const focusButton=$('.reservation-heading [data-ml=reservationFocus]');if(focusButton)paintDetailAction(focusButton,'calendar','확정됨 · 정보 수정');}
-  $('#requestStatus').innerHTML=requestStatusOptions(out.item);syncQuickStatus(out.item);
+  $('#requestStatus').innerHTML=requestStatusOptions(out.item);syncQuickStatus(out.item);syncCancellationPanel(out.item);messageRoot=$('#messageComposer');
   if(out.item.status==='cancelled'||out.item.status==='closed'&&out.item.communication?.reservation){$('.reservation-heading [data-ml=reservationFocus]')?.remove();messageRoot?.querySelector('.reservation-confirm')?.remove();}
-  quickStatusFeedback('success',statusLabel(out.item)+' 상태로 저장했습니다.'+(confirmation?' 확정 예약 목록에서 확인할 수 있습니다.':''));$('#quickStatusTrigger')?.focus({preventScroll:true});
+  quickStatusFeedback('success',(cancellationMessage(out.item)||statusLabel(out.item)+' 상태로 저장했습니다.')+(confirmation?' 확정 예약 목록에서 확인할 수 있습니다.':''));$('#quickStatusTrigger')?.focus({preventScroll:true});
   const otherEdits=(user.role==='admin'&&(val('requestAssignee')||null)!==(out.item.assignee||null))||$('#requestContacted').checked!==out.item.contacted;
-  statusFeedback(otherEdits?'changed':'success',otherEdits?'상태는 저장했습니다. 담당자·연락 완료 변경은 아직 저장하지 않았습니다.':statusLabel(out.item)+' 상태로 저장했습니다.');
+  statusFeedback(otherEdits?'changed':'success',otherEdits?'상태는 저장했습니다. 담당자·연락 완료 변경은 아직 저장하지 않았습니다.':(cancellationMessage(out.item)||statusLabel(out.item)+' 상태로 저장했습니다.'));
   void api('admin/consultations/'+r.id).then(fresh=>{if(current()&&detail.item.version===out.item.version){detail.notes=fresh.notes;detail.history=fresh.history;$('#requestHistory').innerHTML=requestHistory();}}).catch(()=>{});
  }catch(err){
   if(!user){notice='로그인이 만료되었습니다. 다시 로그인해 주세요.';render();}
@@ -356,12 +362,13 @@ async function saveRequestState(){
  let confirmation;
  if(confirming){try{confirmation=composer.confirmation();}catch(err){composer.openStage('confirmed');statusFeedback('error','확정하지 못했습니다. '+err.message);return;}}
  else if(composer.isDirty()){statusFeedback('error','문자·예약 정보 변경을 먼저 저장하거나 예약 확정해 주세요.');return;}
+ if(selected==='cancelled'&&r.status==='confirmed'&&!approveCancellation(r))return;
  const data={version:r.version,contacted:$('#requestContacted').checked,read:true};
  if(selected!=='confirmed'||confirming)data.status=selected;
  if(confirmation)data.confirmation=confirmation;
  if(user.role==='admin')data.assignee=val('requestAssignee')||null;
  let messageRoot=$('#messageComposer');const controller=new AbortController();
- const timeout=setTimeout(()=>controller.abort(),20000);
+ const timeout=setTimeout(()=>controller.abort(),selected==='cancelled'?60000:20000);
  suspendLive();busy=true;closeAssignee();statusFeedback('saving','상태를 저장하고 있습니다…');paintLive();
  if(messageRoot)messageRoot.inert=true;
  const current=()=>detail?.item.id===r.id&&$('#requestStatusEditor')===root;
@@ -373,7 +380,7 @@ async function saveRequestState(){
   if(confirming){composer.acceptConfirmation(out.item);messageRoot=$('#messageComposer');if(messageRoot)messageRoot.inert=true;const focusButton=$('.reservation-heading [data-ml=reservationFocus]');if(focusButton)paintDetailAction(focusButton,'calendar','확정됨 · 정보 수정');}
   $('#requestStatus').innerHTML=requestStatusOptions(out.item);
   const label=out.item.communication?.reservation&&out.item.status==='closed'?'이벤트 완료':statuses[out.item.status];
-  syncQuickStatus(out.item);quickStatusFeedback('success',label+' 상태로 저장했습니다.');
+  syncQuickStatus(out.item);syncCancellationPanel(out.item);messageRoot=$('#messageComposer');quickStatusFeedback('success',cancellationMessage(out.item)||label+' 상태로 저장했습니다.');
   if(out.item.status==='cancelled'||out.item.status==='closed'&&out.item.communication?.reservation){
    $('.reservation-heading [data-ml=reservationFocus]')?.remove();
    messageRoot?.querySelector('.reservation-confirm')?.remove();
@@ -381,7 +388,7 @@ async function saveRequestState(){
   // Keep the editor and its unsaved memo/OPS fields in place after saving status.
   dirty=[...root.closest('.admin-card').querySelectorAll('input,textarea')].some(el=>!root.contains(el)&&!messageRoot?.contains(el)&&(el.type==='checkbox'?el.checked!==el.defaultChecked:el.value!==el.defaultValue));
   const assigned=users.find(x=>x.id===out.item.assignee)?.username||(out.item.assignee===user.id?user.username:out.item.assignee?'담당자 배정됨':'미배정');
-  statusFeedback('success',(confirming?'예약을 확정했습니다. 확정 예약 목록에서 관리할 수 있습니다. ':'상태가 저장되었습니다. ')+label+' · '+assigned+' · '+(out.item.contacted?'연락 완료':'연락 전'));
+  statusFeedback('success',cancellationMessage(out.item)||(confirming?'예약을 확정했습니다. 확정 예약 목록에서 관리할 수 있습니다. ':'상태가 저장되었습니다. ')+label+' · '+assigned+' · '+(out.item.contacted?'연락 완료':'연락 전'));
   // Refresh audit history separately; a failed read must not turn a successful write into a failed save.
   void api('admin/consultations/'+r.id).then(fresh=>{if(current()&&detail.item.version===out.item.version){detail.notes=fresh.notes;detail.history=fresh.history;$('#requestHistory').innerHTML=requestHistory();}}).catch(()=>{});
  }catch(err){
@@ -505,8 +512,8 @@ function privacy(){
 const opsStateLabels={pending:'대기',blocked:'보류',checking:'확인 중',failed:'실패',uncertain:'확인 필요',conflict:'충돌',succeeded:'등록 완료',sending:'발송 중',sent:'발송 접수'};
 function opsJobRow(job,kind){
  const integration=kind==='integration',name=integration?(job.target==='boatn'?'BOATN OPS':job.target||'OPS'):({sms_customer:'고객 문자',sms_admin:'관리자 문자',push:'푸시 알림'}[job.channel]||job.channel||'알림');
- const label=integration?'상태 확인 / 안전 재시도':'상태 확인 / 재시도',tone=['succeeded','sent'].includes(job.state)?'success':['failed','conflict','uncertain'].includes(job.state)?'attention':'neutral';
- return '<li class="ops-job"><div class="ops-job-copy"><div class="ops-job-heading"><strong>'+e(name)+'</strong><span class="ops-job-state" data-tone="'+tone+'" title="'+e(job.state)+'">'+e(opsStateLabels[job.state]||job.state||'상태 미확인')+'</span></div>'+(integration?'<p class="ops-job-meta"><span>예약 ID</span><span>'+e(job.external_id||'미등록')+'</span></p>':'')+(job.error_code?'<p class="ops-job-code"><span>상세 코드</span><code>'+e(job.error_code)+'</code></p>':'')+'</div><div class="ops-job-actions"><button type="button" class="admin-icon-button" data-ml="runJob" data-kind="'+kind+'" data-id="'+e(job.id)+'" aria-label="'+e(name+' '+label)+'" title="'+e(label)+'" '+(busy?'disabled':'')+'>'+detailIconContent('refresh',label)+'</button></div></li>';
+ const cancelling=integration&&job.operation==='cancel',label=cancelling?(Number(job.attempts||0)>=2?'취소 결과 조회':'취소 상태 확인'):integration?'상태 확인 / 안전 재시도':'상태 확인 / 재시도',tone=['succeeded','sent'].includes(job.state)?'success':['failed','conflict','uncertain'].includes(job.state)?'attention':'neutral';
+ return '<li class="ops-job"><div class="ops-job-copy"><div class="ops-job-heading"><strong>'+e(name+(cancelling?' · 예약 취소':''))+'</strong><span class="ops-job-state" data-tone="'+tone+'" title="'+e(job.state)+'">'+e(cancelling&&job.state==='succeeded'?'취소 반영 완료':opsStateLabels[job.state]||job.state||'상태 미확인')+'</span></div>'+(integration?'<p class="ops-job-meta"><span>예약 ID</span><span>'+e(job.external_id||'미등록')+'</span></p>':'')+(job.error_code?'<p class="ops-job-code"><span>상세 코드</span><code>'+e(job.error_code)+'</code></p>':'')+'</div><div class="ops-job-actions"><button type="button" class="admin-icon-button" data-ml="runJob" data-kind="'+kind+'" data-id="'+e(job.id)+'" aria-label="'+e(name+' '+label)+'" title="'+e(label)+'" '+(busy||cancelling&&['succeeded','conflict'].includes(job.state)?'disabled':'')+'>'+detailIconContent('refresh',label)+'</button></div></li>';
 }
 function ops(){
  const integrations=jobs.integrations||[],notifications=jobs.notifications||[];
@@ -523,6 +530,7 @@ async function followRequest(){const id=location.hash.match(/^#admin\/request\/(
 async function mount(){suspendLive();notice='';try{const s=await api('auth/session');if(user?.id!==s.user?.id)resetLive();user=s.user;anti=s.csrf||'';await load();await followRequest();}catch(err){notice=err.message;}render();}
 function clear(){listNoteDrafts.clear();listNoteAttempts.clear();listNoteFeedbacks.clear();noteAttempts.clear();noteDrafts.clear();Object.assign(listStatusState,{id:'',confirmationId:'',saving:false});resetLive();composer.clear();direct.close();user=null;anti='';items=[];detail=null;dirty=false;}
 document.addEventListener('ml:reservation-confirmed',ev=>{tab='reservations';reservationStatus='confirmed';offset=0;search='';notice=ev.detail?.message||'예약을 확정했습니다. 확정 예약 목록에서 일정과 문자를 관리할 수 있습니다.';render();});
+document.addEventListener('ml:ops-cancellation-synced',ev=>{if(detail?.item.id!==ev.detail?.item?.id||busy||dirty||composer.isBusy()||composer.isDirty())return;detail.item=ev.detail.item;composer.clear();notice=cancellationMessage(ev.detail.item);render();});
 document.addEventListener('ml:ops-schedule-synced',ev=>{if(detail?.item.id!==ev.detail?.item?.id||busy||dirty||composer.isBusy()||composer.isDirty())return;detail.item=ev.detail.item;composer.clear();notice='수정·확정했습니다. 변경한 일정이 OPS에도 반영되었습니다.';render();composer.openStage('confirmed');});
 document.addEventListener('submit',async ev=>{if(ev.target.id==='requestSearchForm'){ev.preventDefault();if(busy)return;if(listStatusState.confirmationId&&!confirm('작성 중인 예약 확정 정보를 닫고 검색할까요?'))return;listStatusState.confirmationId='';suspendLive();busy=true;search=val('requestSearch').trim();offset=0;notice='';try{await load();}catch(err){notice=err.message;}finally{busy=false;render();}return;}if(ev.target.id!=='mlLogin')return;ev.preventDefault();if(busy)return;suspendLive();const credentials={username:val('loginUser'),password:val('loginPassword')};busy=true;notice='';try{const s=await api('auth/login','POST',credentials);resetLive();user=s.user;anti=s.csrf;tab='inbox';await load();await followRequest();}catch(err){notice=err.message;}finally{busy=false;render();}});
 document.addEventListener('change',ev=>{if(location.hash.startsWith('#admin')&&['requestStatus','requestContacted'].includes(ev.target.id))statusEdited();});

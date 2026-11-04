@@ -11,7 +11,8 @@ const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','than
 export const reservationSchema=z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict();
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
- const changing=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='reschedule' AND state<>'succeeded'",[r.id])).rows[0];
+ const changing=(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel') AND state<>'succeeded'",[r.id])).rows[0];
+ if(changing?.operation==='cancel')fail(409,'OPS_CANCELLATION_PENDING','OPS 취소 결과를 확인한 뒤 문자를 준비해 주세요. 취소 완료로 확인되기 전까지 기존 예약 상태가 유지됩니다.');
  if(changing)fail(409,'OPS_SCHEDULE_PENDING','OPS 일정 변경 결과를 확인한 뒤 문자를 준비해 주세요. 기존 확정 일정은 유지됩니다.');
  const d=parse(method==='PUT'?z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict():z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
  // Retried clicks cannot duplicate the log, even if the original response was lost.

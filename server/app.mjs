@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {saveCommunication,confirmReservation,reservationSchema} from './communications.mjs';
+import {queueCancellation} from './ops-cancel.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
@@ -142,7 +143,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const counts={all:0,new:0,initial_unreachable:0,consulting:0,no_response:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
    const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
    for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
-   const r=await db.query('SELECT c.*, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
+   const r=await db.query("SELECT c.*, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
    return json({items:r.rows.map(visibleRequest),counts,trashBefore});
   }
   const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
@@ -180,6 +181,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      const jobId=randomUUID();await tx.query('INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,approved_by,booking) VALUES($1,$2,$3,$4,$5,$6)',[jobId,id,target,'moment-link:'+id,user.id,JSON.stringify({...d,person:r.person,phone:r.phone,productId:r.product_id,packageId:r.package_id,timezone:'Asia/Seoul'})]);await audit(tx,user.id,'ops.approved',id,{jobId,target});return {job:{id:jobId,state:'pending'}};
     }
     if(method==='PATCH'&&!action){
+     let cancellationQueued=false;
      const d=parse(z.object({version:z.number().int(),status:z.enum(['new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']).optional(),confirmation:reservationSchema.omit({version:true}).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
      if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');if(d.assignee!==undefined)authorize(user,true);
      if(d.confirmation&&d.status!=='confirmed')fail(400,'STATE','예약 확정 정보를 함께 저장하려면 확정을 선택해 주세요.');
@@ -187,18 +189,19 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(r.status==='confirmed'&&d.status&&d.status!=='confirmed'){
       const manual=r.communication?.reservation?.source==='manual';
       const external=(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[id])).rows[0];
-      if(d.status!=='closed'&&(!manual||external||d.status!=='cancelled'))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 이벤트 완료·취소로 변경할 수 있습니다. OPS 등록 건의 변경·취소는 대상 OPS에서 먼저 확인해 주세요.');
+      if(d.status!=='closed'&&(d.status!=='cancelled'||!manual&&!external))fail(409,'OPS_CHANGE_REQUIRED','확정 예약은 이벤트 완료·취소로 변경할 수 있습니다. 연결 상태를 확인해 주세요.');
      }
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
-     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation'='reschedule' AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     if(d.status==='cancelled'&&r.status==='confirmed')cancellationQueued=await queueCancellation(tx,r,user);
      // Confirm through the same validation and audit path, atomically with assignment/contact changes.
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
-     const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated)};
+     const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[cancellationQueued?r.status:d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated),cancellationQueued};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });await dispatch(id,action==='reservation'&&method==='POST');
+   });await dispatch(id,result.cancellationQueued||action==='reservation'&&method==='POST');
    if(result.item){
-    if(action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
+    if(result.cancellationQueued||action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,CASE WHEN booking->>'operation'='reschedule' THEN jsonb_build_object('date',booking->>'date','time',booking->>'time') END AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
    }return json(result);
   }
@@ -248,7 +251,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);return json({ok:true});
   }
   if(path==='/api/admin/push'&&method==='DELETE'){await db.query('UPDATE moment_link.push_subscriptions SET active=false WHERE user_id=$1',[user.id]);return json({ok:true});}
-  if(path==='/api/admin/jobs'&&method==='GET'){authorize(user,true);return json({notifications:(await db.query('SELECT id,channel,state,attempts,error_code,created_at FROM moment_link.outbox ORDER BY created_at DESC LIMIT 50')).rows,integrations:(await db.query('SELECT id,consultation_id,target,state,attempts,external_id,error_code,created_at FROM moment_link.integration_jobs ORDER BY created_at DESC LIMIT 50')).rows});}
+  if(path==='/api/admin/jobs'&&method==='GET'){authorize(user,true);return json({notifications:(await db.query('SELECT id,channel,state,attempts,error_code,created_at FROM moment_link.outbox ORDER BY created_at DESC LIMIT 50')).rows,integrations:(await db.query("SELECT id,consultation_id,target,state,attempts,external_id,error_code,created_at,booking->>'operation' AS operation FROM moment_link.integration_jobs ORDER BY created_at DESC LIMIT 50")).rows});}
   if(path==='/api/admin/jobs/run'&&method==='POST'){authorize(user,true);await rateLimit(db,'jobs:'+user.id,10,60);const d=parse(z.object({kind:z.enum(['notification','integration']),id:z.string().uuid()}).strict(),await body(request));return json(await (d.kind==='notification'?processOutbox(db,d.id,env,adapters):processIntegration(db,d.id,env,adapters)));}
   fail(404,'NOT_FOUND','요청한 기능을 찾을 수 없습니다.');
  }catch(e){

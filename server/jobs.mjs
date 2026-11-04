@@ -2,6 +2,7 @@ import {createHmac,randomBytes} from 'node:crypto';
 import webpush from 'web-push';
 import {audit,fail} from './security.mjs';
 import {processScheduleChange} from './ops-schedule.mjs';
+import {processCancellation} from './ops-cancel.mjs';
 async function settings(db){return (await db.query("SELECT data FROM moment_link.config WHERE id='settings'")).rows[0].data;}
 const enabled=(s,j,env)=>j.channel==='push'?s.push&&env.PUSH_LIVE_ENABLED==='true':env.SMS_LIVE_ENABLED==='true'&&s.solapi&&(j.channel==='sms_customer'?s.customerAuto:s.adminAuto);
 const stale=j=>Date.now()-new Date(j.updated_at).getTime()>120000;
@@ -56,22 +57,23 @@ export function opsAdapter(target,env){
  if(env[prefix+'_CONTRACT_VERIFIED']!=='true'||!base||!secret)fail(503,'OPS_UNCONFIGURED','대상 OPS의 독립 API 계약과 인증 연결이 필요합니다.');
  const origin=new URL(base);if(origin.protocol!=='https:')fail(503,'OPS_URL','HTTPS OPS 주소가 필요합니다.');
  async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef+(data.requestId?':'+data.requestId:'')}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET')return null;const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,status:r.status,safe:r.status>=400&&r.status<500});return result;}
- return {safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change)};
+ return {safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change)};
 }
 export async function processIntegration(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
   if(j.state==='checking'&&Date.now()-new Date(j.updated_at).getTime()>240000)j.state='uncertain';
-  if(['succeeded','checking'].includes(j.state)||j.booking.operation==='reschedule'&&j.state==='conflict')return j;
+  if(['succeeded','checking'].includes(j.state)||['reschedule','cancel'].includes(j.booking.operation)&&j.state==='conflict')return j;
   const active=(await tx.query('SELECT id FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[j.consultation_id])).rows[0];
   if(!active){await tx.query("UPDATE moment_link.integration_jobs SET state='blocked',error_code='CONSULTATION_UNAVAILABLE' WHERE id=$1",[id]);return {...j,state:'blocked'};}
   if(env.OPS_WRITES_ENABLED!=='true'){const state=j.state==='uncertain'?'uncertain':'blocked';await tx.query("UPDATE moment_link.integration_jobs SET state=$1,error_code='OPS_WRITES_DISABLED' WHERE id=$2",[state,id]);return {...j,state};}
-  const reconcileOnly=j.booking.operation==='reschedule'&&j.attempts>=2;
+  const reconcileOnly=['reschedule','cancel'].includes(j.booking.operation)&&j.attempts>=2;
   await tx.query("UPDATE moment_link.integration_jobs SET state='checking',attempts=attempts+$2,updated_at=now() WHERE id=$1",[id,reconcileOnly?0:1]);return {...j,claimed:true,reconcileOnly};});
  if(!job.claimed)return {state:job.state};
  let creating=false;
  try{
   const adapter=adapters.ops?.[job.target]||opsAdapter(job.target,env);
   if(job.booking.operation==='reschedule')return processScheduleChange(db,job,env,adapter);
+  if(job.booking.operation==='cancel')return processCancellation(db,job,env,adapter);
   const prior=await adapter.lookup(job.external_ref);
   if(job.state==='uncertain'&&!prior?.id&&!adapter.safeRetry){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
   let booking=prior;
@@ -91,6 +93,6 @@ export async function processIntegration(db,id,env,adapters={}){
 
 // Durable outbox: retry transient failures on later admin visits; conflict requires review.
 export async function dispatchIntegrations(db,env,adapters={},consultationId){
- const jobs=(await db.query(`SELECT id FROM moment_link.integration_jobs WHERE target='boatn' AND ($1::uuid IS NULL OR consultation_id=$1) AND (state='pending' OR (state IN ('failed','uncertain','blocked','checking') AND attempts<CASE WHEN booking->>'operation'='reschedule' THEN 2 ELSE 10 END AND updated_at<now()-interval '4 minutes')) ORDER BY created_at LIMIT 1`,[consultationId||null])).rows;
+ const jobs=(await db.query(`SELECT id FROM moment_link.integration_jobs WHERE target='boatn' AND ($1::uuid IS NULL OR consultation_id=$1) AND (state='pending' OR (state IN ('failed','uncertain','blocked','checking') AND attempts<CASE WHEN booking->>'operation' IN ('reschedule','cancel') THEN 2 ELSE 10 END AND updated_at<now()-interval '4 minutes')) ORDER BY created_at LIMIT 1`,[consultationId||null])).rows;
  for(const job of jobs)await processIntegration(db,job.id,env,adapters);
 }
