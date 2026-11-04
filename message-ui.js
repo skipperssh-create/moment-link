@@ -11,7 +11,7 @@ const value=id=>document.getElementById(id)?.value||'';
 const actionIcons={save:'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2z M7 3v6h10V3 M7 21v-8h10v8',refresh:'M20 7v5h-5 M4 17v-5h5 M6 6a8 8 0 0 1 14 6 M18 18A8 8 0 0 1 4 12',calendar:'M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2z M7 3v4 M17 3v4 M3 11h18 m-13 5 3 3 5-5',copy:'M9 9h12v12H9z M15 5V3H3v12h2',check:'m5 12 4 4L19 6',chat:'M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2z M7 9h10 M7 13h6'};
 const actionIcon=name=>`<svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="${actionIcons[name]}"/></svg>`;
 const actionCaptions={reserve:'예약 확정',autoAmount:'요금 적용',regenerate:'문구 재생성',save:'문자 준비',copy:'문구 복사',sent:'발송 기록'};
-const actionButton=(action,name,label,primary=false)=>`<button type="button" class="admin-icon-button ${primary?'icon-primary':''}" data-message="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${pending?'disabled':''}>${actionIcon(name)}<span class="admin-action-text">${esc(pending?'처리 중':action==='reserve'&&item?.status==='confirmed'?'예약 수정':actionCaptions[action]||label)}</span></button>`;
+const actionButton=(action,name,label,primary=false)=>`<button type="button" class="admin-icon-button ${primary?'icon-primary':''}" data-message="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${pending?'disabled':''}>${actionIcon(name)}<span class="admin-action-text">${esc(pending?'처리 중':action==='reserve'&&item?.status==='confirmed'?'수정·확정':actionCaptions[action]||label)}</span></button>`;
 function reveal(){const panel=document.getElementById('detailMessages');if(panel)panel.open=true;}
 function reset(){item=null;booking={};drafts={};paymentDeadline='';prepared=false;pending=false;changed=false;notice='';}
 function regenerate(){drafts=Object.fromEntries(Object.keys(M.stages).map(s=>[s,M.generate(item,s,booking,paymentDeadline)]));}
@@ -32,13 +32,14 @@ function acceptConfirmation(r){
  stage='confirmed';prepared=true;changed=false;notice='예약을 확정했습니다. 문자 앱 열기 버튼으로 예약 확정 문자를 준비할 수 있습니다.';render();
 }
 function reservationControls(){
- if(item.integration)return '<p class="micro">예약을 확정했습니다. BOATN OPS 등록 결과는 아래에서 확인할 수 있습니다. 이후 일정 변경·취소는 OPS에서도 처리해 주세요.</p>';
+ if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='reschedule'?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
  if(item.status==='cancelled'||item.status==='closed'&&item.communication?.reservation)return '';
  if(item.status==='confirmed'&&!item.communication?.reservation)return '<p class="micro">OPS에서 확정된 예약입니다. 일정 변경은 OPS에서 확인해 주세요.</p>';
- return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'예약 확정됨 · 정보 변경 시 다시 확정해 주세요.':'일정·금액·장소와 입금을 확인한 후 예약을 확정해 주세요.'}</p>${actionButton('reserve','calendar',item.status==='confirmed'?'예약 정보 수정·확정':'예약 확정',true)}<p class="micro">확정하면 ‘확정 예약’ 목록에서 관리합니다. 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
+ return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'변경한 일정과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.':'일정·금액·장소와 입금을 확인한 후 예약을 확정해 주세요.'}</p>${actionButton('reserve','calendar',item.status==='confirmed'?'수정·확정':'예약 확정',true)}<p class="micro">${item.integration?'날짜·시간은 연결된 OPS 예약에도 자동 반영합니다. 금액·장소·인원·결제수단은 유지하며, 취소는 OPS에서 처리해 주세요.':'확정하면 ‘확정 예약’ 목록에서 관리합니다.'} 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
 }
-const field=(key,label,type='text')=>`<div><label class="admin-label" for="msg_${key}">${label}</label>${key==='place'?`<textarea class="admin-input message-place" data-message-field="place" id="msg_place" rows="3" maxlength="500" ${pending?'disabled':''}>${esc(booking.place)}</textarea>`:`<input class="admin-input" data-message-field="${key}" id="msg_${key}" type="${type}" value="${esc(booking[key])}" ${pending?'disabled':''} ${type==='number'?'min="0" max="100000000" step="1"':''}/>`}</div>`;
+const field=(key,label,type='text')=>{const locked=pending||!!item.integration&&['amount','place'].includes(key);return `<div><label class="admin-label" for="msg_${key}">${label}</label>${key==='place'?`<textarea class="admin-input message-place" data-message-field="place" id="msg_place" rows="3" maxlength="500" ${locked?'disabled':''}>${esc(booking.place)}</textarea>`:`<input class="admin-input" data-message-field="${key}" id="msg_${key}" type="${type}" value="${esc(booking[key])}" ${locked?'disabled':''} ${type==='number'?'min="0" max="100000000" step="1"':''}/>`}</div>`;};
 function pricingHint(){
+ if(item.integration)return '<p class="micro">OPS에 등록된 기존 금액을 유지합니다. 날짜·시간 변경으로 금액을 다시 계산하지 않습니다.</p>';
  const quote=P.quote(item,booking.date),options=item.snapshot?.price?.optionAmount??(item.snapshot?.options||[]).reduce((sum,o)=>sum+(o.amount||0),0);
  return `<p class="micro" role="status">${esc(booking.amountMode==='auto'?'자동 반영 · '+quote.label:'직접 입력 · 저장된 금액 유지')}${options?' · 선택 옵션 '+options.toLocaleString('ko-KR')+'원 합산':''}</p>${item.category==='yacht'?`<p class="micro">${esc(P.policy)}</p>`:''}${actionButton('autoAmount','refresh','날짜 요금 적용')}`;
 }
@@ -62,6 +63,7 @@ document.addEventListener('input',ev=>{
  const key=ev.target.dataset.messageField;if(!key)return;
  booking[key]=ev.target.type==='checkbox'?ev.target.checked:['amount','opsPax'].includes(key)?(ev.target.value===''?null:Number(ev.target.value)):ev.target.value;
  if(key==='amount')booking.amountMode='manual';
+ if(key==='date'&&item.integration)booking.amountMode='manual';
  if(key==='date'&&booking.amountMode==='auto'){
   const amount=P.quote(item,booking.date).amount;
   if(booking.amount!==amount){booking.paymentConfirmed=false;document.getElementById('msg_paymentConfirmed').checked=false;}
@@ -111,9 +113,9 @@ document.addEventListener('click',async ev=>{
    if(!drafts[stage]?.trim())throw Error('보낼 내용을 입력해 주세요.');
    const target=item.id,out=await api('admin/consultations/'+target+(action==='reserve'?'/reservation':'/communications'),action==='reserve'?'POST':'PUT',{version:item.version,booking,drafts,...(action==='reserve'?{approved:true}:{prepareStage:stage})});
    if(item?.id!==target)return;
-   item=out.item;drafts={...item.communication.drafts};paymentDeadline=item.communication.paymentDeadline||paymentDeadline;updated(out.item);prepared=true;changed=false;notice='저장했습니다. 문자 앱 열기 버튼을 누르면 문자 앱으로 연결됩니다.';
+   item=out.item;booking={...item.communication.booking};drafts={...item.communication.drafts};paymentDeadline=item.communication.paymentDeadline||paymentDeadline;updated(out.item);prepared=!(item.integration?.operation==='reschedule'&&item.integration.state!=='succeeded');changed=false;notice='저장했습니다. 문자 앱 열기 버튼을 누르면 문자 앱으로 연결됩니다.';
    if(action==='save'&&stage==='receipt'&&item.category==='yacht')notice='입금 기한을 '+M.paymentDeadlineLabel(paymentDeadline)+'으로 반영했습니다. 문구를 확인한 뒤 문자 앱 열기 버튼을 눌러 주세요.';
-   if(action==='reserve'){notice='예약을 확정했습니다. 예약 확정 문자를 보낼 수 있습니다.';document.dispatchEvent(new CustomEvent('ml:reservation-confirmed',{detail:{id:target}}));}
+   if(action==='reserve'){notice=item.integration?.operation==='reschedule'?(item.integration.state==='succeeded'?'수정·확정했습니다. 변경한 일정이 OPS에도 반영되었습니다.':'OPS 일정 변경이 아직 완료되지 않았습니다. 기존 확정 일정은 유지되며 아래 OPS 상태에서 결과를 확인할 수 있습니다.'):'예약을 확정했습니다. 예약 확정 문자를 보낼 수 있습니다.';document.dispatchEvent(new CustomEvent('ml:reservation-confirmed',{detail:{id:target,message:notice}}));}
   }
   if(action==='sent'){
    if(!prepared||changed)throw Error('변경 내용을 먼저 저장해 주세요.');

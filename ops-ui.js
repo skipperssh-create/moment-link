@@ -17,6 +17,7 @@ function fields(r,b,prefix,disabled=false){
 function validate(r,b){
  if(!eligible(r))return '';
  if(!metadata?.enabled||!metadata.installed)return 'BOATN OPS 연결을 확인한 뒤 예약을 확정해 주세요.';
+ if(r.integration?.state==='succeeded'&&!metadata.scheduleUpdates)return 'OPS 일정 변경 기능을 확인하고 있습니다. 잠시 후 다시 열어 주세요.';
  if(!Number.isSafeInteger(b.opsPax)||b.opsPax<1||b.opsPax>63)return '탑승 인원을 입력해 주세요.';
  if(!metadata.paymentMethods.some(m=>m.id===b.opsPaymentMethod))return '입금을 확인한 결제수단을 선택해 주세요.';
  if(Number(b.time?.split(':')[1])%(metadata.minuteStep||10))return `OPS 출항 시간은 ${metadata.minuteStep||10}분 단위로 선택해 주세요.`;
@@ -27,22 +28,30 @@ const reasons={OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 �
 const retryReasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 다시 확인해야 합니다.',OPS_REVIEW_REQUIRED:'OPS에서 등록 확인을 완료하지 못했습니다.',OPS_HTTP_429:'OPS 요청이 잠시 많아 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
 function panel(r){
  if(!r.integration)return '';
+ if(r.integration.operation==='reschedule')return schedulePanel(r);
  const j=r.integration,retryReason=['failed','uncertain'].includes(j.state)&&retryReasons[j.error_code],automatic=retryReason&&Number(j.attempts||0)<10;
  const description=retryReason?retryReason+(automatic?' 잠시 후 자동으로 재확인합니다.':' 자동 재시도 횟수를 초과했습니다. 등록 상태 확인 · 재시도를 눌러 주세요.'):reasons[j.error_code]||(['pending','checking'].includes(j.state)?'등록 결과를 자동으로 확인합니다.':'자동 등록이 완료되지 않았습니다. OPS 연결과 예약 조건을 확인한 뒤 다시 시도해 주세요.');
- return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${esc(automatic?'등록 재확인 중':states[j.state]||j.state)}</h3>${j.state==='succeeded'?`<p class="micro">예약번호 ${esc(j.external_id)}</p><p class="micro">일정 변경·취소는 BOATN OPS에서도 처리해 주세요. 캘린더 반영 상태는 OPS에서 확인할 수 있습니다.</p>`:`<p class="micro">${esc(description)}</p>${j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}<button class="secondary" type="button" data-boatn-retry ${j.state==='checking'?'disabled':''}>등록 상태 확인 · 재시도</button>`}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
+ return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${esc(automatic?'등록 재확인 중':states[j.state]||j.state)}</h3>${j.state==='succeeded'?`<p class="micro">예약번호 ${esc(j.external_id)}</p><p class="micro">날짜·시간은 위의 ‘수정·확정’을 누르면 OPS에도 자동 반영됩니다. 취소는 OPS에서 처리해 주세요. 구글캘린더 반영 상태는 OPS에서 확인할 수 있습니다.</p>`:`<p class="micro">${esc(description)}</p>${j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}<button class="secondary" type="button" data-boatn-retry ${j.state==='checking'?'disabled':''}>등록 상태 확인 · 재시도</button>`}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
+}
+function schedulePanel(r){
+ const j=r.integration,done=j.state==='succeeded',conflict=j.state==='conflict',limited=Number(j.attempts||0)>=2;
+ const title=done?'일정 반영 완료':conflict?'일정 변경 확인 필요':limited?'일정 변경 결과 확인 필요':'일정 반영 중';
+ const reasons={OPS_SCHEDULE_CHANGED:'OPS에서 예약시간이 별도로 변경되어 자동 덮어쓰지 않았습니다.',OPS_RESOURCE_CONFLICT:'변경할 시간이 다른 운항과 겹칩니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS의 운항·승선 상태 또는 변경할 일정을 확인해 주세요.'};
+ const message=done?'변경한 날짜·시간이 모먼트링크와 OPS에 반영되었습니다. 구글캘린더 반영 상태는 OPS에서 확인할 수 있습니다.':(reasons[j.error_code]||(limited?'자동 시도 2회를 마쳤습니다. 결과 확인은 같은 변경 요청만 조회합니다.':'OPS 반영이 완료되면 확정 일정도 자동으로 갱신합니다.'))+' 기존 확정 일정은 유지됩니다.';
+ return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${esc(title)}</h3>${j.schedule?`<p class="micro">변경 요청 · ${esc(j.schedule.date)} ${esc(j.schedule.time)}</p>`:''}<p class="micro">${esc(message)}</p>${!done&&j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}${!done&&!conflict?`<button class="secondary" type="button" data-boatn-retry ${j.state==='checking'?'disabled':''}>${limited?'변경 결과 확인':'변경 상태 확인 · 재시도'}</button>`:''}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
 }
 function mount(r,api){
  clearTimeout(panelTimer);const generation=++panelGeneration;
  const node=document.getElementById('boatnOpsStatus');if(!node||node.dataset.record!==r?.id)return;
  const current=()=>generation===panelGeneration&&document.getElementById('boatnOpsStatus')===node;
  // Replace only the OPS panel: unsaved status, memo and message edits stay intact.
- const refresh=async()=>{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api);}};
+ const refresh=async()=>{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api);if(r.integration.operation==='reschedule'&&out.item.integration?.state==='succeeded')document.dispatchEvent(new CustomEvent('ml:ops-schedule-synced',{detail:{item:out.item}}));}};
  node.querySelector('[data-boatn-retry]')?.addEventListener('click',async ev=>{
   ev.target.disabled=true;ev.target.textContent='확인 중…';
   try{await api('admin/consultations/'+r.id+'/integration','POST',{});await refresh();}
   catch(error){if(current()){ev.target.disabled=false;ev.target.textContent=error.message;}}
  });
- if(r.integration.state!=='succeeded')panelTimer=setTimeout(async()=>{if(!current())return;if(document.hidden){mount(r,api);return;}try{await refresh();}catch{if(current())mount(r,api);}},['pending','checking'].includes(r.integration.state)?5000:15000);
+ if(!['succeeded','conflict'].includes(r.integration.state)&&!(r.integration.operation==='reschedule'&&Number(r.integration.attempts||0)>=2))panelTimer=setTimeout(async()=>{if(!current())return;if(document.hidden){mount(r,api);return;}try{await refresh();}catch{if(current())mount(r,api);}},['pending','checking'].includes(r.integration.state)?5000:15000);
 }
 window.MomentLinkOps={eligible,load,fields,validate,panel,mount};
 })();
