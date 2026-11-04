@@ -1,16 +1,13 @@
 import {spawnSync} from 'node:child_process';
-import {readFile} from 'node:fs/promises';
-if(process.env.RUN_DB_MIGRATIONS==='true'){
- if(process.env.VERCEL_ENV!=='production'||process.env.MOMENT_LINK_DATABASE!=='true')throw Error('Migration target mismatch');
- const r=spawnSync(process.execPath,['scripts/migrate.mjs'],{stdio:'inherit'});if(r.status!==0)process.exit(r.status||1);
- const photos=spawnSync(process.execPath,['scripts/import-heli-photos.mjs'],{stdio:'inherit'});if(photos.status!==0)process.exit(photos.status||1);
-}
-// This release needs only the contact-state constraint and private memo index.
-// Keep the broad seed/photo migrations behind their existing explicit flag.
-if(process.env.VERCEL_ENV==='production'){
- if(process.env.MOMENT_LINK_DATABASE!=='true')throw Error('Contact status migration requires the dedicated MOMENT LINK database');
- const {database,closeDatabase}=await import('../server/database.mjs');
- try{const db=database(),sql=await readFile(new URL('../db/008_contact_status.sql',import.meta.url),'utf8');await db.transaction(tx=>tx.query(sql));console.log('Contact workflow schema ready. Existing consultation data preserved.');}
- finally{await closeDatabase();}
+import {readFile,writeFile} from 'node:fs/promises';
+if(process.env.VERCEL_ENV!=='preview')throw Error('Synthetic verification build is preview only');
+for(const args of [['--check','app.js'],['--check','admin.js'],['--test','tests/server.test.mjs','tests/pricing.test.mjs','tests/yacht-names.test.mjs','tests/pwa.test.mjs','tests/inbox-actions.test.mjs','tests/quick-status.test.mjs']]){
+ const result=spawnSync(process.execPath,args,{stdio:'inherit'});if(result.status!==0)process.exit(result.status||1);
 }
 await import('./build.mjs');
+const catalog=JSON.parse(await readFile('catalog.confirmed.json','utf8'));
+const fixture="/* Synthetic preview only. Every API request is intercepted; no live data is accessed. */\n(() => {\n const originalFetch=window.fetch.bind(window),catalog=__CATALOG__,user={id:'00000000-0000-4000-8000-000000000001',username:'합성 UI 검수',role:'admin',active:true,mustChangePassword:false};\n let draft=structuredClone(catalog),published=structuredClone(catalog),version=1,publishedVersion=1;\n const settings={accepting:true,yachtPlace:'합성 승선 장소',yachtAddress:'합성 주소',retentionDays:1,privacyController:'합성 검수',privacyContact:'검수 전용',privacyText:'합성 데이터 전용',consentVersion:'synthetic'};\n const panel=document.createElement('details');panel.id='catalog-fixture-proof';panel.style='margin:20px;padding:16px;border:1px solid #ddd;font-size:12px';panel.innerHTML='<summary>합성 검수 저장 결과 · 실제 상품에 반영되지 않습니다</summary><pre id=\"catalog-fixture-receipt\" style=\"white-space:pre-wrap;overflow-wrap:anywhere\"></pre>';document.body.append(panel);\n const receipt=data=>document.getElementById('catalog-fixture-receipt').textContent=JSON.stringify(data,null,2);\n receipt({synthetic:true,saves:0});let saves=0;\n window.fetch=async(input,init={})=>{\n  const url=new URL(typeof input==='string'?input:input.url,location.href);\n  if(!url.pathname.startsWith('/api/'))return originalFetch(input,init);\n  const path=url.pathname.slice(5),method=init.method||'GET',body=init.body?JSON.parse(init.body):null;\n  let data={};let status=200;\n  if(path==='auth/session')data={user,csrf:'synthetic-only'};\n  else if(path==='catalog')data={version:publishedVersion,products:published.filter(p=>!p.archived&&p.visible),settings};\n  else if(path==='admin/catalog'&&method==='GET')data={draft:{data:structuredClone(draft),version}};\n  else if(path==='admin/catalog'&&method==='PUT'){\n   if(body.version!==version){status=409;data={message:'합성 초안 버전 충돌'};}\n   else{draft=structuredClone(body.products);version++;if(body.publish){published=structuredClone(draft);publishedVersion++;}data={version};receipt({synthetic:true,saves:++saves,publish:body.publish,version,products:draft.map(p=>({id:p.id,name:p.name,visible:p.visible,archived:!!p.archived,photo:p.photo,media:p.media,packages:p.packages}))});}\n  }else if(path==='admin/consultations')data={items:[],counts:{all:0,new:0},trashBefore:new Date().toISOString()};\n  else if(path==='admin/consultations/updates')data={pending:0,arrivals:0,cursor:new Date().toISOString()};\n  else if(path==='admin/users')data={items:[user]};\n  else if(path==='admin/settings')data={settings:{data:settings,version:1},gates:{ops:false,sms:false,push:false}};\n  else if(path==='admin/media'&&method==='POST')data={url:'/assets/icon.svg',alt:body.alt||'합성 사진'};\n  else{status=404;data={message:'합성 검수에 포함되지 않은 경로: '+path};}\n  return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});\n };\n})();\n";
+await writeFile('dist/product-ui-check.js',fixture.replace('__CATALOG__',JSON.stringify(catalog)));
+const html=(await readFile('index.html','utf8')).replace('<script src="./pwa.js" defer></script>','<script src="./product-ui-check.js" defer></script>').replace('content="index,follow"','content="noindex,nofollow"');
+await writeFile('dist/product-ui-check.html',html);
+console.log('Synthetic product UI fixture ready; no production API requests or database changes.');
