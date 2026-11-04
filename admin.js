@@ -133,7 +133,7 @@ function paintSound(){
  const bar=$('#inboxLive');if(!bar)return;
  const state=sound.state(),toggle=bar.querySelector('[data-ml=toggleSound]'),preview=bar.querySelector('[data-ml=previewSound]'),status=$('#inboxSoundStatus');
  if(!toggle||!preview||!status)return;
- if(toggle.classList.contains('admin-icon-button'))paintDetailAction(toggle,state.enabled?'volume':'mute',state.enabled?'음성 알림 끄기':'음성 알림 켜기');else toggle.innerHTML=iconLabel(state.enabled?'volume':'mute',state.enabled?'음성 알림 끄기':'음성 알림 켜기');toggle.setAttribute('aria-pressed',String(state.enabled));toggle.disabled=!state.supported;
+ if(tab==='settings')paintDetailAction(toggle,state.enabled?'volume':'mute',state.enabled?'음성 알림 끄기':'음성 알림 켜기');else toggle.innerHTML=iconLabel(state.enabled?'volume':'mute',state.enabled?'음성 알림 끄기':'음성 알림 켜기');toggle.setAttribute('aria-pressed',String(state.enabled));toggle.disabled=!state.supported;
  preview.disabled=!state.supported||state.playing;
  status.textContent=!state.supported?'이 브라우저는 음성 알림을 지원하지 않습니다.':state.error||(state.playing?'재생 중…':state.enabled?'음성 알림 켜짐':'음성 알림 꺼짐');
 }
@@ -148,7 +148,7 @@ function paintLive(){
  bar.classList.toggle('has-new',live.arrivals>0);bar.classList.toggle('has-error',!!live.error||navigator.onLine===false);
  const view=bar.querySelector('[data-ml=newInquiries]'),refresh=bar.querySelector('[data-ml=refreshLive]');
  view.hidden=!live.arrivals;view.disabled=busy;refresh.disabled=busy||!!live.controller||navigator.onLine===false;
- if(refresh.classList.contains('admin-icon-button'))paintDetailAction(refresh,'refresh',live.controller?'확인 중…':'새로고침');else refresh.innerHTML=iconLabel('refresh',live.controller?'확인 중…':'새로고침');
+ if(tab==='settings')paintDetailAction(refresh,'refresh',live.controller?'확인 중…':'새로고침');else refresh.innerHTML=iconLabel('refresh',live.controller?'확인 중…':'새로고침');
  document.title=live.arrivals?`새 상담 ${live.arrivals}건 | MOMENT LINK`:live.originalTitle;
 }
 function listPath(){return 'admin/consultations?q='+encodeURIComponent(search)+'&offset='+offset+'&view='+(tab==='inbox'?'all':tab)+'&status='+(tab==='reservations'?reservationStatus:requestStatus);}
