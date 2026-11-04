@@ -165,10 +165,12 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .request-note{border-top:1px solid var(--line);padding:12px 0}
 .request-note p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;font-size:14px;line-height:1.7;margin:0 0 4px}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap;border:0}
-.admin-icon-button{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:10px;background:transparent;color:var(--muted);line-height:1;text-decoration:none;cursor:pointer}
-.admin-icon-button:hover{background:var(--bg);color:var(--ink)}
+.admin-icon-button{box-sizing:border-box;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:0 0 64px;width:64px;min-height:64px;padding:7px 3px;border:1px solid var(--line);border-radius:14px;background:#fff;color:#536573;font-size:11px;line-height:1.35;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;transition:background-color 160ms ease,border-color 160ms ease,color 160ms ease}
+.admin-action-text{display:block;max-width:100%;font-size:11px;line-height:1.35;font-weight:600;word-break:keep-all;overflow-wrap:normal}
+.admin-icon-button>.admin-icon{width:20px;height:20px;flex:0 0 20px}
+.admin-icon-button:not(:disabled):is(:hover,:focus-visible){background:#f0f5fa;border-color:#c6d7e5;color:#315a78}
 .admin-icon-button:focus-visible{outline-offset:2px}
-.admin-icon-button.icon-danger:hover{background:#fff2f2;color:#9e3030}
+.admin-icon-button.icon-danger:not(:disabled):is(:hover,:focus-visible){background:#fff2f1;border-color:#efcfcb;color:#9e4540}
 .inbox-results{gap:10px;margin-top:14px}
 .inbox-results>.inbox-item{padding:16px 18px;border-radius:14px}
 .inbox-card-heading{align-items:flex-start;gap:10px}
@@ -181,7 +183,7 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .inbox-item .inbox-date{font-size:12px;margin:0;line-height:1.6}
 .inbox-card-footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px;margin-top:8px}
 .inbox-receipt{font-size:10px;letter-spacing:.2px}
-.inbox-contact-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.inbox-contact-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;max-width:100%}
 #inboxListing .reservation-filters{gap:4px;margin:16px 0 10px;align-items:center}
 #inboxListing .reservation-filters .secondary{padding:8px 10px;border-color:transparent;border-radius:9px;font-size:12px;background:transparent}
 #inboxListing .reservation-filters .secondary:hover{background:var(--bg)}
@@ -198,16 +200,16 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .list-note-compose{display:flex;align-items:flex-end;gap:8px}
 .list-note-compose .admin-input{margin:0;min-height:44px;height:44px;padding:11px 12px;border-color:var(--line);border-radius:10px;background:#fafafa;font-size:14px;line-height:20px;resize:vertical}
 .list-note-compose .admin-input:focus{background:#fff}
-.admin-icon-button.list-note-save{background:var(--ink);color:#fff}
-.admin-icon-button.list-note-save:hover{background:#3a3a3c}
+.admin-icon-button.list-note-save{background:#edf3f8;border-color:#d3dfe9;color:#315a78}
+.admin-icon-button.list-note-save:not(:disabled):is(:hover,:focus-visible){background:#e1ecf5;border-color:#b5cddd;color:#234b69}
 .list-note-editor .quick-status-feedback{font-size:11px;margin:6px 0 0}
 @media(max-width:600px){.inbox-results>.inbox-item{padding:14px}.list-note-compose .admin-input{font-size:16px}.list-note-row{grid-template-columns:56px minmax(0,1fr);gap:6px}}
 @media(max-width:600px){.list-confirmation-fields{grid-template-columns:1fr}.list-confirmation,.request-note-editor{padding:12px}.list-quick-status .quick-status-menu{right:0;left:auto}}
 @media(max-width:600px){.quick-status-menu{left:0;right:auto}.reservation-heading .primary{margin-left:auto}}
 
 /* Detail actions share the compact list controls; workflow labels stay readable. */
-.admin-icon-button.icon-primary{background:var(--ink);color:#fff}
-.admin-icon-button.icon-primary:hover{background:#3a3a3c}
+.admin-icon-button.icon-primary{background:#edf3f8;border-color:#d3dfe9;color:#315a78}
+.admin-icon-button.icon-primary:not(:disabled):is(:hover,:focus-visible){background:#e1ecf5;border-color:#b5cddd;color:#234b69}
 .request-detail{padding:22px;border-radius:14px}
 .detail-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 .detail-identity{display:flex;align-items:flex-start;gap:8px;min-width:0;flex:1 1 180px}
@@ -215,7 +217,7 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .detail-identity h2{font-size:20px;line-height:1.4;letter-spacing:-.3px;word-break:keep-all}
 .detail-identity .inbox-phone{display:block;font-size:14px;margin-top:3px}
 .detail-receipt{margin:2px 0 0;font-size:10px}
-.request-detail .detail-actions{margin:0;gap:3px;max-width:100%;align-items:center}
+.request-detail .detail-actions{margin:0;gap:6px;max-width:100%;align-items:center}
 .request-detail .quick-status-trigger{background:var(--bg);border-color:transparent;gap:6px;font-size:12px;font-weight:550;padding:8px 11px}
 .detail-overview{padding:18px 0}
 .request-detail .detail-overview h3{font-size:16px;line-height:1.6;margin:0}
@@ -260,7 +262,7 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .request-detail .message-booking[open]{padding-bottom:12px}
 .request-detail .message-booking .admin-label{font-size:12px;margin-top:12px}
 .request-detail .message-place{min-height:72px}
-.request-detail .reservation-confirm{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px 12px;align-items:center;margin:12px 0;padding:12px 0;background:transparent;border-block:1px solid var(--line);border-radius:0}
+.request-detail .reservation-confirm{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:8px 12px;align-items:center;margin:12px 0;padding:12px 0;background:transparent;border-block:1px solid var(--line);border-radius:0}
 .request-detail .reservation-confirm>p:first-child{font-size:13px;margin:0;word-break:keep-all}
 .request-detail .reservation-confirm>.micro{grid-column:1/-1;margin:0}
 .request-detail #messagePricing{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:8px}
@@ -273,10 +275,10 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .reservation-toolbar{display:flex;align-items:flex-start;gap:8px;margin:16px 0 10px}
 .reservation-toolbar .inbox-search{flex:1;min-width:0;margin:0}
 .reservation-toolbar .inbox-search-row{display:flex;gap:8px;align-items:center}
-.reservation-toolbar .inbox-search-row .admin-input{flex:1;min-width:0;min-height:44px;padding:9px 12px}
-.reservation-toolbar .admin-icon-button{flex:0 0 44px}
+.reservation-toolbar .inbox-search-row .admin-input{flex:1;min-width:0;min-height:64px;padding:9px 12px}
+.reservation-toolbar .admin-icon-button{flex:0 0 64px}
 .reservation-search-result{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
-.inbox-pagination>.admin-icon-button{flex:0 0 44px}
+.inbox-pagination>.admin-icon-button{flex:0 0 64px}
 .reservation-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;margin-top:12px}
 .reservation-schedule,.reservation-amount{min-width:0;display:grid;align-content:start;gap:3px}
 .reservation-date-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;font-size:18px;font-weight:650;line-height:1.5;font-variant-numeric:tabular-nums}
@@ -289,10 +291,44 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .reservation-place span{min-width:0;overflow-wrap:anywhere}
 .reservation-messages{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-top:6px;padding-top:6px;border-top:1px solid #eeeef1}
 .reservation-messages>.micro{margin:0;font-size:12px}
-.reservation-message-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.reservation-message-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto;max-width:100%}
 .reservation-message-action{position:relative}
 .reservation-message-action.has-sent-record{color:#28634b}
-.reservation-sent-mark{display:flex;align-items:center;justify-content:center;position:absolute;right:4px;bottom:4px;width:13px;height:13px;background:#fff;border:1px solid #fff;border-radius:50%;color:#28634b}
+.reservation-sent-mark{display:flex;align-items:center;justify-content:center;position:absolute;right:12px;top:20px;width:13px;height:13px;background:#fff;border:1px solid #fff;border-radius:50%;color:#28634b}
 .reservation-sent-mark .admin-icon{width:11px;height:11px;stroke-width:2.5}
 @media(max-width:650px){.reservation-overview{grid-template-columns:minmax(0,1fr);gap:8px}.reservation-amount{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}.reservation-toolbar .inbox-search-row .admin-input{font-size:16px}}
+.admin-icon-button:disabled{opacity:.55;cursor:not-allowed}
+.admin-icon-button[data-state=success],.reservation-message-action.has-sent-record{background:#f0f7f3;border-color:#d3e5d9;color:#28634b}
+.direct-booking{padding:22px;border-radius:14px}
+.direct-heading{display:flex;align-items:center;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.direct-heading>div{min-width:0}
+.direct-heading .micro{margin:4px 0 0}
+.direct-booking .direct-section{padding:16px 0;border-bottom:1px solid #eeeef1}
+.direct-booking .direct-section:last-child{padding-bottom:0;border:0}
+.direct-booking .direct-section h3{font-size:14px;margin:0 0 12px;font-weight:650}
+.direct-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.direct-booking .direct-section-heading h3{margin:0}
+.direct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.direct-grid>div{min-width:0}
+.direct-booking .admin-label{font-size:12px;line-height:1.6;margin:0 0 5px}
+.direct-booking .admin-input,.direct-booking .admin-select{min-height:44px;width:100%;min-width:0;max-width:100%;padding:9px 11px;border-radius:10px;font-size:16px;margin:0}
+.direct-booking input[type=number]{font-variant-numeric:tabular-nums;font-size:18px}
+.direct-booking textarea{min-height:76px;resize:vertical;line-height:1.6}
+.direct-booking .direct-options{margin-top:12px}
+.direct-option-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px}
+.direct-option-list .inline-check{align-items:flex-start;margin:0;padding:7px 0;min-height:44px;font-size:13px}
+.direct-option-list input{flex:0 0 auto;margin-top:3px}
+.direct-option-price{display:inline-block;margin-left:8px;color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.direct-booking .micro{font-size:12px;line-height:1.65;word-break:keep-all;overflow-wrap:anywhere}
+.direct-notes-grid{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.direct-confirm-checks{display:flex;flex-wrap:wrap;gap:4px 20px}
+.direct-confirm-checks .inline-check{min-height:44px;margin:0;font-size:13px}
+.direct-submit-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:8px}
+.direct-submit-row>.micro{flex:1 1 220px;margin:0}
+.direct-submit-actions{display:flex;gap:8px;margin-left:auto}
+.direct-submit-actions .admin-icon-button{flex-basis:80px;width:80px;min-height:72px}
+@media(min-width:1100px){.direct-schedule-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:600px){.admin-icon-button{flex-basis:56px;width:56px;min-height:60px}.reservation-toolbar .admin-icon-button,.inbox-pagination>.admin-icon-button{flex-basis:56px}.reservation-toolbar .inbox-search-row .admin-input{min-height:60px}.reservation-sent-mark{right:9px}.direct-booking{padding:14px}.direct-grid,.direct-notes-grid,.direct-option-list{grid-template-columns:minmax(0,1fr)}.direct-heading{gap:10px}.direct-booking h2{font-size:18px}.direct-booking .direct-section{padding:14px 0}.direct-confirm-checks{display:grid;gap:4px}.direct-confirm-checks .inline-check{align-items:flex-start;padding:8px 0}.direct-confirm-checks input{flex:none;margin-top:3px}}
+@media(max-width:380px){.inbox-contact-actions,.reservation-message-actions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:4px}.inbox-contact-actions>.admin-icon-button,.reservation-message-actions>.admin-icon-button{width:100%;min-width:0}.reservation-messages{gap:8px}.reservation-messages>.micro{width:100%}.reservation-toolbar{flex-wrap:wrap}.reservation-toolbar .inbox-search{flex-basis:calc(100% - 64px)}.reservation-toolbar .inbox-search-row{gap:4px}.reservation-toolbar .inbox-search-row .admin-input{padding-inline:8px}}
+@media(prefers-reduced-motion:reduce){.admin-icon-button{transition:none}}
 @media(max-width:600px){.request-detail{padding:14px}.detail-header{gap:12px}.detail-identity{flex-basis:100%}.detail-identity h2{font-size:18px}.request-detail .detail-actions{width:100%}.detail-facts{grid-template-columns:1fr;gap:10px}.detail-status-fields{gap:10px}.detail-status-fields>div{flex-basis:100%}.detail-status-fields>.detail-status-actions{flex-basis:100%}.detail-customer-request{grid-template-columns:1fr;gap:4px}.request-detail .message-body{font-size:16px}.request-detail .message-stages .secondary{flex-basis:calc(50% - 4px);min-width:0}}

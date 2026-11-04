@@ -52,7 +52,8 @@ test('confirmation saves the validated booking once and checks the confirmed sta
  assert.equal(h.api.getDetail().item.status,'confirmed');assert.equal(h.accepted.length,1);assert.equal(h.accepted[0],saved);
  assert.match(h.elements['#quickStatus'].outerHTML,/aria-checked="true"[^>]*data-quick-status="confirmed"/);
  assert.match(h.elements['#requestStatus'].innerHTML,/value="confirmed" selected/);
- assert.match(h.elements['.reservation-heading [data-ml=reservationFocus]'].innerHTML,/확정됨/);
+ assert.match(h.elements['.reservation-heading [data-ml=reservationFocus]']['aria-label'],/확정됨/);
+ assert.match(h.elements['.reservation-heading [data-ml=reservationFocus]'].innerHTML,/class="admin-action-text">예약 수정<\/span>/);
  assert.match(h.elements['#quickStatusFeedback'].textContent,/확정 예약 목록/);
  assert.equal(h.elements['#requestNote'].value,'저장 전 합성 메모');assert.equal(h.elements['#requestAssignee'].value,'unsaved-assignee');assert.equal(h.elements['#requestContacted'].checked,true);
  assert.equal(h.elements['#messageComposer'].inert,false);assert.equal(h.fieldset.disabled,false);
