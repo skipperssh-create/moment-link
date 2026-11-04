@@ -518,3 +518,36 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .privacy-retention h2{margin-bottom:6px}
 .privacy-retention p{margin:4px 0 0;font-size:12px;line-height:1.7}
 @media(max-width:650px){.privacy-card{padding:14px}.privacy-card h2{font-size:14px}.privacy-field-grid{grid-template-columns:minmax(0,1fr);gap:12px}.privacy-manager textarea.admin-input{font-size:16px}.privacy-retention{flex-wrap:wrap}.privacy-retention>div{flex-basis:100%}.privacy-retention>.admin-icon-button{margin-left:auto}.privacy-toolbar{gap:10px}}
+
+/* Staff accounts use compact settings cards and shared labelled action tiles. */
+.staff-manager{margin-top:16px}
+.staff-intro{margin:0 0 14px}
+.staff-card,.account-card{margin-top:12px;padding:18px 20px;border-radius:14px}
+.staff-card h2,.account-card h2{margin:0;font-size:15px;line-height:1.6;font-weight:650}
+.staff-card h2>.micro{margin-left:5px;font-weight:400}
+.staff-section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.staff-section-heading p{margin:4px 0 0;font-size:12px;line-height:1.7}
+.staff-tag{display:inline-flex;align-items:center;flex:none;padding:3px 7px;border:1px solid #e7e7eb;border-radius:6px;background:#f7f7f9;color:#66676d;font-size:10px;font-weight:500;line-height:1.5;white-space:nowrap}
+.staff-account-list{list-style:none;margin:0;padding:0}
+.staff-account{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 0;border-top:1px solid #eeeef1;min-width:0}
+.staff-account:first-child{border-top:0;padding-top:0}
+.staff-account:last-child{padding-bottom:0}
+.staff-account-identity{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.staff-avatar{display:inline-flex;align-items:center;justify-content:center;flex:0 0 36px;width:36px;height:36px;border-radius:12px;background:#f5f6f8;color:#697886}
+.staff-avatar .admin-icon{width:19px;height:19px}
+.staff-account-copy{min-width:0}
+.staff-account-copy>strong{display:block;font-size:14px;font-weight:600;line-height:1.6;overflow-wrap:anywhere}
+.staff-account-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px 8px;margin-top:4px;color:var(--muted);font-size:11px;line-height:1.6}
+.staff-account-actions{display:flex;align-items:center;gap:12px;flex:none}
+.staff-state{padding:4px 7px;border:1px solid #e7e7eb;border-radius:7px;background:#f7f7f9;color:#66676d;font-size:11px;line-height:1.5;white-space:nowrap}
+.staff-state[data-active=true]{background:#f0f7f3;border-color:#d3e5d9;color:#28634b}
+.staff-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.staff-create-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.staff-field-grid>div,.staff-create-grid>div{min-width:0}
+.staff-wide{grid-column:1/-1}
+.staff-manager .admin-label,.account-card .admin-label{font-size:12px;line-height:1.6;margin:0 0 5px}
+.staff-manager :is(.admin-input,.admin-select),.account-card .admin-input{width:100%;min-width:0;max-width:100%;min-height:44px;padding:9px 11px;margin:0;border-radius:10px;font-size:16px}
+.staff-form-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
+.staff-form-footer .micro{margin:0;font-size:12px;line-height:1.7}
+@media(max-width:850px){.staff-create-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.staff-create-grid>div:last-child{grid-column:1/-1}}
+@media(max-width:650px){.staff-card,.account-card{padding:14px}.staff-card h2,.account-card h2{font-size:14px}.staff-field-grid,.staff-create-grid{grid-template-columns:minmax(0,1fr);gap:12px}.staff-account{gap:10px}.staff-account-identity{gap:8px}.staff-account-actions{gap:8px;margin-left:auto}.staff-avatar{flex-basis:30px;width:30px;height:30px;border-radius:10px}.staff-account-copy>strong{font-size:13px}.staff-state{font-size:10px;padding:4px 6px}.staff-form-footer{gap:10px}}
