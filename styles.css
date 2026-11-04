@@ -204,3 +204,70 @@ textarea.message-place{field-sizing:content;min-height:96px}
 @media(max-width:600px){.inbox-results>.inbox-item{padding:14px}.list-note-compose .admin-input{font-size:16px}.list-note-row{grid-template-columns:56px minmax(0,1fr);gap:6px}}
 @media(max-width:600px){.list-confirmation-fields{grid-template-columns:1fr}.list-confirmation,.request-note-editor{padding:12px}.list-quick-status .quick-status-menu{right:0;left:auto}}
 @media(max-width:600px){.quick-status-menu{left:0;right:auto}.reservation-heading .primary{margin-left:auto}}
+
+/* Detail actions share the compact list controls; workflow labels stay readable. */
+.admin-icon-button.icon-primary{background:var(--ink);color:#fff}
+.admin-icon-button.icon-primary:hover{background:#3a3a3c}
+.request-detail{padding:22px;border-radius:14px}
+.detail-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.detail-identity{display:flex;align-items:flex-start;gap:8px;min-width:0;flex:1 1 180px}
+.detail-identity>div{min-width:0}
+.detail-identity h2{font-size:20px;line-height:1.4;letter-spacing:-.3px;word-break:keep-all}
+.detail-identity .inbox-phone{display:block;font-size:14px;margin-top:3px}
+.detail-receipt{margin:2px 0 0;font-size:10px}
+.request-detail .detail-actions{margin:0;gap:3px;max-width:100%;align-items:center}
+.request-detail .quick-status-trigger{background:var(--bg);border-color:transparent;gap:6px;font-size:12px;font-weight:550;padding:8px 11px}
+.detail-overview{padding:18px 0}
+.request-detail .detail-overview h3{font-size:16px;line-height:1.6;margin:0}
+.detail-package{margin:2px 0 12px;font-size:13px}
+.detail-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:0}
+.detail-facts>div{min-width:0}
+.detail-facts dt{font-size:12px;line-height:1.6;color:var(--muted);margin-bottom:3px}
+.detail-facts dd{font-size:14px;line-height:1.6;margin:0;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.detail-prices{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px;padding-top:12px;border-top:1px solid #eeeef1}
+.detail-prices>div{display:grid;gap:3px;min-width:0}
+.detail-prices strong{font-size:18px;line-height:1.6;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.request-detail .request-status-editor{padding:14px 0;border-block:1px solid var(--line)}
+.detail-status-fields{display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px}
+.detail-status-fields>div{flex:1 1 150px;min-width:0}
+.detail-status-fields .admin-label{font-size:12px;margin:0 0 6px}
+.detail-status-fields .admin-select{min-height:44px;padding:9px 12px}
+.detail-status-fields>.detail-status-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:0 1 auto}
+.detail-status-actions .inline-check{margin:0;min-height:44px;white-space:nowrap}
+.request-detail .request-save-feedback{padding:0;margin:8px 0 0;border-radius:0;background:transparent;font-size:12px}
+.request-detail .request-save-feedback:empty{display:none}
+.request-detail .request-status-editor .request-save-feedback{background:transparent}
+.request-detail .request-note-editor{margin:0;padding:18px 0;border:0;border-radius:0;background:transparent}
+.request-detail .request-note-editor h3{font-size:14px;margin:0 0 10px}
+.detail-customer-request{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;margin-bottom:12px}
+.detail-customer-request p{font-size:14px;line-height:1.7;white-space:pre-wrap;margin:0}
+.detail-note-compose{display:flex;align-items:flex-end;gap:8px}
+.detail-note-compose .admin-input{min-height:68px;padding:10px 12px;background:#fafafa;border-color:var(--line);font-size:16px;line-height:24px}
+.detail-note-compose .admin-input:focus{background:#fff}
+.request-detail .request-note-editor .quick-status-feedback{margin:6px 0;font-size:12px}
+.request-detail #requestNotes{margin-top:10px}
+.request-detail .request-note{padding:8px 0;border:0}
+.request-detail .request-note p{font-size:14px;line-height:1.7}
+.request-detail .request-note time{font-size:11px}
+.detail-note-history summary{font-size:12px;font-weight:500;min-height:44px}
+.detail-disclosure,.request-detail>details{border-top:1px solid var(--line)}
+.detail-disclosure>summary,.request-detail>details>summary{font-size:13px;min-height:48px;padding:12px 0}
+.request-detail .message-composer{border:0;margin:0;padding:0 0 16px}
+.request-detail .message-stages{display:flex;flex-wrap:wrap;gap:4px;margin:12px 0}
+.request-detail .message-stages .secondary{flex:1 1 150px;padding:8px 10px;font-size:12px;border-color:transparent;background:var(--bg)}
+.request-detail .message-stages [aria-pressed=true]{background:var(--ink);color:#fff}
+.request-detail .message-booking{background:transparent;border:1px solid var(--line);border-radius:10px;padding:0 12px}
+.request-detail .message-booking[open]{padding-bottom:12px}
+.request-detail .message-booking .admin-label{font-size:12px;margin-top:12px}
+.request-detail .message-place{min-height:72px}
+.request-detail .reservation-confirm{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px 12px;align-items:center;margin:12px 0;padding:12px 0;background:transparent;border-block:1px solid var(--line);border-radius:0}
+.request-detail .reservation-confirm>p:first-child{font-size:13px;margin:0;word-break:keep-all}
+.request-detail .reservation-confirm>.micro{grid-column:1/-1;margin:0}
+.request-detail #messagePricing{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:8px}
+.request-detail #messagePricing p{margin:0;flex:1 1 200px}
+.request-detail .message-body{min-height:200px;height:240px;font-size:14px;line-height:1.7}
+.message-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin:10px 0}
+.request-detail .message-send{padding-top:12px;margin-top:12px;border-top:1px solid var(--line)}
+.request-detail .message-send>.micro{margin:0}
+.request-detail .message-notice:empty{display:none}
+@media(max-width:600px){.request-detail{padding:14px}.detail-header{gap:12px}.detail-identity{flex-basis:100%}.detail-identity h2{font-size:18px}.request-detail .detail-actions{width:100%}.detail-facts{grid-template-columns:1fr;gap:10px}.detail-status-fields{gap:10px}.detail-status-fields>div{flex-basis:100%}.detail-status-fields>.detail-status-actions{flex-basis:100%}.detail-customer-request{grid-template-columns:1fr;gap:4px}.request-detail .message-body{font-size:16px}.request-detail .message-stages .secondary{flex-basis:calc(50% - 4px);min-width:0}}
