@@ -151,4 +151,18 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .quick-status-feedback:empty{display:none}
 .quick-status-feedback[data-state=success]{color:#28634b}
 .quick-status-feedback[data-state=error]{color:#9e3030}
+.list-quick-status .quick-status-menu{right:0;left:auto}
+.list-confirmation{margin:16px 0;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.list-confirmation-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.list-confirmation-fields label{min-width:0;font-size:13px;line-height:1.6;font-weight:550}
+.list-confirmation-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;line-height:1.6;margin-top:10px}
+.list-confirmation-check input{width:20px;height:20px;flex:none}
+.request-note-editor{margin:20px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.request-note-editor>.admin-label{margin-top:0}
+.request-note-editor .btnrow{justify-content:flex-end}
+.request-note-editor .btnrow>button{flex:0 1 180px}
+.request-note-editor .quick-status-feedback{margin:12px 0}
+.request-note{border-top:1px solid var(--line);padding:12px 0}
+.request-note p{white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;font-size:14px;line-height:1.7;margin:0 0 4px}
+@media(max-width:600px){.list-confirmation-fields{grid-template-columns:1fr}.list-confirmation,.request-note-editor{padding:12px}.list-quick-status .quick-status-menu{right:0;left:auto}}
 @media(max-width:600px){.quick-status-menu{left:0;right:auto}.reservation-heading .primary{margin-left:auto}}

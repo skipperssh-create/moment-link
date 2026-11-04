@@ -162,7 +162,13 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='reservation'&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
-    if(action==='notes'&&method==='POST'){const d=parse(z.object({body:text(4000,1)}).strict(),await body(request));await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4)',[randomUUID(),id,user.id,d.body]);await audit(tx,user.id,'consultation.note',id);return {ok:true};}
+    if(action==='notes'&&method==='POST'){
+     const d=parse(z.object({body:text(4000,1),noteId:z.string().uuid().optional()}).strict(),await body(request));
+     const noteId=d.noteId||randomUUID(),prior=(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE id=$1',[noteId])).rows[0];
+     if(prior){if(prior.consultation_id!==id||prior.actor_id!==user.id||prior.body!==d.body)fail(409,'NOTE_CONFLICT','메모 저장 요청이 변경되었습니다. 저장 내역을 확인해 주세요.');return {ok:true,note:prior,replayed:true};}
+     const note=(await tx.query('INSERT INTO moment_link.consultation_notes(id,consultation_id,actor_id,body) VALUES($1,$2,$3,$4) RETURNING *',[noteId,id,user.id,d.body])).rows[0];
+     await audit(tx,user.id,'consultation.note',id);return {ok:true,note};
+    }
     if(action==='confirm'&&method==='POST'){
      if(r.category==='yacht')fail(400,'USE_RESERVATION','위쪽 예약 확정에서 탑승 인원·결제수단을 확인해 주세요. 확정 시 OPS에 자동 등록됩니다.');
      authorize(user,true);const d=parse(z.object({version:z.number().int(),date:text(10).refine(validDate),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.number().int().min(1).max(1440),amount:z.number().int().min(0).max(100000000),place:text(500,1),resourceId:text(100,1),approved:z.literal(true)}).strict(),await body(request));
