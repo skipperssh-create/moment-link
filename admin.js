@@ -148,7 +148,7 @@ function paintLive(){
  bar.classList.toggle('has-new',live.arrivals>0);bar.classList.toggle('has-error',!!live.error||navigator.onLine===false);
  const view=bar.querySelector('[data-ml=newInquiries]'),refresh=bar.querySelector('[data-ml=refreshLive]');
  view.hidden=!live.arrivals;view.disabled=busy;refresh.disabled=busy||!!live.controller||navigator.onLine===false;
- refresh.innerHTML=iconLabel('refresh',live.controller?'확인 중…':'새로고침');
+ if(refresh.classList.contains('admin-icon-button'))paintDetailAction(refresh,'refresh',live.controller?'확인 중…':'새로고침');else refresh.innerHTML=iconLabel('refresh',live.controller?'확인 중…':'새로고침');
  document.title=live.arrivals?`새 상담 ${live.arrivals}건 | MOMENT LINK`:live.originalTitle;
 }
 function listPath(){return 'admin/consultations?q='+encodeURIComponent(search)+'&offset='+offset+'&view='+(tab==='inbox'?'all':tab)+'&status='+(tab==='reservations'?reservationStatus:requestStatus);}
