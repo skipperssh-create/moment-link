@@ -490,3 +490,31 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .place-empty{margin:8px 0;padding:28px 12px;border:1px dashed var(--line);border-radius:12px;text-align:center;color:var(--muted);font-size:13px;line-height:1.8}
 .place-save-row{margin:14px 0 0}
 @media(max-width:650px){.place-card{padding:14px}.place-field-grid{grid-template-columns:minmax(0,1fr);gap:12px}.place-card h2{font-size:14px}.place-item>summary{padding:12px 10px;gap:8px}.place-item-body{padding:14px 10px}.place-item-copy>strong{font-size:13px}.place-state{padding:4px 6px;font-size:10px}.place-toolbar{gap:10px}}
+
+/* Intake/privacy settings reuse compact cards and labelled action tiles. */
+.privacy-manager{margin-top:16px}
+.privacy-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.privacy-toolbar>.micro{margin:0;max-width:600px}
+.privacy-card{margin-top:12px;padding:18px 20px;border-radius:14px}
+.privacy-card h2{margin:0 0 14px;font-size:15px;line-height:1.6;font-weight:650}
+.privacy-intake-toggle{display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:#fff;cursor:pointer}
+.privacy-intake-toggle:has(input:checked){background:#f4f7fa;border-color:#ccdbe6}
+.privacy-intake-toggle:focus-within{outline:2px solid #4578c4;outline-offset:2px}
+.privacy-intake-toggle>input{flex:0 0 18px;width:18px;height:18px;margin:0;accent-color:#315a78}
+.privacy-intake-toggle>span{display:grid;gap:4px;min-width:0}
+.privacy-intake-toggle strong{font-size:13px;line-height:1.5;font-weight:600}
+.privacy-intake-toggle .micro{font-size:12px;line-height:1.6}
+.privacy-hint{margin:10px 0 0;font-size:11px;line-height:1.7}
+.privacy-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.privacy-field-grid>div{min-width:0}
+.privacy-wide{grid-column:1/-1}
+.privacy-manager .admin-label{font-size:12px;line-height:1.6;margin:0 0 5px}
+.privacy-manager .admin-input{width:100%;min-width:0;max-width:100%;min-height:44px;padding:9px 11px;margin:0;border-radius:10px;font-size:16px}
+.privacy-manager textarea.admin-input{min-height:200px;font-size:14px;line-height:1.8;resize:vertical}
+.privacy-policy-note{margin:0 0 16px;font-size:12px;line-height:1.7}
+.privacy-save-row{margin:14px 0 18px}
+.privacy-retention{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.privacy-retention>div{flex:1;min-width:0}
+.privacy-retention h2{margin-bottom:6px}
+.privacy-retention p{margin:4px 0 0;font-size:12px;line-height:1.7}
+@media(max-width:650px){.privacy-card{padding:14px}.privacy-card h2{font-size:14px}.privacy-field-grid{grid-template-columns:minmax(0,1fr);gap:12px}.privacy-manager textarea.admin-input{font-size:16px}.privacy-retention{flex-wrap:wrap}.privacy-retention>div{flex-basis:100%}.privacy-retention>.admin-icon-button{margin-left:auto}.privacy-toolbar{gap:10px}}
