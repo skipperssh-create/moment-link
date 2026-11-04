@@ -270,4 +270,29 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .request-detail .message-send{padding-top:12px;margin-top:12px;border-top:1px solid var(--line)}
 .request-detail .message-send>.micro{margin:0}
 .request-detail .message-notice:empty{display:none}
+.reservation-toolbar{display:flex;align-items:flex-start;gap:8px;margin:16px 0 10px}
+.reservation-toolbar .inbox-search{flex:1;min-width:0;margin:0}
+.reservation-toolbar .inbox-search-row{display:flex;gap:8px;align-items:center}
+.reservation-toolbar .inbox-search-row .admin-input{flex:1;min-width:0;min-height:44px;padding:9px 12px}
+.reservation-toolbar .admin-icon-button{flex:0 0 44px}
+.reservation-search-result{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px}
+.inbox-pagination>.admin-icon-button{flex:0 0 44px}
+.reservation-overview{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;margin-top:12px}
+.reservation-schedule,.reservation-amount{min-width:0;display:grid;align-content:start;gap:3px}
+.reservation-date-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 8px;font-size:18px;font-weight:650;line-height:1.5;font-variant-numeric:tabular-nums}
+.reservation-date-line time,.reservation-date-line span{white-space:nowrap}
+.reservation-date-line span{font-size:15px;font-weight:550}
+.reservation-amount{text-align:right}
+.reservation-amount strong{font-size:18px;line-height:1.5;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
+.reservation-place{grid-column:1/-1;display:flex;align-items:flex-start;gap:7px;margin:0;font-size:13px;line-height:1.7;color:var(--muted);word-break:keep-all}
+.reservation-place .admin-icon{width:16px;height:16px;margin-top:3px}
+.reservation-place span{min-width:0;overflow-wrap:anywhere}
+.reservation-messages{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 10px;margin-top:6px;padding-top:6px;border-top:1px solid #eeeef1}
+.reservation-messages>.micro{margin:0;font-size:12px}
+.reservation-message-actions{display:flex;align-items:center;gap:2px;margin-left:auto}
+.reservation-message-action{position:relative}
+.reservation-message-action.has-sent-record{color:#28634b}
+.reservation-sent-mark{display:flex;align-items:center;justify-content:center;position:absolute;right:4px;bottom:4px;width:13px;height:13px;background:#fff;border:1px solid #fff;border-radius:50%;color:#28634b}
+.reservation-sent-mark .admin-icon{width:11px;height:11px;stroke-width:2.5}
+@media(max-width:650px){.reservation-overview{grid-template-columns:minmax(0,1fr);gap:8px}.reservation-amount{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}.reservation-toolbar .inbox-search-row .admin-input{font-size:16px}}
 @media(max-width:600px){.request-detail{padding:14px}.detail-header{gap:12px}.detail-identity{flex-basis:100%}.detail-identity h2{font-size:18px}.request-detail .detail-actions{width:100%}.detail-facts{grid-template-columns:1fr;gap:10px}.detail-status-fields{gap:10px}.detail-status-fields>div{flex-basis:100%}.detail-status-fields>.detail-status-actions{flex-basis:100%}.detail-customer-request{grid-template-columns:1fr;gap:4px}.request-detail .message-body{font-size:16px}.request-detail .message-stages .secondary{flex-basis:calc(50% - 4px);min-width:0}}
