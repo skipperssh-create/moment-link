@@ -43,9 +43,18 @@ async function browserHarness(){
   setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),fetch:(url,options)=>new Promise((resolve,reject)=>{options.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')));requests.push({url,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data}),reject});})});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
  vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:()=>user={id:'synthetic',role:'admin'},getDetail:()=>detail};render=()=>{};`),context);
- const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds};
+ const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds,composer};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('linked reservation detail refreshes OPS changes while unsaved edits and late responses remain protected',async()=>{
+ const h=await browserHarness(),item={id:'synthetic',version:1,integration:{state:'succeeded'}},detail={item};h.api.setDetail(detail);
+ const update={checkedAt:'2026-11-05T00:00:00.000Z',pending:0,arrivals:0};
+ let running=h.api.refreshLive();h.requests.at(-1).resolve(update);await tick();assert.match(h.requests.at(-1).url,/consultations\/synthetic$/);
+ h.requests.at(-1).resolve({item:{...item,version:2,status:'cancelled'}});await running;assert.equal(h.api.getDetail().item.status,'cancelled');
+ h.api.setDirty(true);let count=h.requests.length;running=h.api.refreshLive();h.requests.at(-1).resolve(update);await running;assert.equal(h.requests.length,count+1);
+ h.api.setDirty(false);h.composer.isDirty=()=>true;count=h.requests.length;running=h.api.refreshLive();h.requests.at(-1).resolve(update);await running;assert.equal(h.requests.length,count+1);
+ h.composer.isDirty=()=>false;running=h.api.refreshLive();h.requests.at(-1).resolve(update);await tick();h.api.setDetail({item:{id:'another',version:1}});h.requests.at(-1).resolve({item:{...item,version:3}});await running;assert.equal(h.api.getDetail().item.id,'another');h.api.clear();
+});
 test('reservation restoration confirmation pauses list refresh until it closes',async()=>{
  const h=await browserHarness();h.elements['#restorationConfirmation']={};
  await h.api.refreshLive();h.api.scheduleLive();assert.equal(h.requests.length,0);assert.equal(h.timers.size,0);

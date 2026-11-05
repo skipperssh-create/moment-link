@@ -63,7 +63,7 @@ export function opsAdapter(target,env){
 export async function processIntegration(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
   if(j.state==='checking'&&Date.now()-new Date(j.updated_at).getTime()>240000)j.state='uncertain';
-  if(['succeeded','checking'].includes(j.state)||['reschedule','cancel','restore'].includes(j.booking.operation)&&j.state==='conflict')return j;
+  if(j.booking.operation==='inbound'||['succeeded','checking'].includes(j.state)||['reschedule','cancel','restore'].includes(j.booking.operation)&&j.state==='conflict')return j;
   const active=(await tx.query('SELECT id FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[j.consultation_id])).rows[0];
   if(!active){await tx.query("UPDATE moment_link.integration_jobs SET state='blocked',error_code='CONSULTATION_UNAVAILABLE' WHERE id=$1",[id]);return {...j,state:'blocked'};}
   if(env.OPS_WRITES_ENABLED!=='true'){const state=j.state==='uncertain'?'uncertain':'blocked';await tx.query("UPDATE moment_link.integration_jobs SET state=$1,error_code='OPS_WRITES_DISABLED' WHERE id=$2",[state,id]);return {...j,state};}

@@ -28,6 +28,7 @@ const reasons={OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 �
 const retryReasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 다시 확인해야 합니다.',OPS_REVIEW_REQUIRED:'OPS에서 등록 확인을 완료하지 못했습니다.',OPS_HTTP_429:'OPS 요청이 잠시 많아 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
 function panel(r){
  if(!r.integration)return '';
+ if(r.integration.operation==='inbound')return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${r.integration.state==='succeeded'?'변경 반영 완료':'변경 확인 필요'}</h3><p class="micro">${r.integration.state==='succeeded'?'OPS에서 변경한 예약시간·취소·복원 상태가 반영되었습니다. 금액·입금·메모는 그대로 유지됩니다.':'양쪽 예약 정보가 달라 자동 반영을 멈췄습니다. 기존 예약 내용을 확인해 주세요.'}</p><a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
  if(r.integration.operation==='restore')return restorationPanel(r);
  if(r.integration.operation==='cancel')return cancellationPanel(r);
  if(r.integration.operation==='reschedule')return schedulePanel(r);

@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {saveCommunication,confirmReservation,reservationSchema} from './communications.mjs';
 import {queueCancellation} from './ops-cancel.mjs';
 import {queueRestoration} from './ops-restore.mjs';
+import {receiveOpsEvent} from './ops-inbound.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
@@ -30,6 +31,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   const method=request.method;
   if(path==='/api/health')return json({status:'ok',version:'4.1.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
   const db=givenDb||database();
+  if(path==='/api/integrations/boatn/events'||path.startsWith('/api/integrations/boatn/events/'))return json(await receiveOpsEvent(request,db,env));
   const dispatch=async(id,wait=false)=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=dispatchIntegrations(db,env,adapters,id).catch(()=>{});if(schedule&&!wait)schedule(work);else await work;};
   if(path==='/api/cron/retention'&&method==='GET'){
    if(!authorizedCron(request,env.CRON_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');

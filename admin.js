@@ -188,6 +188,11 @@ async function refreshLive(){
   if(update.latestAt>live.soundLatest)live.soundLatest=update.latestAt;
   live.since ||= update.checkedAt;live.checkedAt=update.checkedAt;live.pending=update.pending;live.arrivals=update.arrivals;live.error='';
   if(listVisible&&!listStatusState.id&&!listStatusState.confirmationId&&!listNoteEditing()){const result=await api(path,'GET',undefined,controller.signal);if(generation===live.generation&&liveEligible()&&!busy&&!detail&&path===listPath()&&!listStatusState.id&&!listStatusState.confirmationId&&!listNoteEditing())refreshListView(result);}
+  const open=detail?.item;
+  if(open?.integration&&!busy&&!dirty&&!composer.isDirty()&&!noteDrafts.get(open.id)){
+   const result=await api('admin/consultations/'+open.id,'GET',undefined,controller.signal);
+   if(generation===live.generation&&liveEligible()&&detail?.item===open&&!busy&&!dirty&&!composer.isBusy()&&!composer.isDirty()&&!noteDrafts.get(open.id)&&(result.item.version!==open.version||JSON.stringify(result.item.integration)!==JSON.stringify(open.integration))){detail=result;composer.clear();notice='OPS 예약의 최신 변경을 반영했습니다.';render();}
+  }
  }catch(err){
   if(err.status===401&&!user){notice='로그인을 다시 확인해 주세요.';render();return;}
   if(generation!==live.generation)return;
@@ -542,7 +547,7 @@ const opsStateLabels={pending:'대기',blocked:'보류',checking:'확인 중',fa
 function opsJobRow(job,kind){
  const integration=kind==='integration',name=integration?(job.target==='boatn'?'BOATN OPS':job.target||'OPS'):({sms_customer:'고객 문자',sms_admin:'관리자 문자',push:'푸시 알림'}[job.channel]||job.channel||'알림');
  const restoring=integration&&job.operation==='restore',cancelling=integration&&['cancel','restore'].includes(job.operation),verb=restoring?'복원':'취소',label=cancelling?(Number(job.attempts||0)>=2?verb+' 결과 조회':verb+' 상태 확인'):integration?'상태 확인 / 안전 재시도':'상태 확인 / 재시도',tone=['succeeded','sent'].includes(job.state)?'success':['failed','conflict','uncertain'].includes(job.state)?'attention':'neutral';
- return '<li class="ops-job"><div class="ops-job-copy"><div class="ops-job-heading"><strong>'+e(name+(cancelling?' · 예약 '+verb:''))+'</strong><span class="ops-job-state" data-tone="'+tone+'" title="'+e(job.state)+'">'+e(cancelling&&job.state==='succeeded'?verb+' 반영 완료':opsStateLabels[job.state]||job.state||'상태 미확인')+'</span></div>'+(integration?'<p class="ops-job-meta"><span>예약 ID</span><span>'+e(job.external_id||'미등록')+'</span></p>':'')+(job.error_code?'<p class="ops-job-code"><span>상세 코드</span><code>'+e(job.error_code)+'</code></p>':'')+'</div><div class="ops-job-actions"><button type="button" class="admin-icon-button" data-ml="runJob" data-kind="'+kind+'" data-id="'+e(job.id)+'" aria-label="'+e(name+' '+label)+'" title="'+e(label)+'" '+(busy||cancelling&&['succeeded','conflict'].includes(job.state)?'disabled':'')+'>'+detailIconContent('refresh',label)+'</button></div></li>';
+ return '<li class="ops-job"><div class="ops-job-copy"><div class="ops-job-heading"><strong>'+e(name+(cancelling?' · 예약 '+verb:''))+'</strong><span class="ops-job-state" data-tone="'+tone+'" title="'+e(job.state)+'">'+e(cancelling&&job.state==='succeeded'?verb+' 반영 완료':opsStateLabels[job.state]||job.state||'상태 미확인')+'</span></div>'+(integration?'<p class="ops-job-meta"><span>예약 ID</span><span>'+e(job.external_id||'미등록')+'</span></p>':'')+(job.error_code?'<p class="ops-job-code"><span>상세 코드</span><code>'+e(job.error_code)+'</code></p>':'')+'</div><div class="ops-job-actions"><button type="button" class="admin-icon-button" data-ml="runJob" data-kind="'+kind+'" data-id="'+e(job.id)+'" aria-label="'+e(name+' '+label)+'" title="'+e(label)+'" '+(busy||job.operation==='inbound'||cancelling&&['succeeded','conflict'].includes(job.state)?'disabled':'')+'>'+detailIconContent('refresh',label)+'</button></div></li>';
 }
 function ops(){
  const integrations=jobs.integrations||[],notifications=jobs.notifications||[];
