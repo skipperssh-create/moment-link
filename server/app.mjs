@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {canEdit,canClaim,claim,acquireForWork,validateTransfer,staffQuery,reminderDueSql} from './ownership.mjs';
 import {z} from 'zod';
 import {saveCommunication,confirmReservation,reservationSchema} from './communications.mjs';
 import {queueCancellation} from './ops-cancel.mjs';
@@ -19,7 +20,7 @@ async function config(db,id){return (await db.query('SELECT * FROM moment_link.c
 async function published(db){return (await db.query('SELECT * FROM moment_link.catalog_versions ORDER BY version DESC LIMIT 1')).rows[0];}
 const jsonResponse=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 async function body(request,max=100000){if(Number(request.headers.get('content-length'))>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');if(!request.headers.get('content-type')?.includes('application/json'))fail(415,'CONTENT_TYPE','JSON 요청이 필요합니다.');const raw=await request.text();if(Buffer.byteLength(raw)>max)fail(413,'BODY_TOO_LARGE','요청 용량을 줄여 주세요.');try{return JSON.parse(raw);}catch{fail(400,'JSON','올바르지 않은 요청입니다.');}}
-const userPublic=u=>u?{id:u.id,username:u.username,role:u.role,mustChangePassword:u.must_change_password}:null;
+const userPublic=u=>u?{id:u.id,username:u.username,displayName:u.displayName||u.username,role:u.role,mustChangePassword:u.must_change_password}:null;
 function visibleRequest(r){return {...r,idempotency_hash:undefined,payload_hash:undefined};}
 export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
  return async function handle(request){
@@ -87,12 +88,13 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    // Trust Vercel's overwritten proxy header only on Vercel; local fallback is fixed.
    const ip=env.VERCEL?request.headers.get('x-vercel-forwarded-for')||'unknown':'local';
    await rateLimit(db,'login:'+ip,20,900);await rateLimit(db,'login-user:'+d.username,10,900);
-   const u=(await db.query('SELECT * FROM moment_link.admin_users WHERE username=$1',[d.username])).rows[0];
+   const u=(await db.query(`SELECT u.*,COALESCE(p.data->>'name',u.username) AS "displayName" FROM moment_link.admin_users u LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE u.username=$1`,[d.username])).rows[0];
    if(!await verifyPassword(d.password,u?.password_hash)||!u?.active)fail(401,'LOGIN_FAILED','아이디 또는 비밀번호를 확인해 주세요.');
    const raw=token(),anti=token();await db.query(`INSERT INTO moment_link.sessions(token_hash,user_id,csrf,expires_at) VALUES($1,$2,$3,now()+$4*interval '1 second')`,[hash(raw),u.id,anti,SESSION_SECONDS]);
    await audit(db,u.id,'auth.login',u.id);return json({user:userPublic(u),csrf:anti},200,{'Set-Cookie':cookie(raw,env)});
   }
   const user=await session(db,request,raw=>{renewedCookie=cookie(raw,env);});
+  const present=r=>({...visibleRequest(r),can_edit:canEdit(r,user),can_claim:canClaim(r),followup:MomentLinkOwnership.reminder(r)});
   if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
   if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
   if(path==='/api/auth/password'&&method==='POST'){
@@ -108,6 +110,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
+  if(path==='/api/admin/staff'&&method==='GET')return json({items:(await db.query(staffQuery)).rows});
   if(path==='/api/admin/ops/boatn'&&method==='GET'){
    if(env.OPS_WRITES_ENABLED!=='true')return json({enabled:false,paymentMethods:[]});
    const metadata=await (adapters.ops?.boatn||opsAdapter('boatn',env)).metadata();
@@ -129,7 +132,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     count(*) FILTER (WHERE created_at>$3::timestamptz)::int AS arrivals,
     max(created_at) AS latest_at
     FROM moment_link.consultations
-    WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2)
+    WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2 OR assignee IS NULL)
     AND COALESCE(communication->'entry'->>'source','')<>'admin_direct'`,[user.role,user.id,since]);
    const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals,latestAt:row.latest_at?new Date(row.latest_at).toISOString():null});
   }
@@ -138,16 +141,18 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']),url.searchParams.get('status')||'all');
    if(view==='trash')authorize(user,true);
    const reserved="(c.status='confirmed' OR c.communication ? 'reservation' OR EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id AND j.state='succeeded'))";
-   const scope="c.expires_at>now() AND ($1='admin' OR c.assignee=$2) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)";
+   const owner=parse(z.union([z.enum(['all','mine','unassigned']),z.string().uuid()]),url.searchParams.get('owner')||(user.role==='admin'?'all':'mine'));
+   const followup=parse(z.enum(['all','reminder']),url.searchParams.get('followup')||'all');
+   const scope="c.expires_at>now() AND ($1='all' OR ($1='unassigned' AND c.assignee IS NULL) OR c.assignee=$2::uuid) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)";
    const active=view==='trash'?'c.deleted_at IS NOT NULL AND c.delete_after>now()':'c.deleted_at IS NULL';
-   const filter=view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'';
+   const filter=(view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'')+(followup==='reminder'?' AND '+reminderDueSql:'');
    const order=view==='trash'?'c.deleted_at DESC':view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
-   const trashBefore=new Date().toISOString(),args=[user.role,user.id,search,'%'+search+'%'];
+   const trashBefore=new Date().toISOString(),args=[owner,owner==='mine'?user.id:['all','unassigned'].includes(owner)?null:owner,search,'%'+search+'%'];
    const counts={all:0,new:0,initial_unreachable:0,consulting:0,no_response:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
    const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
    for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
    const r=await db.query("SELECT c.*, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
-   return json({items:r.rows.map(visibleRequest),counts,trashBefore});
+   return json({items:r.rows.map(present),counts,trashBefore});
   }
   const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
   if(retryMatch&&method==='POST'){
@@ -156,14 +161,17 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'ops-retry:'+user.id,5,60);
    return json(await processIntegration(db,row.id,env,adapters));
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|restore-reservation|reservation|restore|permanent))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
-    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND (delete_after IS NULL OR delete_after>now()) FOR UPDATE',[id])).rows[0];if(!r||(user.role!=='admin'&&r.assignee!==user.id))fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND (delete_after IS NULL OR delete_after>now()) FOR UPDATE',[id])).rows[0];if(!r)fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if(action==='claim'&&method==='POST'){const d=parse(z.object({version:z.number().int()}).strict(),await body(request));return {item:await claim(tx,r,user,d.version)};}
+    if(method!=='GET'&&!canEdit(r,user))fail(403,'NOT_ASSIGNED','담당 상담사만 변경할 수 있습니다. 미배정 상담은 상담 시작을 눌러 주세요.');
     if((method==='DELETE'&&!action)||(action==='restore'&&method==='POST')||(action==='permanent'&&method==='DELETE')){authorize(user,true);return changeTrash(tx,r,user,action||'trash',await body(request));}
     if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query('SELECT action,detail,created_at FROM moment_link.audit_logs WHERE entity_id=$1 ORDER BY created_at',[id])).rows};
+    if(['communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='reservation'&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='notes'&&method==='POST'){
@@ -195,8 +203,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     }
     if(method==='PATCH'&&!action){
      let cancellationQueued=false;
-     const d=parse(z.object({version:z.number().int(),status:z.enum(['new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']).optional(),confirmation:reservationSchema.omit({version:true}).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
+     const d=parse(z.object({version:z.number().int(),status:z.enum(['new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']).optional(),confirmation:reservationSchema.omit({version:true}).optional(),assignee:z.string().uuid().nullable().optional(),handoverReason:text(500).optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
      if(r.version!==d.version)fail(409,'VERSION','다른 관리자가 변경했습니다. 새로고침해 주세요.');if(d.assignee!==undefined)authorize(user,true);
+     await validateTransfer(tx,r,user,d.assignee,d.handoverReason);
+     if(!r.assignee&&!d.assignee&&(d.status||d.contacted)){await acquireForWork(tx,r,user);if(d.assignee===null)d.assignee=user.id;}
      if(d.confirmation&&d.status!=='confirmed')fail(400,'STATE','예약 확정 정보를 함께 저장하려면 확정을 선택해 주세요.');
      if(d.status==='confirmed'&&r.status!=='confirmed'&&!d.confirmation)fail(400,'BOOKING_NOT_READY','일정·금액·장소와 입금 확인 후 확정해 주세요.');
      if(r.status==='confirmed'&&d.status&&d.status!=='confirmed'){
@@ -212,10 +222,11 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[cancellationQueued?r.status:d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated),cancellationQueued};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });await dispatch(id,result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST');
+   });if(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id)await dispatch(id,result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST');
    if(result.item){
     if(result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
+    result.item=present(result.item);
    }return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
@@ -245,9 +256,13 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    let image;try{const meta=await sharp(bytes,{limitInputPixels:20000000}).metadata();if(!['png','jpeg','webp'].includes(meta.format))throw Error('Unsupported format');image=await sharp(bytes,{limitInputPixels:20000000,animated:false}).rotate().resize({width:1600,height:1600,fit:'inside',withoutEnlargement:true}).webp({quality:82}).toBuffer();}catch{fail(400,'IMAGE','PNG·JPEG·WebP 이미지인지 확인해 주세요.');}
    const id=randomUUID();await db.query('INSERT INTO moment_link.media(id,mime,bytes,alt,actor_id) VALUES($1,$2,$3,$4,$5)',[id,'image/webp',image,d.alt,user.id]);await audit(db,user.id,'media.created',id);return json({id,url:'/api/media/'+id,alt:d.alt},201);
   }
-  if(path==='/api/admin/users'&&method==='GET'){authorize(user,true);return json({items:(await db.query('SELECT id,username,role,active FROM moment_link.admin_users ORDER BY username')).rows});}
+  if(path==='/api/admin/users'&&method==='GET'){authorize(user,true);return json({items:(await db.query(staffQuery)).rows});}
   if(path==='/api/admin/users'&&method==='POST'){
-   authorize(user,true);const d=parse(z.object({username:text(40,3),password:passwordSchema,role:z.enum(['admin','counselor'])}).strict(),await body(request));const id=randomUUID();await db.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,d.username,await passwordHash(d.password),d.role]);await audit(db,user.id,'user.created',id,{role:d.role});return json({id},201);
+   authorize(user,true);const d=parse(z.object({username:text(40,3),displayName:text(80,1).optional(),password:passwordSchema,role:z.enum(['admin','counselor'])}).strict(),await body(request));const id=randomUUID();
+   try{await db.transaction(async tx=>{await tx.query('INSERT INTO moment_link.admin_users(id,username,password_hash,role) VALUES($1,$2,$3,$4)',[id,d.username,await passwordHash(d.password),d.role]);
+    await tx.query('INSERT INTO moment_link.config(id,data) VALUES($1,$2)',['staff:'+id,JSON.stringify({name:d.displayName||d.username})]);
+    await audit(tx,user.id,'user.created',id,{role:d.role});
+   });}catch(error){if(error.code==='23505')fail(409,'USERNAME_TAKEN','이미 사용 중인 아이디입니다.');throw error;}return json({id},201);
   }
   const userMatch=path.match(/^\/api\/admin\/users\/([a-f0-9-]{36})$/);
   if(userMatch&&method==='PATCH'){

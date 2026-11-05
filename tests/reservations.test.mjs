@@ -21,7 +21,7 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   const original=(await db.query('SELECT * FROM moment_link.consultations')).rows[0],base='admin/consultations/'+original.id;
   for(const status of ['initial_unreachable','consulting','no_response']){
    const data={version:original.version,status};
-   assert.equal((await req(base,'PATCH',data,staff)).status,404);
+   assert.equal((await req(base,'PATCH',data,staff)).status,403);
    const changed=await req(base,'PATCH',data,auth);assert.equal(changed.status,200);original.version=changed.data.item.version;
    await migrate(db); // Earlier migrations must not reintroduce a restrictive status constraint.
    const filtered=(await req('admin/consultations?view=inbox&status='+status,'GET',undefined,auth)).data;
@@ -30,7 +30,7 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   }
   let data={version:original.version,status:'awaiting_payment',contacted:true};
   assert.equal((await req(base,'PATCH',data)).status,401);
-  assert.equal((await req(base,'PATCH',data,staff)).status,404);
+  assert.equal((await req(base,'PATCH',data,staff)).status,403);
   assert.equal((await req(base,'PATCH',data,{...auth,'X-CSRF-Token':'wrong'})).status,403);
   let out=await req(base,'PATCH',data,auth);assert.equal(out.status,200);let current=out.data.item;
   assert.equal(current.status,'awaiting_payment');assert.equal(current.contacted,true);
@@ -41,12 +41,12 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   assert.deepEqual(list.data.items.map(x=>x.id),[original.id]);assert.equal(list.data.counts.awaiting_payment,1);assert.equal(list.data.counts.all,1);
   assert.equal((await req('admin/consultations?status=awaiting_payment','GET',undefined,staff)).data.counts.awaiting_payment,0);
   const confirmation={booking,drafts:{confirmed:'합성 확정 안내'},approved:true};
-  data={version:current.version,status:'confirmed',assignee:staffId,contacted:false};
+  data={version:current.version,status:'confirmed',assignee:staffId,handoverReason:'합성 담당 인계',contacted:false};
   assert.equal((await req(base,'PATCH',data,auth)).status,400); // Cannot set a label without confirming the booking.
   assert.equal((await req(base,'PATCH',{...data,confirmation:{...confirmation,booking:{...booking,paymentConfirmed:false}}},auth)).status,400);
   assert.equal((await req(base,'PATCH',{...data,status:'hold',confirmation},auth)).status,400);
   const unchanged=(await req(base,'GET',undefined,auth)).data.item;
-  assert.equal(unchanged.status,'awaiting_payment');assert.equal(unchanged.version,current.version);assert.equal(unchanged.assignee,null);assert.equal(unchanged.contacted,true);
+  assert.equal(unchanged.status,'awaiting_payment');assert.equal(unchanged.version,current.version);assert.equal(unchanged.assignee,adminId);assert.equal(unchanged.contacted,true);
   out=await req(base,'PATCH',{...data,confirmation},auth);assert.equal(out.status,200,JSON.stringify(out.data));current=out.data.item;
   assert.equal(current.status,'confirmed');assert.equal(current.assignee,staffId);assert.equal(current.contacted,false);
   assert.equal(current.communication.reservation.source,'manual');assert.equal(current.communication.booking.amount,booking.amount);
@@ -74,7 +74,7 @@ test('manual reservation lifecycle, filtered search, permissions and messages re
   const base='admin/consultations/'+r.id,path=base+'/reservation';
   const data={version:r.version,booking,drafts:{confirmed:'합성 확정 안내',thanks:'합성 감사 안내'},approved:true};
   assert.equal((await req(path,'POST',data)).status,401);
-  assert.equal((await req(path,'POST',data,staff)).status,404);
+  assert.equal((await req(path,'POST',data,staff)).status,403);
   assert.equal((await req(path,'POST',data,{...auth,'X-CSRF-Token':'wrong'})).status,403);
   for(const b of [{...booking,paymentConfirmed:false},{...booking,place:''},{...booking,date:'2000-01-01'}])assert.equal((await req(path,'POST',{...data,booking:b},auth)).status,400);
   // A consultation previously closed without a reservation can still be booked explicitly.

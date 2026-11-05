@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_ICON_FILES, writeAppIcons } from './app-icons.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = ['index.html','app.js','admin.js','notification-sound.js','pricing.js','messages.js','ops-ui.js','message-ui.js','booking-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
+const allowed = ['index.html','app.js','admin.js','ownership.js','notification-sound.js','pricing.js','messages.js','ops-ui.js','message-ui.js','booking-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml'];
 const binaryAllowed = ['assets/moment-new-consultation.mp3'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);

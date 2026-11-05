@@ -8,7 +8,7 @@ import {migrate} from '../scripts/migrate.mjs';
 import {createApp} from '../server/app.mjs';
 import {passwordHash} from '../server/security.mjs';
 
-test('live counts require authentication, respect assignment and ignore expired/trash records beyond the first page',async()=>{
+test('live counts require authentication, include unassigned work and ignore expired/trash records beyond the first page',async()=>{
  const pg=new PGlite(),db={query:(s,a)=>pg.query(s,a),transaction:fn=>pg.transaction(fn)},origin='https://test.moment-link.invalid';
  try{
   await migrate(db);const adminId=randomUUID(),staffId=randomUUID(),password=randomUUID();
@@ -27,7 +27,7 @@ test('live counts require authentication, respect assignment and ignore expired/
   const path=endpoint+'?since='+encodeURIComponent(baseline.data.checkedAt);
   const all=await req(path,auth);assert.equal(all.data.pending,55);assert.equal(all.data.arrivals,55);assert.ok(all.data.latestAt>baseline.data.checkedAt);assert.match(all.headers.get('cache-control'),/no-store/);
   assert.deepEqual(Object.keys(all.data).sort(),['arrivals','checkedAt','latestAt','pending']);
-  const scoped=await req(path,staff);assert.equal(scoped.data.pending,1);assert.equal(scoped.data.arrivals,2);
+  const scoped=await req(path,staff);assert.equal(scoped.data.pending,55);assert.equal(scoped.data.arrivals,55);
   assert.equal((await req(endpoint+'?since='+encodeURIComponent(all.data.checkedAt),auth)).data.arrivals,0);
   assert.equal((await req(endpoint+'?since=not-a-date',auth)).status,400);
   await db.query('UPDATE moment_link.admin_users SET active=false WHERE id=$1',[staffId]);assert.equal((await req(path,staff)).status,401);

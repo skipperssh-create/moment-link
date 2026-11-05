@@ -21,7 +21,7 @@ test('memo persistence, replay, validation and authorization use the private con
   const r=(await req('admin/consultations','GET',undefined,auth)).data.items[0],path='admin/consultations/'+r.id,body={noteId:randomUUID(),body:'창문에서 보이지 않게 준비\n합성 테스트'};
   assert.equal(r.latest_note,null);assert.equal(r.note_count,0);
   assert.equal((await req(path+'/notes','POST',body)).status,401);
-  assert.equal((await req(path+'/notes','POST',body,staff)).status,404);
+  assert.equal((await req(path+'/notes','POST',body,staff)).status,403);
   assert.equal((await req(path+'/notes','POST',{body:'   '},auth)).status,400);
   assert.equal((await req(path+'/notes','POST',{body:'x'.repeat(4001)},auth)).status,400);
   assert.equal((await req(path+'/notes','POST',{body:'<script>'},auth)).status,400);

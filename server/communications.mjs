@@ -4,6 +4,7 @@ import {text,parse,validDate,validatePreferences} from './validation.mjs';
 import {fail,audit} from './security.mjs';
 import '../pricing.js';
 import '../messages.js';
+import '../ownership.js';
 const stages=z.enum(['receipt','confirmed','reminder','thanks']);
 export const bookingSchema=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),amountMode:z.enum(['auto','manual']).optional(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000),opsPax:z.number().int().min(1).max(63).optional(),opsPaymentMethod:text(80).optional()}).strict();
 const booking=bookingSchema;
@@ -36,7 +37,7 @@ export async function saveCommunication(tx,r,user,method,input){
   }
   const message=old.drafts?.[d.stage];if(!message?.trim())fail(400,'MESSAGE_EMPTY','문구를 먼저 저장해 주세요.');
   const digest=createHash('sha256').update(message).digest('hex');
-  next={...old,events:[...(old.events||[]),{id:d.eventId||randomUUID(),stage:d.stage,kind:d.kind,at:new Date().toISOString(),actor:user.username,digest}].slice(-40)};
+  next={...old,events:[...(old.events||[]),{id:d.eventId||randomUUID(),stage:d.stage,kind:d.kind,at:new Date().toISOString(),actor:user.displayName||user.username,actorId:user.id,bookingKey:MomentLinkOwnership.bookingKey(r),digest}].slice(-40)};
   await audit(tx,user.id,'communication.'+d.kind,r.id,{stage:d.stage});
  }
  const item=(await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2 RETURNING *',[JSON.stringify(next),r.id])).rows[0];

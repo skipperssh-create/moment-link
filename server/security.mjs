@@ -21,7 +21,7 @@ export function cookie(value,env,maxAge=SESSION_SECONDS){return `ml_session=${va
 export async function session(db,request,onRenew=()=>{}){
  const raw=request.headers.get('cookie')?.match(/(?:^|;\s*)ml_session=([^;]+)/)?.[1];
  if(!raw)return null;
- const r=await db.query(`SELECT u.id,u.username,u.role,u.must_change_password,s.csrf,s.token_hash,s.expires_at<=now()+$2*interval '1 second' AS renew_session FROM moment_link.sessions s JOIN moment_link.admin_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active=true`,[hash(raw),SESSION_SECONDS-SESSION_RENEW_AFTER_SECONDS]);
+ const r=await db.query(`SELECT u.id,u.username,(SELECT data->>'name' FROM moment_link.config WHERE id='staff:'||u.id::text) AS "displayName",u.role,u.must_change_password,s.csrf,s.token_hash,s.expires_at<=now()+$2*interval '1 second' AS renew_session FROM moment_link.sessions s JOIN moment_link.admin_users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now() AND u.active=true`,[hash(raw),SESSION_SECONDS-SESSION_RENEW_AFTER_SECONDS]);
  const user=r.rows[0];if(!user)return null;
  if(user.renew_session){
   // Never recreate revoked/expired sessions; the same token keeps concurrent tabs valid.

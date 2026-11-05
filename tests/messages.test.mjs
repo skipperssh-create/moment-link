@@ -99,7 +99,7 @@ test('private guidance persists with version checks, accurate manual logs, expir
   const drafts={receipt:M.generate(r,'receipt',booking),confirmed:M.generate(r,'confirmed',booking)};
   const save={version:r.version,booking,drafts};
   assert.equal((await req(path,'PUT',save)).status,401);
-  assert.equal((await req(path,'PUT',save,staff)).status,404);
+  assert.equal((await req(path,'PUT',save,staff)).status,403);
   assert.equal((await req(path,'PUT',save,{...auth,'X-CSRF-Token':'wrong'})).status,403);
   assert.equal((await req(path,'PUT',{...save,booking:{...booking,amount:-1}},auth)).status,400);
   assert.equal((await req(path,'PUT',{...save,booking:{...booking,date:'2026-11-03',amount:440000,amountMode:'auto'}},auth)).status,400);

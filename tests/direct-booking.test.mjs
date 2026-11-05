@@ -32,7 +32,7 @@ test('admin direct bookings use existing reservations, snapshots, messaging and 
   assert.ok(Math.abs(new Date(r.expires_at)-new Date(r.created_at)-30*86400000)<2000);
   out=await create(data);assert.equal(out.status,200);assert.equal(out.data.item.id,r.id);assert.equal(out.data.replayed,true);
   assert.equal((await create({...data,notes:'changed'})).status,409);
-  assert.equal((await req('admin/consultations/'+r.id,'GET',undefined,staff)).status,404);
+  const shared=await req('admin/consultations/'+r.id,'GET',undefined,staff);assert.equal(shared.status,200);assert.equal(shared.data.item.can_edit,false);
   const update=(await req('admin/consultations/updates?since='+encodeURIComponent('2020-01-01T00:00:00.000Z'),'GET',undefined,auth)).data;
   assert.equal(update.arrivals,0);assert.equal(update.pending,0);
   const originalSnapshot=r.snapshot;
