@@ -46,6 +46,13 @@ async function browserHarness(){
  const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('reservation restoration confirmation pauses list refresh until it closes',async()=>{
+ const h=await browserHarness();h.elements['#restorationConfirmation']={};
+ await h.api.refreshLive();h.api.scheduleLive();assert.equal(h.requests.length,0);assert.equal(h.timers.size,0);
+ delete h.elements['#restorationConfirmation'];h.api.scheduleLive();assert.equal(h.timers.size,1);
+ const running=h.api.refreshLive();h.requests[0].resolve({checkedAt:'2026-11-02T00:00:00.000Z',pending:1,arrivals:0});await running;
+ assert.equal(h.api.live.pending,1);h.api.clear();
+});
 test('polling retains edited details, counts across filters, survives errors, pauses offline/hidden and stops on logout',async()=>{
  const h=await browserHarness(),{api,requests}=h;const detail={memo:'unsaved synthetic memo'};api.setDetail(detail);api.setDirty(true);api.setFilters();
  let running=api.refreshLive();assert.equal(requests.length,1);await api.refreshLive();assert.equal(requests.length,1,'no overlapping polls');

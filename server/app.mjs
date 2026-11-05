@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {saveCommunication,confirmReservation,reservationSchema} from './communications.mjs';
 import {queueCancellation} from './ops-cancel.mjs';
+import {queueRestoration} from './ops-restore.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
@@ -153,7 +154,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'ops-retry:'+user.id,5,60);
    return json(await processIntegration(db,row.id,env,adapters));
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|reservation|restore|permanent))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(confirm|notes|communications|restore-reservation|reservation|restore|permanent))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
@@ -180,6 +181,16 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      if(prior)return {job:prior};
      const jobId=randomUUID();await tx.query('INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,approved_by,booking) VALUES($1,$2,$3,$4,$5,$6)',[jobId,id,target,'moment-link:'+id,user.id,JSON.stringify({...d,person:r.person,phone:r.phone,productId:r.product_id,packageId:r.package_id,timezone:'Asia/Seoul'})]);await audit(tx,user.id,'ops.approved',id,{jobId,target});return {job:{id:jobId,state:'pending'}};
     }
+    if(method==='POST'&&action==='restore-reservation'){
+     const d=parse(z.object({version:z.number().int()}).strict(),await body(request));
+     if(r.version!==d.version)fail(409,'VERSION','다른 곳에서 변경되었습니다. 새로고침해 주세요.');
+     if(r.status!=='cancelled'||!r.communication?.reservation||!r.communication?.booking?.date||!r.communication?.booking?.time)fail(409,'STATE','취소된 확정 예약만 복원할 수 있습니다.');
+     const restorationQueued=await queueRestoration(tx,r,user);
+     const communication=restorationQueued?r.communication:{...r.communication,reservation:{...r.communication.reservation,restoredAt:new Date().toISOString(),restoredBy:user.username}};
+     const updated=(await tx.query('UPDATE moment_link.consultations SET status=$1,communication=$2,version=version+1,updated_at=now() WHERE id=$3 RETURNING *',[restorationQueued?r.status:'confirmed',JSON.stringify(communication),id])).rows[0];
+     await audit(tx,user.id,restorationQueued?'reservation.restore_requested':'reservation.restored',id,{});
+     return {item:visibleRequest(updated),restorationQueued};
+    }
     if(method==='PATCH'&&!action){
      let cancellationQueued=false;
      const d=parse(z.object({version:z.number().int(),status:z.enum(['new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']).optional(),confirmation:reservationSchema.omit({version:true}).optional(),assignee:z.string().uuid().nullable().optional(),contacted:z.boolean().optional(),read:z.boolean().optional()}).strict(),await body(request));
@@ -193,15 +204,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      }
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
-     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel','restore') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
      if(d.status==='cancelled'&&r.status==='confirmed')cancellationQueued=await queueCancellation(tx,r,user);
      // Confirm through the same validation and audit path, atomically with assignment/contact changes.
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[cancellationQueued?r.status:d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated),cancellationQueued};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });await dispatch(id,result.cancellationQueued||action==='reservation'&&method==='POST');
+   });await dispatch(id,result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST');
    if(result.item){
-    if(result.cancellationQueued||action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
+    if(result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,CASE WHEN booking->>'operation'='reschedule' THEN jsonb_build_object('date',booking->>'date','time',booking->>'time') END AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
    }return json(result);
   }

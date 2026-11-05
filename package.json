@@ -9,10 +9,10 @@
     "node": "24.x"
   },
   "scripts": {
-    "check": "node --check app.js && node --check admin.js && node --check server/app.mjs && node --check server/jobs.mjs && node --check sw.js && node --check pwa.js && node --check messages.js && node --check message-ui.js && node --check server/communications.mjs && node --check pricing.js && node --check booking-ui.js && node --check server/direct-booking.mjs && node --check notification-sound.js && node --check ops-ui.js && node --check server/ops-cancel.mjs",
+    "check": "node --check app.js && node --check admin.js && node --check server/app.mjs && node --check server/jobs.mjs && node --check sw.js && node --check pwa.js && node --check messages.js && node --check message-ui.js && node --check server/communications.mjs && node --check pricing.js && node --check booking-ui.js && node --check server/direct-booking.mjs && node --check notification-sound.js && node --check ops-ui.js && node --check server/ops-cancel.mjs && node --check server/ops-restore.mjs",
     "build": "node scripts/build.mjs",
     "dev": "node --env-file-if-exists=.env.local scripts/dev.mjs",
-    "test": "node --test tests/server.test.mjs tests/pwa.test.mjs tests/messages.test.mjs tests/reservations.test.mjs tests/yacht-names.test.mjs tests/pricing.test.mjs tests/trash.test.mjs tests/sessions.test.mjs tests/inbox-refresh.test.mjs tests/direct-booking.test.mjs tests/notification-sound.test.mjs tests/ops-recovery.test.mjs tests/quick-status.test.mjs tests/inbox-actions.test.mjs tests/consultation-notes.test.mjs tests/ops-schedule.test.mjs tests/ops-cancellation.test.mjs",
+    "test": "node --test tests/server.test.mjs tests/pwa.test.mjs tests/messages.test.mjs tests/reservations.test.mjs tests/yacht-names.test.mjs tests/pricing.test.mjs tests/trash.test.mjs tests/sessions.test.mjs tests/inbox-refresh.test.mjs tests/direct-booking.test.mjs tests/notification-sound.test.mjs tests/ops-recovery.test.mjs tests/quick-status.test.mjs tests/inbox-actions.test.mjs tests/consultation-notes.test.mjs tests/ops-schedule.test.mjs tests/ops-cancellation.test.mjs tests/ops-restoration.test.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs"
   },
   "dependencies": {

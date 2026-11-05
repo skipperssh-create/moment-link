@@ -17,7 +17,7 @@ export async function changeTrash(tx,r,user,action,input){
   // Serialize with job claims so deleting a pending job cannot race a send/create.
   const notifications=(await tx.query('SELECT state,provider_id FROM moment_link.outbox WHERE consultation_id=$1 FOR UPDATE',[r.id])).rows;
   const integrations=(await tx.query("SELECT state,booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 FOR UPDATE",[r.id])).rows;
-  if(notifications.some(j=>['sending','uncertain'].includes(j.state)||(j.provider_id&&j.state!=='sent'))||integrations.some(j=>['checking','uncertain'].includes(j.state)||j.operation==='cancel'&&j.state!=='succeeded'))fail(409,'JOB_UNRESOLVED','진행 중인 발송·OPS 작업의 결과를 먼저 확인해 주세요.');
+  if(notifications.some(j=>['sending','uncertain'].includes(j.state)||(j.provider_id&&j.state!=='sent'))||integrations.some(j=>['checking','uncertain'].includes(j.state)||['cancel','restore'].includes(j.operation)&&j.state!=='succeeded'))fail(409,'JOB_UNRESOLVED','진행 중인 발송·OPS 작업의 결과를 먼저 확인해 주세요.');
   await tx.query("UPDATE moment_link.outbox SET state='blocked',error_code='CONSULTATION_TRASHED',updated_at=now() WHERE consultation_id=$1 AND state IN ('pending','failed','blocked')",[r.id]);
   await tx.query("UPDATE moment_link.integration_jobs SET state='blocked',error_code='CONSULTATION_TRASHED',updated_at=now() WHERE consultation_id=$1 AND state IN ('pending','failed','blocked')",[r.id]);
   const item=(await tx.query("UPDATE moment_link.consultations SET deleted_at=now(),delete_after=LEAST(expires_at,now()+interval '7 days'),version=version+1,updated_at=now() WHERE id=$1 RETURNING *",[r.id])).rows[0];

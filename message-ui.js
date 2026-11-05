@@ -32,7 +32,7 @@ function acceptConfirmation(r){
  stage='confirmed';prepared=true;changed=false;notice='예약을 확정했습니다. 문자 앱 열기 버튼으로 예약 확정 문자를 준비할 수 있습니다.';render();
 }
 function reservationControls(){
- if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='cancel'?'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.':item.integration.operation==='reschedule'?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
+ if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='restore'?'OPS 복원 결과를 확인 중입니다. 완료 전까지 취소 상태가 유지됩니다.':item.integration.operation==='cancel'?'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.':item.integration.operation==='reschedule'?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
  if(item.status==='cancelled'||item.status==='closed'&&item.communication?.reservation)return '';
  if(item.status==='confirmed'&&!item.communication?.reservation)return '<p class="micro">OPS에서 확정된 예약입니다. 일정 변경은 OPS에서 확인해 주세요.</p>';
  return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'변경한 일정과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.':'일정·금액·장소와 입금을 확인한 후 예약을 확정해 주세요.'}</p>${actionButton('reserve','calendar',item.status==='confirmed'?'수정·확정':'예약 확정',true)}<p class="micro">${item.integration?'날짜·시간은 연결된 OPS 예약에도 자동 반영합니다. 금액·장소·인원·결제수단은 유지하며, 상태 메뉴에서 취소하면 OPS에도 자동 반영합니다.':'확정하면 ‘확정 예약’ 목록에서 관리합니다.'} 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
