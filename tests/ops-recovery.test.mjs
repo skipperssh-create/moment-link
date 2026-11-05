@@ -29,18 +29,19 @@ test('authorized detail refresh recovers transient OPS jobs after cooldown witho
   detail=await req(path);assert.equal(detail.data.item.integration.state,'succeeded');assert.equal(detail.data.item.integration.external_id,'synthetic-ops-1');assert.equal(created,1);
   await req(path);assert.equal(created,1);assert.equal(checks,2);
   // A response lost after creation is reconciled by reference before any new write.
-  await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',updated_at=now()-interval '5 minutes' WHERE id=$1",[job]);
+  await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',attempts=1,updated_at=now()-interval '5 minutes' WHERE id=$1",[job]);
   detail=await req(path);assert.equal(detail.data.item.integration.state,'succeeded');assert.equal(created,1);
   remote.clear();
   for(const error of [{code:'OPS_HTTP_429',status:429,safe:true},{code:'OPS_HTTP_408',status:408,safe:true},{code:'OPS_CALENDAR_SYNC_PENDING',status:503}]){
-   failure=error;await db.query("UPDATE moment_link.integration_jobs SET state='failed' WHERE id=$1",[job]);
+   failure=error;await db.query("UPDATE moment_link.integration_jobs SET state='failed',attempts=0 WHERE id=$1",[job]);
    assert.equal((await processIntegration(db,job,env,adapters)).state,'failed');
   }
+  await db.query("UPDATE moment_link.integration_jobs SET attempts=0 WHERE id=$1",[job]);
   failure=null;createFailure={code:'OPS_AVAILABILITY_EXPIRED',status:409,safe:true};
   assert.equal((await processIntegration(db,job,env,adapters)).state,'uncertain');const before=lookups;
   createFailure=null;assert.equal((await processIntegration(db,job,env,adapters)).state,'succeeded');assert.equal(lookups,before+1);
   // Actual conflicts stay terminal; a detail refresh cannot create a reservation.
-  remote.clear();failure={code:'OPS_RESOURCE_CONFLICT',status:409,safe:true};await db.query("UPDATE moment_link.integration_jobs SET state='failed' WHERE id=$1",[job]);
+  remote.clear();failure={code:'OPS_RESOURCE_CONFLICT',status:409,safe:true};await db.query("UPDATE moment_link.integration_jobs SET state='failed',attempts=0 WHERE id=$1",[job]);
   assert.equal((await processIntegration(db,job,env,adapters)).state,'conflict');const writes=created,attempts=checks;
   await db.query("UPDATE moment_link.integration_jobs SET updated_at=now()-interval '5 minutes' WHERE id=$1",[job]);
   detail=await req(path);assert.equal(detail.data.item.integration.state,'conflict');assert.equal(created,writes);assert.equal(checks,attempts);

@@ -206,7 +206,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      }
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
-     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel','restore') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel','restore','registration_revision') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
      if(d.status==='cancelled'&&r.status==='confirmed')cancellationQueued=await queueCancellation(tx,r,user);
      // Confirm through the same validation and audit path, atomically with assignment/contact changes.
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
@@ -215,7 +215,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    });await dispatch(id,result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST');
    if(result.item){
     if(result.cancellationQueued||result.restorationQueued||action==='reservation'&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
-    result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,CASE WHEN booking->>'operation'='reschedule' THEN jsonb_build_object('date',booking->>'date','time',booking->>'time') END AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
+    result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
    }return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}

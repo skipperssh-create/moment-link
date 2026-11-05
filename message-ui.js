@@ -32,7 +32,9 @@ function acceptConfirmation(r){
  stage='confirmed';prepared=true;changed=false;notice='예약을 확정했습니다. 문자 앱 열기 버튼으로 예약 확정 문자를 준비할 수 있습니다.';render();
 }
 function reservationControls(){
- if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='restore'?'OPS 복원 결과를 확인 중입니다. 완료 전까지 취소 상태가 유지됩니다.':item.integration.operation==='cancel'?'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.':item.integration.operation==='reschedule'?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
+ const revise=item.integration?.state==='conflict'&&!item.integration.external_id&&[undefined,null,'registration_revision'].includes(item.integration.operation)&&['OPS_RESOURCE_CONFLICT','OPS_SCHEDULE_REVIEW_REQUIRED'].includes(item.integration.error_code);
+ if(revise&&item.status==='confirmed'&&item.communication?.reservation)return `<div class="reservation-confirm"><p>이전 일정은 OPS에 등록되지 않았습니다. 새 날짜·시간과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.</p>${actionButton('reserve','calendar','수정·확정',true)}<p class="micro">새 일정으로 OPS 등록이 확인되면 확정 날짜를 변경합니다. 이전 오류 기록과 금액·입금·메모는 보존합니다.</p></div>`;
+ if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='restore'?'OPS 복원 결과를 확인 중입니다. 완료 전까지 취소 상태가 유지됩니다.':item.integration.operation==='cancel'?'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.':['reschedule','registration_revision'].includes(item.integration.operation)?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
  if(item.status==='cancelled'||item.status==='closed'&&item.communication?.reservation)return '';
  if(item.status==='confirmed'&&!item.communication?.reservation)return '<p class="micro">OPS에서 확정된 예약입니다. 일정 변경은 OPS에서 확인해 주세요.</p>';
  return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'변경한 일정과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.':'일정·금액·장소와 입금을 확인한 후 예약을 확정해 주세요.'}</p>${actionButton('reserve','calendar',item.status==='confirmed'?'수정·확정':'예약 확정',true)}<p class="micro">${item.integration?'날짜·시간은 연결된 OPS 예약에도 자동 반영합니다. 금액·장소·인원·결제수단은 유지하며, 상태 메뉴에서 취소하면 OPS에도 자동 반영합니다.':'확정하면 ‘확정 예약’ 목록에서 관리합니다.'} 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
@@ -113,9 +115,9 @@ document.addEventListener('click',async ev=>{
    if(!drafts[stage]?.trim())throw Error('보낼 내용을 입력해 주세요.');
    const target=item.id,out=await api('admin/consultations/'+target+(action==='reserve'?'/reservation':'/communications'),action==='reserve'?'POST':'PUT',{version:item.version,booking,drafts,...(action==='reserve'?{approved:true}:{prepareStage:stage})});
    if(item?.id!==target)return;
-   item=out.item;booking={...item.communication.booking};drafts={...item.communication.drafts};paymentDeadline=item.communication.paymentDeadline||paymentDeadline;updated(out.item);prepared=!(item.integration?.operation==='reschedule'&&item.integration.state!=='succeeded');changed=false;notice='저장했습니다. 문자 앱 열기 버튼을 누르면 문자 앱으로 연결됩니다.';
+   item=out.item;booking={...item.communication.booking};drafts={...item.communication.drafts};paymentDeadline=item.communication.paymentDeadline||paymentDeadline;updated(out.item);prepared=!(['reschedule','registration_revision'].includes(item.integration?.operation)&&item.integration.state!=='succeeded');changed=false;notice='저장했습니다. 문자 앱 열기 버튼을 누르면 문자 앱으로 연결됩니다.';
    if(action==='save'&&stage==='receipt'&&item.category==='yacht')notice='입금 기한을 '+M.paymentDeadlineLabel(paymentDeadline)+'으로 반영했습니다. 문구를 확인한 뒤 문자 앱 열기 버튼을 눌러 주세요.';
-   if(action==='reserve'){notice=item.integration?.operation==='reschedule'?(item.integration.state==='succeeded'?'수정·확정했습니다. 변경한 일정이 OPS에도 반영되었습니다.':'OPS 일정 변경이 아직 완료되지 않았습니다. 기존 확정 일정은 유지되며 아래 OPS 상태에서 결과를 확인할 수 있습니다.'):'예약을 확정했습니다. 예약 확정 문자를 보낼 수 있습니다.';document.dispatchEvent(new CustomEvent('ml:reservation-confirmed',{detail:{id:target,message:notice}}));}
+   if(action==='reserve'){notice=['reschedule','registration_revision'].includes(item.integration?.operation)?(item.integration.state==='succeeded'?'수정·확정했습니다. 변경한 일정이 OPS에도 반영되었습니다.':'OPS 일정 변경이 아직 완료되지 않았습니다. 기존 확정 일정은 유지되며 아래 OPS 상태에서 결과를 확인할 수 있습니다.'):'예약을 확정했습니다. 예약 확정 문자를 보낼 수 있습니다.';document.dispatchEvent(new CustomEvent('ml:reservation-confirmed',{detail:{id:target,message:notice}}));}
   }
   if(action==='sent'){
    if(!prepared||changed)throw Error('변경 내용을 먼저 저장해 주세요.');
