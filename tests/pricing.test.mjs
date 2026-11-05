@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
 import {PGlite} from '@electric-sql/pglite';
 import {migrate} from '../scripts/migrate.mjs';
 import {initialSettings} from '../server/seed.mjs';
@@ -7,6 +9,30 @@ import '../pricing.js';
 import '../messages.js';
 const P=globalThis.MomentLinkPricing,M=globalThis.MomentLinkMessages;
 const sample=()=>({category:'yacht',person:'합성 검수',phone:'01000000000',status:'new',place:'',preferences:[{date:'2026-11-03',time:'16:01'}],snapshot:{product:{name:'클래식(레오파드)요트'},package:{name:'라이트',datePrices:[]},options:[{id:'test',name:'합성 옵션',amount:30000}],price:{weekday:420000,weekend:470000,optionAmount:30000,dateOverrides:[]}}});
+
+test('customer summaries and SMS use only the first selected date price and update immediately',async()=>{
+ const listeners={},priceNode={textContent:''},window={addEventListener(){}};
+ const context=vm.createContext({window,document:{querySelector:()=>priceNode,addEventListener:(name,fn)=>{listeners[name]=fn;}},crypto:{randomUUID:()=> 'synthetic'},structuredClone,MomentLinkPricing:P});
+ const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
+ vm.runInContext(source.replace(/initializeNavigation\(\);\s*route\(\);\s*\}\)\(\);\s*$/,`window.test={state,settings,catalog,getProduct,getPack,displayChosenPrice,smsText,customer};})();`),context);
+ const h=window.test;Object.assign(h.state,{category:'yacht',selection:{id:'classic',packId:'light'},firstTime:'18:00'});
+ assert.equal(h.displayChosenPrice(),'주중 390,000원 / 주말 440,000원');
+ for(const [date,expected] of [['2026-11-16','주중 390,000원'],['2026-11-20','주말 440,000원'],['2026-12-24','주말 440,000원']]){
+  listeners.input({target:{id:'firstDate',value:date}});
+  assert.equal(priceNode.textContent,expected);assert.equal(h.displayChosenPrice(),expected);
+  assert.equal(h.smsText().split('\n').find(line=>line.startsWith('가격: ')),'가격: '+expected);
+  h.state.step='done';assert.ok(h.customer().includes(expected));
+ }
+ h.settings.manualSmsTemplate='가격: {price}';h.state.firstDate='2026-11-16';h.state.secondDate='2026-11-20';
+ assert.equal(h.smsText(),'가격: 주중 390,000원 (1순위 기준)');
+ h.state.secondDate='';const pack=h.getPack();pack.options=[{id:'extra',name:'합성 옵션',amount:30000}];h.state.optionIds=['extra'];
+ assert.equal(h.smsText(),'가격: 주중 420,000원 · 합성 옵션');
+ pack.datePrices=[{date:'2026-11-16',amount:500000}];assert.equal(h.smsText(),'가격: 지정 요금 530,000원 · 합성 옵션');
+ pack.datePrices[0].amount=null;assert.equal(h.smsText(),'가격: 상담 후 안내 · 합성 옵션');
+ pack.datePrices=[];h.state.firstDate='2028-01-03';assert.equal(h.smsText(),'가격: 상담 후 안내 · 합성 옵션');
+ h.state.firstDate='2026-11-16';h.state.submitted={product:structuredClone(h.getProduct()),package:structuredClone(pack),options:structuredClone(pack.options)};h.state.complete=true;
+ pack.weekday=999999;assert.equal(h.smsText(),'가격: 주중 420,000원 · 합성 옵션');
+});
 
 test('yacht weekday and weekend boundary uses event date in Korea',()=>{
  for(const date of ['2026-11-02','2026-11-03','2026-11-04','2026-11-05'])assert.equal(P.dayRate(date).rate,'weekday',date);

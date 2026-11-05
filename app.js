@@ -63,7 +63,17 @@ const choiceName=()=>`${getProduct()?.name||''} · ${getPack()?.name||''}`;
 const priceDisplay=p=>!p||p.weekday===null?'상담 후 안내':p.weekday===p.weekend?krw(p.weekday):`주중 ${krw(p.weekday)} / 주말 ${krw(p.weekend)}`;
 const selectedOptions=()=>state.complete&&state.submitted?state.submitted.options||[]:(getPack()?.options||[]).filter(o=>state.optionIds.includes(o.id));
 const optionAmount=()=>selectedOptions().reduce((sum,o)=>sum+o.amount,0);
-const displayChosenPrice=()=>{const p=getPack(),extra=optionAmount();return priceDisplay(p?{...p,weekday:p.weekday===null?null:p.weekday+extra,weekend:p.weekend===null?null:p.weekend+extra}:p)+(p?.datePrices||[]).filter(x=>x.date===state.firstDate||x.date===state.secondDate).map(x=>' / '+dateLabel(x.date)+' '+krw(x.amount===null?null:x.amount+extra)).join('')+(selectedOptions().length?' · '+selectedOptions().map(o=>o.name).join(', '):'');}; // Keep both published prices visible; final guidance uses the shared date-pricing rules.
+const displayChosenPrice=()=>{
+ const p=getPack(),options=selectedOptions(),extra=optionAmount(),price=p?{weekday:p.weekday===null?null:p.weekday+extra,weekend:p.weekend===null?null:p.weekend+extra,optionAmount:extra}:null;
+ let text=priceDisplay(price);
+ if(p&&state.firstDate){
+  const quote=MomentLinkPricing.quote({category:state.category,snapshot:{package:p,options,price}},state.firstDate);
+  const label=quote.rate==='weekday'?'주중 ':quote.rate==='weekend'?'주말 ':quote.label.startsWith('날짜별 지정 요금')?'지정 요금 ':'';
+  text=Number.isInteger(quote.amount)?label+krw(quote.amount):'상담 후 안내';
+  if(state.secondDate)text+=' (1순위 기준)';
+ }
+ return text+(options.length?' · '+options.map(o=>o.name).join(', '):'');
+};
 const top=()=>`<div class="demo-banner">${settings.accepting?'상담 신청 · 예약 확정은 상담 후 안내':'상담 접수 준비 중 · 대표번호로 문의해 주세요'}</div><header><div class="brand">MOMENT LINK</div><nav class="nav" aria-label="관리자"><a class="tab" href="#admin">관리자 로그인</a></nav></header>`;
 const progress=()=>{const count={welcome:0,category:1,products:2,schedule:3,contact:4,review:4,done:4,sms:4}[state.step];return `<div class="step-bar" aria-label="상담 신청 단계">${[1,2,3,4].map(i=>`<span class="${i<=count?'done':''}"></span>`).join('')}</div>`};
 const iconBoat=`<svg viewBox="0 0 240 120" fill="none" aria-hidden="true"><path d="M20 72H218L186 104H52Z" fill="#fff" stroke="#98aeb8" stroke-width="3"/><path d="M74 70V24h91l26 46" fill="#f7fcff" stroke="#98aeb8" stroke-width="3"/><path d="M91 35h55v25H91Z" fill="#a8c5d2"/><path d="M25 112q22-12 44 0t44 0t44 0t44 0" stroke="#b2ccd4" stroke-width="4"/></svg>`;
@@ -161,7 +171,7 @@ s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<sect
 s+=`<button class="secondary recommendation" data-action="recommend" aria-pressed="${state.selection?.id==='recommend'}">${state.selection?.id==='recommend'?'상담 후 추천 선택됨':'아직 고민 중이에요 · 상담 후 추천'}</button>`;
 const current=getPack();if(current?.options?.length)s+=`<section class="info"><strong>추가 선택사항 · 선택</strong>${optionChoices(current)}</section>`;s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${displayChosenPrice()}`:'원하시는 상품을 먼저 선택해 주세요.');
 }
-if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
+if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted" id="chosenDatePrice" aria-live="polite">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
 if(state.step==='contact'){
 s+=`<button class="back" data-back="schedule">← 일정 선택으로</button><h1 class="page-title">연락받으실 정보를 알려주세요.</h1><p class="muted">필요한 항목만 간단히 입력합니다.</p>`;
 if(state.category==='yacht')s+=yachtPlace();if(state.category==='heli')s+=heliPlace();
@@ -258,7 +268,7 @@ document.addEventListener('click',async ev=>{
  if(a==='openSms'){const dest=settings.smsNumber.replace(/\D/g,''),platform=(/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))?'&':'?';location.href=`sms:${dest}${platform}body=${encodeURIComponent(smsText())}`;}
 });
 document.addEventListener('toggle',ev=>{const id=ev.target.dataset?.detail;if(!id)return;state.openDetails=state.openDetails.filter(x=>x!==id);if(ev.target.open)state.openDetails.push(id);},true);
-document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(k==='consent')state.consent=ev.target.checked;});
+document.addEventListener('input',ev=>{const k=ev.target.id;if(['name','phone','place','notes','firstDate','secondDate'].includes(k))state[k]=ev.target.value;if(['firstDate','secondDate'].includes(k)){const price=$('#chosenDatePrice');if(price)price.textContent=displayChosenPrice();}if(k==='consent')state.consent=ev.target.checked;});
 document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option||el.dataset.optionNone){
  const options=getPack()?.options||[],selected=options.find(o=>o.id===el.dataset.option),group=selected?.group||el.dataset.optionNone;
  state.optionIds=state.optionIds.filter(id=>id!==selected?.id&&!(group&&options.some(o=>o.id===id&&o.group===group)));
