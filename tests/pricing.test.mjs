@@ -10,7 +10,7 @@ import '../messages.js';
 const P=globalThis.MomentLinkPricing,M=globalThis.MomentLinkMessages;
 const sample=()=>({category:'yacht',person:'합성 검수',phone:'01000000000',status:'new',place:'',preferences:[{date:'2026-11-03',time:'16:01'}],snapshot:{product:{name:'클래식(레오파드)요트'},package:{name:'라이트',datePrices:[]},options:[{id:'test',name:'합성 옵션',amount:30000}],price:{weekday:420000,weekend:470000,optionAmount:30000,dateOverrides:[]}}});
 
-test('customer summaries and SMS use only the first selected date price and update immediately',async()=>{
+test('customer summaries and SMS price each selected date and update immediately',async()=>{
  const listeners={},priceNode={textContent:''},window={addEventListener(){}};
  const context=vm.createContext({window,document:{querySelector:()=>priceNode,addEventListener:(name,fn)=>{listeners[name]=fn;}},crypto:{randomUUID:()=> 'synthetic'},structuredClone,MomentLinkPricing:P});
  const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
@@ -24,10 +24,20 @@ test('customer summaries and SMS use only the first selected date price and upda
   h.state.step='done';assert.ok(h.customer().includes(expected));
  }
  h.settings.manualSmsTemplate='가격: {price}';h.state.firstDate='2026-11-16';h.state.secondDate='2026-11-20';
- assert.equal(h.smsText(),'가격: 주중 390,000원 (1순위 기준)');
+ assert.equal(h.smsText(),'가격: 1순위 (11월 16일) 주중 390,000원 / 2순위 (11월 20일) 주말 440,000원');
+ listeners.input({target:{id:'secondDate',value:'2026-11-17'}});
+ assert.equal(priceNode.textContent,'1순위 (11월 16일) 주중 390,000원 / 2순위 (11월 17일) 주중 390,000원');
+ h.state.secondDate='2026-12-24';assert.equal(h.smsText(),'가격: 1순위 (11월 16일) 주중 390,000원 / 2순위 (12월 24일) 주말 440,000원');
+ h.state.selection.packId='all';h.state.secondDate='2026-11-20';
+ assert.equal(h.smsText(),'가격: 1순위 (11월 16일) 주중 440,000원 / 2순위 (11월 20일) 주말 540,000원');
+ h.state.selection.packId='light';listeners.input({target:{id:'secondDate',value:''}});assert.equal(priceNode.textContent,'주중 390,000원');
  h.state.secondDate='';const pack=h.getPack();pack.options=[{id:'extra',name:'합성 옵션',amount:30000}];h.state.optionIds=['extra'];
  assert.equal(h.smsText(),'가격: 주중 420,000원 · 합성 옵션');
  pack.datePrices=[{date:'2026-11-16',amount:500000}];assert.equal(h.smsText(),'가격: 지정 요금 530,000원 · 합성 옵션');
+ h.state.secondDate='2026-11-20';pack.datePrices.push({date:'2026-11-20',amount:600000});
+ assert.equal(h.smsText(),'가격: 1순위 (11월 16일) 지정 요금 530,000원 / 2순위 (11월 20일) 지정 요금 630,000원 · 합성 옵션');
+ pack.datePrices[1].amount=null;assert.equal(h.smsText(),'가격: 1순위 (11월 16일) 지정 요금 530,000원 / 2순위 (11월 20일) 상담 후 안내 · 합성 옵션');
+ h.state.secondDate='';
  pack.datePrices[0].amount=null;assert.equal(h.smsText(),'가격: 상담 후 안내 · 합성 옵션');
  pack.datePrices=[];h.state.firstDate='2028-01-03';assert.equal(h.smsText(),'가격: 상담 후 안내 · 합성 옵션');
  h.state.firstDate='2026-11-16';h.state.submitted={product:structuredClone(h.getProduct()),package:structuredClone(pack),options:structuredClone(pack.options)};h.state.complete=true;

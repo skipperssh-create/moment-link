@@ -67,10 +67,12 @@ const displayChosenPrice=()=>{
  const p=getPack(),options=selectedOptions(),extra=optionAmount(),price=p?{weekday:p.weekday===null?null:p.weekday+extra,weekend:p.weekend===null?null:p.weekend+extra,optionAmount:extra}:null;
  let text=priceDisplay(price);
  if(p&&state.firstDate){
-  const quote=MomentLinkPricing.quote({category:state.category,snapshot:{package:p,options,price}},state.firstDate);
-  const label=quote.rate==='weekday'?'주중 ':quote.rate==='weekend'?'주말 ':quote.label.startsWith('날짜별 지정 요금')?'지정 요금 ':'';
-  text=Number.isInteger(quote.amount)?label+krw(quote.amount):'상담 후 안내';
-  if(state.secondDate)text+=' (1순위 기준)';
+  const forDate=date=>{
+   const quote=MomentLinkPricing.quote({category:state.category,snapshot:{package:p,options,price}},date);
+   const label=quote.rate==='weekday'?'주중 ':quote.rate==='weekend'?'주말 ':quote.label.startsWith('날짜별 지정 요금')?'지정 요금 ':'';
+   return Number.isInteger(quote.amount)?label+krw(quote.amount):'상담 후 안내';
+  };
+  text=state.secondDate?[state.firstDate,state.secondDate].map((date,i)=>`${i+1}순위 (${dateLabel(date)}) ${forDate(date)}`).join(' / '):forDate(state.firstDate);
  }
  return text+(options.length?' · '+options.map(o=>o.name).join(', '):'');
 };
