@@ -5,7 +5,7 @@ import {hash,fail,audit} from './security.mjs';
 import {bookingSchema,confirmReservation} from './communications.mjs';
 
 const schema=consultationSchema.pick({catalogVersion:true,productId:true,packageId:true,optionIds:true,person:true,phone:true,notes:true}).extend({
- requestId:z.string().uuid(),mode:z.enum(['pending','confirmed']),booking:bookingSchema,
+ requestId:z.string().uuid(),mode:z.enum(['draft','pending','confirmed']),booking:bookingSchema,
  assignee:z.string().uuid()
 }).strict();
 
@@ -35,10 +35,10 @@ export async function createDirectBooking(db,user,input){
   const optionAmount=options.reduce((sum,o)=>sum+o.amount,0);
   const snapshot={catalogVersion:c.version,product:{...p,packages:undefined},package:pk,options,price:{weekday:pk.weekday===null?null:pk.weekday+optionAmount,weekend:pk.weekend===null?null:pk.weekend+optionAmount,optionAmount},timezone:'Asia/Seoul'};
   const record={category:p.category,phone:d.phone,snapshot};
-  const problem=MomentLinkMessages.validate(d.mode==='confirmed'?'confirmed':'receipt',d.booking,record);
+  const problem=d.mode==='draft'?MomentLinkMessages.amountError(d.booking,record):MomentLinkMessages.validate(d.mode==='confirmed'?'confirmed':'receipt',d.booking,record);
   if(problem)fail(400,'BOOKING_NOT_READY',problem);
-  validatePreferences([{date:d.booking.date,time:d.booking.time}]);
-  if(!d.booking.place.trim())fail(400,'PLACE','이벤트 장소·주소를 입력해 주세요.');
+  if(d.booking.date)validatePreferences([{date:d.booking.date,time:d.booking.time}]);
+  if(d.mode!=='draft'&&!d.booking.place.trim())fail(400,'PLACE','이벤트 장소·주소를 입력해 주세요.');
   const at=new Date().toISOString(),id=randomUUID(),receipt='ML-'+id.replaceAll('-','').slice(0,14).toUpperCase();
   const communication={booking:d.booking,entry:{source:'admin_direct',createdBy:user.username,createdAt:at}};
   const consent={source:'admin_direct',recordedBy:user.username,recordedAt:at,retentionDays:settings.retentionDays};

@@ -6,6 +6,7 @@ import {migrate} from '../scripts/migrate.mjs';
 import {createApp} from '../server/app.mjs';
 import {passwordHash} from '../server/security.mjs';
 import {initialSettings} from '../server/seed.mjs';
+import {ownershipFixture} from './ownership-fixture.mjs';
 
 test('admin direct bookings use existing reservations, snapshots, messaging and permission boundaries',async()=>{
  const pg=new PGlite(),db={query:(s,a)=>pg.query(s,a),transaction:fn=>pg.transaction(fn)},origin='https://direct.test.invalid';
@@ -59,4 +60,41 @@ test('admin direct bookings use existing reservations, snapshots, messaging and 
   await db.query('INSERT INTO moment_link.catalog_versions(version,products) VALUES(2,$1)',[JSON.stringify(changed)]);
   assert.equal((await create(payload())).status,409);assert.equal((await create(payload('visit',{catalogVersion:2}))).status,400);
  }finally{await pg.close();}
+});
+
+test('direct drafts keep partial booking details and extras without confirming or dispatching, then confirm through the existing flow',async()=>{
+ const f=await ownershipFixture();try{
+  await f.db.query("UPDATE moment_link.config SET data=jsonb_set(data,'{retentionDays}','30') WHERE id='settings'");
+  const catalog=(await f.request('catalog')).data,p=catalog.products.find(x=>x.id==='classic'),pk=p.packages.find(x=>x.id==='all');
+  const booking={date:'',time:'',amount:null,baseAmount:null,amountMode:'manual',addOns:[{id:'bouquet',quantity:1,unitAmount:30000}],place:'',extra:'',scheduleConfirmed:false,paymentConfirmed:false,opsPax:2,opsPaymentMethod:''};
+  const data={requestId:randomUUID(),catalogVersion:catalog.version,person:'합성 미확정 등록',phone:'01000000000',productId:p.id,packageId:pk.id,optionIds:[],notes:'합성 검수',assignee:f.staff['counselor-a'].id,booking,mode:'draft'};
+  const create=d=>f.request('admin/reservations','owner-admin','POST',d);
+  assert.equal((await f.request('admin/reservations','counselor-a','POST',data)).status,403);
+  for(const patch of [{person:''},{phone:'bad'},{booking:{...booking,date:'2000-01-01'}},{booking:{...booking,addOns:[{id:'bouquet',quantity:1,unitAmount:1}]}},{booking:{...booking,amount:540000,baseAmount:540000}}])assert.equal((await create({...data,...patch})).status,400);
+  let out=await create(data);assert.equal(out.status,201,JSON.stringify(out.data));let row=out.data.item;
+  assert.equal(row.status,'consulting');assert.equal(row.communication.reservation,undefined);assert.equal(row.communication.paymentDeadline,undefined);assert.deepEqual(row.communication.booking,booking);assert.deepEqual(row.preferences,[{date:'',time:''}]);
+  const replay=await create(data);assert.equal(replay.status,200);assert.equal(replay.data.item.id,row.id);assert.equal((await create({...data,notes:'changed'})).status,409);
+  for(const table of ['outbox','integration_jobs'])assert.equal((await f.db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
+  const opened=await f.request('admin/consultations/'+row.id,'counselor-a');assert.equal(opened.status,200);assert.deepEqual(opened.data.item.communication.booking,booking);
+  assert.equal((await f.request('admin/consultations/'+row.id+'/reservation','counselor-a','POST',{version:row.version,booking,drafts:{},approved:true})).status,400);
+  const ready={...booking,date:'2027-11-15',time:'20:00',baseAmount:540000,amount:570000,place:'합성 승선 장소',opsPaymentMethod:'transfer',scheduleConfirmed:true,paymentConfirmed:true};
+  out=await f.request('admin/consultations/'+row.id+'/communications','counselor-a','PUT',{version:row.version,booking:ready,drafts:{}});assert.equal(out.status,200);row=out.data.item;assert.equal(row.status,'consulting');
+  out=await f.request('admin/consultations/'+row.id+'/reservation','counselor-a','POST',{version:row.version,booking:ready,drafts:{},approved:true});assert.equal(out.status,200,JSON.stringify(out.data));assert.equal(out.data.item.status,'confirmed');
+  const job=(await f.db.query('SELECT booking FROM moment_link.integration_jobs WHERE consultation_id=$1',[row.id])).rows[0];assert.equal(job.booking.amount,570000);assert.deepEqual(job.booking.addOns,booking.addOns);
+ }finally{await f.pg.close();}
+});
+
+test('direct confirmed extras charge package options and purchased extras once while draft mode stays unconfirmed even with checks ticked',async()=>{
+ const f=await ownershipFixture();try{
+  await f.db.query("UPDATE moment_link.config SET data=jsonb_set(data,'{retentionDays}','30') WHERE id='settings'");
+  const catalog=(await f.request('catalog')).data,p=catalog.products.find(x=>x.category==='visit'&&!x.salePaused),pk=p.packages[0],option=pk.options.find(x=>!x.requiresOptionId);
+  const baseAmount=pk.weekday+option.amount,date='2027-11-15',addOns=[{id:'fireworks',quantity:2,unitAmount:30000},{id:'cake',quantity:1,unitAmount:25000}],booking={date,time:'14:00',amount:baseAmount+85000,baseAmount,amountMode:'auto',addOns,place:'합성 출장 장소',extra:'',scheduleConfirmed:true,paymentConfirmed:true};
+  const data={requestId:randomUUID(),catalogVersion:catalog.version,person:'합성 옵션 등록',phone:'01000000000',productId:p.id,packageId:pk.id,optionIds:[option.id],notes:'',assignee:f.staff['owner-admin'].id,booking,mode:'draft'};
+  const create=d=>f.request('admin/reservations','owner-admin','POST',d);
+  const draft=await create(data);assert.equal(draft.status,201,JSON.stringify(draft.data));assert.equal(draft.data.item.status,'consulting');assert.equal(draft.data.item.communication.reservation,undefined);
+  assert.equal((await create({...data,requestId:randomUUID(),booking:{...booking,amount:booking.amount+1}})).status,400);
+  const confirmed=await create({...data,requestId:randomUUID(),mode:'confirmed'});assert.equal(confirmed.status,201,JSON.stringify(confirmed.data));assert.equal(confirmed.data.item.status,'confirmed');assert.equal(confirmed.data.item.snapshot.price.optionAmount,option.amount);assert.equal(MomentLinkMessages.defaults(confirmed.data.item).amount,booking.amount);
+  assert.match(MomentLinkMessages.generate(confirmed.data.item,'confirmed',booking),/폭죽 1다발 추가 · 2다발/);
+  assert.equal((await f.db.query('SELECT count(*)::int AS n FROM moment_link.outbox')).rows[0].n,0);
+ }finally{await f.pg.close();}
 });
