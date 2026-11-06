@@ -1,3 +1,4 @@
+import {processAddOnChange} from './ops-addons.mjs';
 import {createHmac,randomBytes} from 'node:crypto';
 import webpush from 'web-push';
 import {audit,fail} from './security.mjs';
@@ -58,7 +59,7 @@ export function opsAdapter(target,env){
  if(env[prefix+'_CONTRACT_VERIFIED']!=='true'||!base||!secret)fail(503,'OPS_UNCONFIGURED','대상 OPS의 독립 API 계약과 인증 연결이 필요합니다.');
  const origin=new URL(base);if(origin.protocol!=='https:')fail(503,'OPS_URL','HTTPS OPS 주소가 필요합니다.');
  async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef+(data.requestId?':'+data.requestId:'')}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET')return null;const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,status:r.status,safe:r.status>=400&&r.status<500});return result;}
- return {safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change),restorationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/restoration/'+encodeURIComponent(id)),restore:change=>request('bookings/restore','POST',change)};
+ return {addOnsResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/addons/'+encodeURIComponent(id)),updateAddOns:change=>request('bookings/addons','POST',change),safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change),restorationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/restoration/'+encodeURIComponent(id)),restore:change=>request('bookings/restore','POST',change)};
 }
 export async function processIntegration(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
@@ -73,6 +74,7 @@ export async function processIntegration(db,id,env,adapters={}){
  let creating=false;
  try{
   const adapter=adapters.ops?.[job.target]||opsAdapter(job.target,env);
+  if(job.booking.operation==='addons')return processAddOnChange(db,job,env,adapter);
   if(job.booking.operation==='reschedule')return processScheduleChange(db,job,env,adapter);
   if(job.booking.operation==='cancel')return processCancellation(db,job,env,adapter);
   if(job.booking.operation==='restore')return processRestoration(db,job,env,adapter);

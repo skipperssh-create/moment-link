@@ -30,6 +30,7 @@ const retryReasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 일정 확인이 �
 function panel(r){
  if(!r.integration)return '';
  if(r.integration.operation==='inbound')return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${r.integration.state==='succeeded'?'변경 반영 완료':'변경 확인 필요'}</h3><p class="micro">${r.integration.state==='succeeded'?'OPS에서 변경한 예약시간·취소·복원 상태가 반영되었습니다. 금액·입금·메모는 그대로 유지됩니다.':'양쪽 예약 정보가 달라 자동 반영을 멈췄습니다. 기존 예약 내용을 확인해 주세요.'}</p><a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
+ if(r.integration.operation==='addons')return addOnsPanel(r);
  if(r.integration.operation==='restore')return restorationPanel(r);
  if(r.integration.operation==='cancel')return cancellationPanel(r);
  if(['reschedule','registration_revision'].includes(r.integration.operation))return schedulePanel(r);
@@ -63,12 +64,17 @@ function schedulePanel(r){
  const message=done?'변경한 날짜·시간이 모먼트링크와 OPS에 반영되었습니다. 구글캘린더 반영 상태는 OPS에서 확인할 수 있습니다.':(reasons[j.error_code]||(limited?'자동 시도 2회를 마쳤습니다. 결과 확인은 같은 변경 요청만 조회합니다.':'OPS 반영이 완료되면 확정 일정도 자동으로 갱신합니다.'))+' 기존 확정 일정은 유지됩니다.';
  return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${esc(title)}</h3>${revised?'<p class="micro">이전 일정의 등록 실패 기록을 보존하고 새 일정으로 OPS 등록을 확인합니다.</p>':''}${j.schedule?`<p class="micro">변경 요청 · ${esc(j.schedule.date)} ${esc(j.schedule.time)}</p>`:''}<p class="micro">${esc(message)}</p>${!done&&j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}${!done&&!conflict?`<button class="secondary" type="button" data-boatn-retry ${j.state==='checking'?'disabled':''}>${limited?'변경 결과 확인':'변경 상태 확인 · 재시도'}</button>`:''}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
 }
+function addOnsPanel(r){
+ const j=r.integration,done=j.state==='succeeded',conflict=j.state==='conflict',limited=Number(j.attempts||0)>=2;
+ const messages={OPS_ADDONS_REFUND_REQUIRED:'변경 금액이 이미 받은 금액보다 작습니다. OPS에서 환불 내역을 먼저 확인해 주세요.',OPS_ADDONS_CHANGED:'OPS의 일정·금액·옵션이 달라 자동 덮어쓰지 않았습니다.',OPS_ADDONS_REVIEW_REQUIRED:'OPS의 기존 변경·충돌 상태를 먼저 확인해 주세요.',OPS_ADDONS_FINANCE_REVIEW:'OPS의 기존 수납·금액 기록을 먼저 확인해 주세요.'};
+ return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${done?'옵션 반영 완료':conflict?'옵션 변경 확인 필요':'옵션 반영 확인 중'}</h3><p class="micro">${esc(done?'옵션과 총액·잔액이 OPS에 반영되었습니다. 실제 추가 수납은 OPS에서 기록해 주세요.':messages[j.error_code]||(limited?'자동 시도 2회를 마쳤습니다. 결과 조회만 가능합니다.':'OPS 확인 후 옵션과 추가금을 갱신합니다. 기존 예약 금액은 유지합니다.'))}</p>${!done&&j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}${!done&&!conflict?'<button class="secondary" type="button" data-boatn-retry>반영 결과 확인</button>':''}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
+}
 function mount(r,api){
  clearTimeout(panelTimer);const generation=++panelGeneration;
  const node=document.getElementById('boatnOpsStatus');if(!node||node.dataset.record!==r?.id)return;
  const current=()=>generation===panelGeneration&&document.getElementById('boatnOpsStatus')===node;
  // Replace only the OPS panel: unsaved status, memo and message edits stay intact.
- const refresh=async()=>{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api);if(['reschedule','cancel','restore','registration_revision'].includes(r.integration.operation)&&out.item.integration?.state==='succeeded')document.dispatchEvent(new CustomEvent(r.integration.operation==='restore'?'ml:ops-restoration-synced':r.integration.operation==='cancel'?'ml:ops-cancellation-synced':'ml:ops-schedule-synced',{detail:{item:out.item}}));}};
+ const refresh=async()=>{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api);if(['reschedule','cancel','restore','registration_revision','addons'].includes(r.integration.operation)&&out.item.integration?.state==='succeeded')document.dispatchEvent(new CustomEvent(r.integration.operation==='addons'?'ml:ops-addons-synced':r.integration.operation==='restore'?'ml:ops-restoration-synced':r.integration.operation==='cancel'?'ml:ops-cancellation-synced':'ml:ops-schedule-synced',{detail:{item:out.item}}));}};
  node.querySelector('[data-boatn-retry]')?.addEventListener('click',async ev=>{
   ev.target.disabled=true;ev.target.textContent='확인 중…';
   try{await api('admin/consultations/'+r.id+'/integration','POST',{});await refresh();}
