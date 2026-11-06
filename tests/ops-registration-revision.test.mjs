@@ -87,7 +87,7 @@ test('existing OPS payload mismatch and transactional failure do not falsely con
 
 test('registration error panel identifies its saved date and exposes 수정·확정 only for an eligible new schedule',async()=>{
  const window={},document={addEventListener(){},getElementById(){return null;}},context={window,document,navigator:{},console};context.globalThis=context;
- for(const path of ['pricing.js','messages.js','ops-ui.js'])vm.runInNewContext(await readFile(new URL('../'+path,import.meta.url),'utf8'),context);
+ for(const path of ['pricing.js','booking-addons.js','messages.js','ops-ui.js'])vm.runInNewContext(await readFile(new URL('../'+path,import.meta.url),'utf8'),context);
  context.MomentLinkOps=window.MomentLinkOps;vm.runInNewContext(await readFile(new URL('../message-ui.js',import.meta.url),'utf8'),context);
  const r={id:'synthetic',status:'confirmed',category:'other',phone:'01000000000',person:'합성',snapshot:{product:{name:'합성 요트'},package:{name:'합성'},price:{weekday:540000,weekend:540000}},preferences:[],integration:{state:'conflict',attempts:8,error_code:'OPS_RESOURCE_CONFLICT',external_id:null,schedule:{date:'2026-11-06',time:'20:00'}},communication:{reservation:{source:'manual'},booking:{date:'2026-11-06',time:'20:00',amount:540000,place:'합성',scheduleConfirmed:true,paymentConfirmed:true,extra:''}}};
  const panel=window.MomentLinkOps.panel(r);assert.match(panel,/OPS 등록 요청 일정 · 2026-11-06 20:00/);assert.match(panel,/이전 등록 요청의 오류/);assert.doesNotMatch(panel,/data-boatn-retry/);

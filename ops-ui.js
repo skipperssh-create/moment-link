@@ -6,7 +6,7 @@ let metadata=null,loading=null,panelTimer=null,panelGeneration=0;
 const eligible=r=>r?.category==='yacht'&&['classic','premium','signature'].includes(r.product_id||r.snapshot?.product?.id)&&['light','all'].includes(r.package_id||r.snapshot?.package?.id);
 async function load(api){
  if(loading)return loading;
- loading=api('admin/ops/boatn').then(x=>{metadata=x;return x;}).catch(()=>{metadata={enabled:false,error:true,paymentMethods:[]};return metadata;}).finally(()=>{loading=null;});
+ loading=api('admin/ops/boatn').then(x=>{metadata=x;globalThis.MomentLinkAddOns?.setPrices(x.addOnPrices);return x;}).catch(()=>{metadata={enabled:false,error:true,paymentMethods:[]};return metadata;}).finally(()=>{loading=null;});
  return loading;
 }
 function fields(r,b,prefix,disabled=false){
@@ -17,6 +17,7 @@ function fields(r,b,prefix,disabled=false){
 function validate(r,b){
  if(!eligible(r))return '';
  if(!metadata?.enabled||!metadata.installed)return 'BOATN OPS 연결을 확인한 뒤 예약을 확정해 주세요.';
+ if(b.addOns?.length&&!metadata.addOnPurchases)return 'OPS 추가 구매 연결을 확인한 뒤 예약을 확정해 주세요. 예약사항 저장은 가능합니다.';
  if(r.integration?.state==='succeeded'&&!metadata.scheduleUpdates)return 'OPS 일정 변경 기능을 확인하고 있습니다. 잠시 후 다시 열어 주세요.';
  if(!Number.isSafeInteger(b.opsPax)||b.opsPax<1||b.opsPax>63)return '탑승 인원을 입력해 주세요.';
  if(!metadata.paymentMethods.some(m=>m.id===b.opsPaymentMethod))return '입금을 확인한 결제수단을 선택해 주세요.';
@@ -24,7 +25,7 @@ function validate(r,b){
  return '';
 }
 const states={pending:'등록 대기',checking:'등록 확인 중',succeeded:'등록 완료',failed:'연결 실패',uncertain:'등록 결과 확인 중',blocked:'연결 확인 필요',conflict:'담당자 확인 필요'};
-const reasons={OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 운항이 제한되어 있습니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS에서 운항 가능 일정과 탑승 인원을 확인해 주세요.',OPS_DUPLICATE_REVIEW_REQUIRED:'같은 고객·시간의 예약이 있습니다. OPS 기존 예약을 확인해 주세요.',OPS_PAYMENT_METHOD_CHANGED:'OPS 결제수단 설정이 변경되었습니다.',CONSULTATION_CLOSED:'취소·완료된 예약은 신규 등록하지 않습니다.',OPS_PAYLOAD_CHANGED:'이미 등록된 예약 정보와 다릅니다. OPS에서 확인해 주세요.',OPS_INPUT_INVALID:'예약 날짜·시간·인원·금액을 OPS에서 확인해 주세요.'};
+const reasons={OPS_ADDONS_UNAVAILABLE:'OPS 추가 구매 연결을 확인해 주세요. 선택한 옵션과 금액은 보존되어 있습니다.',OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 운항이 제한되어 있습니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS에서 운항 가능 일정과 탑승 인원을 확인해 주세요.',OPS_DUPLICATE_REVIEW_REQUIRED:'같은 고객·시간의 예약이 있습니다. OPS 기존 예약을 확인해 주세요.',OPS_PAYMENT_METHOD_CHANGED:'OPS 결제수단 설정이 변경되었습니다.',CONSULTATION_CLOSED:'취소·완료된 예약은 신규 등록하지 않습니다.',OPS_PAYLOAD_CHANGED:'이미 등록된 예약 정보와 다릅니다. OPS에서 확인해 주세요.',OPS_INPUT_INVALID:'예약 날짜·시간·인원·금액을 OPS에서 확인해 주세요.'};
 const retryReasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 다시 확인해야 합니다.',OPS_REVIEW_REQUIRED:'OPS에서 등록 확인을 완료하지 못했습니다.',OPS_HTTP_429:'OPS 요청이 잠시 많아 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
 function panel(r){
  if(!r.integration)return '';

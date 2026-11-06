@@ -589,6 +589,32 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .ownership-filters{display:grid;grid-template-columns:minmax(0,1fr) 112px;align-items:stretch;gap:10px;margin:16px 0 10px}.owner-scope{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-column:1/-1;gap:4px;min-width:0;min-height:60px;padding:4px;background:var(--bg);border:1px solid var(--line);border-radius:14px;box-sizing:border-box}.owner-scope .secondary{min-width:0;min-height:50px;margin:0;padding:8px 10px;border-color:transparent;border-radius:10px;background:transparent;white-space:nowrap;font-size:12px;transition:background-color 160ms ease,color 160ms ease}.owner-scope .secondary:is(:hover,:focus-visible){background:#e8eef4;color:#315a78}.owner-scope [aria-pressed=true]{background:var(--ink);color:#fff}.owner-scope [aria-pressed=true]:is(:hover,:focus-visible){background:#333;color:#fff}.owner-select{display:flex;align-items:stretch;min-width:0;margin:0}.owner-select .admin-select{box-sizing:border-box;width:100%;min-width:0;min-height:60px;height:100%;margin:0;padding:10px 12px;border-radius:14px;font-size:14px}.ownership-filters>.ownership-reminder{width:100%;min-height:60px;padding:8px;box-sizing:border-box}.ownership-reminder .admin-action-text{white-space:nowrap}.ownership-guide{margin:0 0 20px;line-height:1.7}.ownership-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 16px}.owner-badge,.followup-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#626b75;line-height:1.6;overflow-wrap:anywhere}.owner-badge .admin-icon,.followup-badge .admin-icon{width:16px;height:16px;flex-shrink:0}.followup-badge[data-state=due]{color:#9a5d26}.followup-badge[data-state=done]{color:#34705b}.ownership-bar>.admin-icon-button{margin-left:auto}.staff-account-copy>.micro{display:block;margin-top:4px}.request-detail> .ownership-bar{padding-bottom:12px;border-bottom:1px solid #eceef1}@media(max-width:560px){.ownership-filters{gap:10px}.ownership-bar{gap:8px}.followup-badge{flex-basis:100%}.ownership-bar>.admin-icon-button{margin-left:0}.ownership-guide{font-size:11px}}
 
 /* Aligned inbox controls across compact and expanded screens. */
+/* Reservation drafts and extra purchases use the shared minimal controls. */
+.request-detail .reservation-confirm{grid-template-columns:minmax(0,1fr) auto}
+.reservation-confirm-actions{display:flex;align-items:stretch;gap:8px;justify-content:flex-end}
+.reservation-confirm-actions .admin-icon-button{flex-basis:84px;width:84px}
+.reservation-confirm>.booking-save-feedback:empty{display:none}
+.booking-addons{margin:18px 0;padding-top:16px;border-top:1px solid var(--line)}
+.booking-addons-heading{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.booking-addons-heading h4{font-size:14px;margin:0}
+.booking-addons>.micro{margin:8px 0 12px;line-height:1.65}
+.booking-addon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;align-items:start}
+.booking-addon{min-width:0;border:1px solid var(--line);border-radius:14px;background:#fff;transition:background-color 160ms ease,border-color 160ms ease}
+.booking-addon.is-selected{border-color:#c6d7e5;background:#f6f9fc}
+.booking-addon-choice{display:flex;align-items:center;gap:10px;min-height:64px;padding:12px;cursor:pointer;box-sizing:border-box}
+.booking-addon-choice:hover{background:#f0f5fa;border-radius:14px}
+.booking-addon-choice input{width:18px;height:18px;flex-shrink:0;accent-color:var(--ink)}
+.booking-addon-choice strong{display:block;font-size:13px;font-weight:600;line-height:1.5;word-break:keep-all}
+.booking-addon-choice small{display:block;margin-top:3px;font-size:11px;color:var(--muted);line-height:1.5}
+.booking-addon-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 12px 12px}
+.booking-addon-fields label{min-width:0;font-size:11px;color:var(--muted);line-height:1.5}
+.booking-addon-fields .admin-input{width:100%;box-sizing:border-box;min-width:0;margin:5px 0 0;padding:9px;font-size:16px;min-height:44px}
+.booking-addon-description{grid-column:1/-1}
+.booking-price-breakdown{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 0;border-top:1px solid var(--line)}
+.booking-price-breakdown>span{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.booking-price-breakdown strong{font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.booking-price-breakdown>span:last-child strong{color:#315a78}
+@media(max-width:600px){.booking-addon-grid{grid-template-columns:minmax(0,1fr)}.booking-price-breakdown{gap:12px 16px}.reservation-confirm-actions{grid-column:1/-1;justify-content:flex-start}}
 #inboxListing{container-type:inline-size}
 .inbox-toolbar{flex-wrap:wrap;align-items:stretch;gap:10px;margin:20px 0 10px}
 .inbox-toolbar .inbox-search{flex:1 1 280px}
