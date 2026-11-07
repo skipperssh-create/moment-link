@@ -65,3 +65,6 @@ OPS: MOMENT_LINK_ENABLED, MOMENT_LINK_TOKEN_HASH(SHA-256).
 복원 추가 검증: 모먼트링크 전체 98개, OPS 전체 3,072개 테스트와 양쪽 빌드가 통과했습니다. OPS 복원 3개 집중 테스트에서 원자 저장·중복/동시 요청·금액/원본/토큰 보존·기존 충돌·승선/노쇼·운항 중복·저장 실패 롤백·다시 취소된 예약의 재복원 방지를 확인했습니다. 합성 브라우저에서 목록 복원 완료, 상세 미저장 메모 보호와 충돌 시 취소 상태 유지, 9개 화면 크기의 확인 영역과 44px 이상 조작 영역을 검증했습니다. 복원 확인창을 여는 동안 자동 새로고침이 중단되는 것도 테스트했습니다. 실제 고객·문자·환불은 테스트에 사용하지 않았습니다. 브라우저 크기 시뮬레이션이며 물리 기기 검수는 아닙니다.
 
 역방향 추가 검증: 모먼트링크 전체 102개, OPS 전체 3,079개 테스트와 양쪽 빌드가 통과했습니다. 합성 예약의 실제 저장·변경 추적·전송 대기·HMAC 전송·수신 API를 연결해 시간 변경→취소→복원이 한 번씩 반영되는지 확인했습니다. 기존 충돌 예약은 새 변경 알림이 와도 기존 기록이 유지됐습니다. 동시 요청, 응답 유실, 최대 2회 전송, 두 번째 시도 중 중단, 원자적 롤백, 미저장 메모 보호와 9개 브라우저 크기의 가로 넘침 없음도 검증했습니다. 실제 고객 예약이나 문자 발송은 사용하지 않았습니다.
+
+## Partial payment confirmation
+New confirmations include booking.receivedAmount, the actual received deposit or full payment. The total amount remains separate. OPS metadata.partialPayments must be true before sending a partial receipt. OPS records partial payment and the remaining balance; legacy requests without the field keep their existing full-payment fingerprint. Add-on updates preserve the received amount and keep a deposited reservation confirmed. Existing conflicts and the two-attempt limit remain unchanged. No historical payment records are rewritten.

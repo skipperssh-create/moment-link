@@ -89,7 +89,7 @@ test('defaults fill amount and yacht address while preserving manual quotes and 
 });
 
 test('all financial messages use the same calculated amount and directions; stale auto quotes are rejected',()=>{
- const r=sample(),b={...M.defaults(r),date:'2026-12-24',amount:470000,scheduleConfirmed:true,paymentConfirmed:true};
+ const r=sample(),b={...M.defaults(r),date:'2026-12-24',amount:470000,receivedAmount:90000,scheduleConfirmed:true,paymentConfirmed:true};
  assert.equal(M.validate('confirmed',b,r),'');
  for(const stage of ['receipt','confirmed','reminder']){const message=M.generate(r,stage,b);assert.match(message,/470,000원/);assert.match(message,/태종로 727/);assert.match(message,/정문 진입 → 해안도로 → 요트면허시험장 앞 주차장/);}
  assert.match(M.validate('receipt',{...b,amount:420000},r),/자동 금액/);

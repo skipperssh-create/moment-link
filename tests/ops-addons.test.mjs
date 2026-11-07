@@ -31,7 +31,7 @@ test('confirmed option changes preserve drafts until OPS acknowledgement and sto
   assert.equal((await req(path+'/addons','POST',body,{})).status,401);
   assert.equal((await req(path+'/addons','POST',body,{Cookie:auth.Cookie})).status,403);
   let out=await req(path+'/addons','POST',body);assert.equal(out.status,200,JSON.stringify(out.data));item=out.data.item;
-  assert.equal(item.communication.booking.paymentConfirmed,false);assert.equal(item.communication.opsPayment.balance,30000);assert.equal(item.integration.state,'succeeded');assert.equal(item.integration.operation,'addons');assert.equal(item.communication.booking.amount,470000);assert.equal(calls.create,1);assert.equal(calls.change,1);
+  assert.equal(item.communication.booking.paymentConfirmed,true);assert.equal(item.communication.booking.receivedAmount,440000);assert.equal(item.communication.opsPayment.balance,30000);assert.equal(item.integration.state,'succeeded');assert.equal(item.integration.operation,'addons');assert.equal(item.communication.booking.amount,470000);assert.equal(calls.create,1);assert.equal(calls.change,1);
   for(const key of ['date','time','place','opsPax','opsPaymentMethod'])assert.equal(item.communication.booking[key],original[key]);
   assert.equal((await req(path+'/addons','POST',body)).status,409);assert.equal(calls.change,1);
   const bad=change(item,2);bad.amount=1;

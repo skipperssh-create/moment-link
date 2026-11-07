@@ -680,6 +680,12 @@ textarea.message-place{field-sizing:content;min-height:96px}
 @media(max-width:600px){.inbox-results>.inbox-item[data-card-open]{padding:11px 12px}.inbox-item .inbox-card-footer{align-items:center}.inbox-item .inbox-receipt{flex-basis:100%}.inbox-item .inbox-contact-actions{margin-left:0;display:flex;flex-wrap:wrap;width:100%}.inbox-item .inbox-contact-actions>.admin-icon-button{width:48px;flex-basis:48px}.inbox-name{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.inbox-item[data-card-open]{transition:none}}
 
+.request-detail{--detail-action-size:64px}
+.request-detail .admin-icon-button{flex:0 0 var(--detail-action-size);width:var(--detail-action-size);min-width:var(--detail-action-size);height:var(--detail-action-size);min-height:var(--detail-action-size);padding:7px 2px;align-self:flex-start}
+.request-detail .admin-action-text{white-space:nowrap;letter-spacing:-.2px;line-height:1.2}
+.booking-payment{padding:14px 0}.booking-payment>.admin-input{box-sizing:border-box;max-width:320px;width:100%;margin-bottom:10px}.booking-payment-summary{display:flex;flex-wrap:wrap;gap:10px 24px}.booking-payment-summary>span{display:grid;gap:4px;font-size:12px;color:var(--muted)}.booking-payment-summary strong{font-size:15px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}.reservation-payment{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px}.reservation-payment strong{color:#315f8b;white-space:nowrap}
+@media(max-width:600px){.request-detail{--detail-action-size:56px}.request-detail .admin-action-text{font-size:10px}.booking-payment-summary{gap:10px 16px}}
+
 /* One pastel palette connects list cards, filters, badges and status history. */
 [data-status="new"]{--status-wash:#f8fafc;--status-bg:#eaf0f5;--status-border:#ccd7e2;--status-ink:#405769}
 [data-status="initial_unreachable"],[data-status="no_response"]{--status-wash:#fff5f8;--status-bg:#fbe5ed;--status-border:#e9bdcf;--status-ink:#8a3f60}

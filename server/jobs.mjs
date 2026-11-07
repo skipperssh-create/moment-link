@@ -79,7 +79,7 @@ export async function processIntegration(db,id,env,adapters={}){
   if(job.booking.operation==='cancel')return processCancellation(db,job,env,adapter);
   if(job.booking.operation==='restore')return processRestoration(db,job,env,adapter);
   const revised=job.booking.operation==='registration_revision';
-  const payload={...Object.fromEntries(['person','phone','productId','packageId','date','time','amount','place','pax','paymentMethod'].map(key=>[key,job.booking[key]])),...(job.booking.addOns?.length?{addOns:job.booking.addOns}:{}),externalRef:job.external_ref};
+  const payload={...Object.fromEntries(['person','phone','productId','packageId','date','time','amount','receivedAmount','place','pax','paymentMethod'].map(key=>[key,job.booking[key]])),...(job.booking.addOns?.length?{addOns:job.booking.addOns}:{}),externalRef:job.external_ref};
   const prior=await adapter.lookup(job.external_ref);
   if(job.state==='uncertain'&&!prior?.id&&!adapter.safeRetry){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
   let booking=prior;
@@ -91,6 +91,7 @@ export async function processIntegration(db,id,env,adapters={}){
   }
   if(!booking?.id){
    if(job.reconcileOnly)throw Object.assign(Error('registration retry limit'),{code:'OPS_REGISTRATION_RETRY_LIMIT'});
+   if(payload.receivedAmount!==undefined&&payload.receivedAmount<payload.amount&&!(await adapter.metadata())?.partialPayments)throw Object.assign(Error('OPS deposit support unavailable'),{code:'OPS_PARTIAL_PAYMENT_UNAVAILABLE',safe:true});
    if(payload.addOns?.length&&!(await adapter.metadata())?.addOnPurchases)throw Object.assign(Error('OPS extra purchases unavailable'),{code:'OPS_ADDONS_UNAVAILABLE'});
    const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[job.consultation_id])).rows[0];
    if(!consultation||['closed','cancelled'].includes(consultation.status)){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='CONSULTATION_CLOSED' WHERE id=$1",[id]);return {state:'conflict'};}

@@ -22,7 +22,7 @@ export async function queueAddOnChange(tx,r,user,input){
   await tx.query("UPDATE moment_link.integration_jobs SET booking=$1,state='pending',attempts=0,error_code=NULL,approved_by=$2,updated_at=now() WHERE id=$3",[JSON.stringify(change),user.id,j.id]);
   await audit(tx,user.id,'ops.addons.queued',r.id,{jobId:j.id,changeId:change.changeId});
  }else{
-  next.paymentConfirmed=next.amount<=before.amount&&before.paymentConfirmed;
+  next.paymentConfirmed=Number.isInteger(before.receivedAmount)?before.paymentConfirmed&&(before.receivedAmount>0||next.amount===0):next.amount<=before.amount&&before.paymentConfirmed;
   await tx.query('UPDATE moment_link.consultations SET communication=$1 WHERE id=$2',[JSON.stringify({...r.communication,booking:next,drafts:nextDrafts,reservation:{...r.communication.reservation,updatedAt:new Date().toISOString(),updatedBy:user.username}}),r.id]);
   await audit(tx,user.id,'reservation.addons.updated',r.id,{});
  }
@@ -46,7 +46,7 @@ export async function processAddOnChange(db,job,env,adapter){
    const row=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 FOR UPDATE',[job.consultation_id])).rows[0],current=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[job.id])).rows[0];
    if(current?.booking.changeId!==change.changeId||current.state!=='checking')throw Error('addon claim changed');
    if(!row||row.deleted_at||row.status!=='confirmed')throw Object.assign(Error('closed'),{code:'CONSULTATION_CLOSED',safe:true});
-   const booking={...next,paymentConfirmed:receipt.balance===0},communication={...row.communication,booking,drafts:change.nextDrafts,opsPayment:{received:receipt.received,balance:receipt.balance},reservation:{...row.communication.reservation,updatedAt:new Date().toISOString(),updatedBy:change.requestedBy}};
+   const booking={...next,receivedAmount:receipt.received,paymentConfirmed:receipt.received>0||receipt.amount===0},communication={...row.communication,booking,drafts:Object.fromEntries(Object.keys(M.stages).map(stage=>[stage,M.generate(row,stage,booking,row.communication.paymentDeadline)])),opsPayment:{received:receipt.received,balance:receipt.balance},reservation:{...row.communication.reservation,updatedAt:new Date().toISOString(),updatedBy:change.requestedBy}};
    await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2',[JSON.stringify(communication),row.id]);
    await tx.query("UPDATE moment_link.integration_jobs SET state='succeeded',error_code=NULL,booking=$1,updated_at=now() WHERE id=$2",[JSON.stringify({...current.booking,amount:next.amount,addOns:next.addOns}),job.id]);
    await audit(tx,job.approved_by,'ops.addons.updated',row.id,{jobId:job.id,changeId:change.changeId});

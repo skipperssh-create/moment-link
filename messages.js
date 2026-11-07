@@ -38,6 +38,7 @@ function paymentDeadlineError(r,stage,deadline,now=Date.now()){
 function defaults(r,settings={}){
  const p=r.preferences?.[0]||{},saved=r.communication?.booking;
  const b={date:p.date||'',time:timeOK(p.time)?p.time:'',amount:null,place:r.place||'',scheduleConfirmed:false,paymentConfirmed:false,extra:'',...saved};
+ if(saved?.receivedAmount===undefined&&!r.communication?.reservation)b.receivedAmount=null;
  // Old explicit quotes and confirmed reservations keep their agreed price.
  b.amountMode=r.communication?.reservation||saved?.amountMode==='manual'||saved?.amountMode!=='auto'&&Number.isInteger(saved?.amount)?'manual':'auto';
  if(A){b.baseAmount=A.base(b);b.addOns=(b.addOns||[]).map(x=>({...x}));if(b.amountMode==='auto')b.baseAmount=P.quote(r,b.date).amount;A.recalculate(b);}
@@ -47,8 +48,22 @@ function defaults(r,settings={}){
  if(saved&&saved.place!==b.place)b.scheduleConfirmed=false;
  return b;
 }
+function paymentState(b={}){
+ const received=Number.isSafeInteger(b.receivedAmount)?b.receivedAmount:null;
+ const balance=received!==null&&Number.isSafeInteger(b.amount)?b.amount-received:null;
+ return {received,balance,partial:received>0&&balance>0};
+}
+function paymentProblem(b,confirming=false){
+ if(b.receivedAmount===undefined)return ''; // Preserve older recorded confirmations and clients.
+ if(b.receivedAmount===null)return confirming?'실제 입금된 예약금 또는 완납 금액을 입력해 주세요.':'';
+ if(!Number.isSafeInteger(b.receivedAmount)||b.receivedAmount<0||b.receivedAmount>100000000||Number.isInteger(b.amount)&&b.receivedAmount>b.amount)return '입금액은 총 예약금액 이하의 0원 이상 정수로 입력해 주세요.';
+ return confirming&&b.amount>0&&b.receivedAmount===0?'예약금 입금액을 입력하고 확인해 주세요. 잔금이 있어도 예약을 확정할 수 있습니다.':'';
+}
+function paymentSummary(b){const p=paymentState(b);return '<span>총 예약금액 <strong>'+money(b.amount)+'</strong></span><span>입금 확인액 <strong>'+money(p.received)+'</strong></span><span>남은 잔금 <strong>'+money(p.balance)+'</strong></span>';}
+function paymentFields(b,prefix,locked=false){return '<section class="booking-payment" aria-label="예약금·잔금"><label class="admin-label" for="'+prefix+'_receivedAmount">실제 입금액 (예약금·완납, 원)</label><input class="admin-input" id="'+prefix+'_receivedAmount" name="receivedAmount" data-message-field="receivedAmount" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="실제 받은 금액 입력" value="'+(Number.isInteger(b.receivedAmount)?b.receivedAmount:'')+'" '+(locked?'disabled':'')+'/><div class="booking-payment-summary" data-payment-summary>'+paymentSummary(b)+'</div><p class="micro">예약금만 입금되어도 예약을 확정할 수 있습니다. 남은 금액은 잔금으로 표시합니다.'+(locked?' 연결된 예약의 추가 수납·정정은 OPS에서 처리해 주세요.':'')+'</p></section>';}
+function paintPayment(root,b){const el=root?.querySelector('[data-payment-summary]');if(el)el.innerHTML=paymentSummary(b);}
 function amountError(b,r){
- const extraProblem=A?.problem(b);if(extraProblem)return extraProblem;
+ const extraProblem=A?.problem(b)||paymentProblem(b);if(extraProblem)return extraProblem;
  if(b.amountMode!=='auto')return '';
  // A saved confirmation remains valid if a later holiday update changes the calendar.
  const old=r.communication;
@@ -74,7 +89,8 @@ function validate(stage,b,r){
  if(!Number.isInteger(b.amount)||b.amount<0||b.amount>100000000)return '안내할 최종 금액을 입력해 주세요.';
  if(amountError(b,r))return amountError(b,r);
  if(['confirmed','reminder'].includes(stage)){
-  if(!b.scheduleConfirmed||!b.paymentConfirmed)return '일정·장소 확정과 입금 확인을 모두 체크해 주세요.';
+  if(!b.scheduleConfirmed||!b.paymentConfirmed)return '일정·장소 확정과 예약금 또는 완납 입금 확인을 모두 체크해 주세요.';
+  if(paymentProblem(b,true))return paymentProblem(b,true);
   if(!b.place.trim())return '확정 장소·주소를 입력해 주세요.';
  }
  return '';
@@ -105,10 +121,10 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
- const summary=['상품: '+selection,options?'추가 선택: '+options:'',extraLines,'이벤트 일정: '+schedule,'금액: '+money(b.amount),'장소: '+(b.place||'담당자와 협의 후 안내')].filter(Boolean).join('\n');
+ const summary=['상품: '+selection,options?'추가 선택: '+options:'',extraLines,'이벤트 일정: '+schedule,'금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[]),'장소: '+(b.place||'담당자와 협의 후 안내')].filter(Boolean).join('\n');
  let parts=[];
  if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
- if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, 입금 확인이 완료되어 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
+ if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
  if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
  if(stage==='thanks'){
   const question={yacht:'요트에서의 시간과 진행은 어떠셨나요?',visit:'준비해 드린 장식과 이벤트 진행은 어떠셨나요?',trunk:'트렁크 이벤트와 장식은 어떠셨나요?',heli:'헬기에서의 특별한 순간과 진행은 어떠셨나요?'}[r.category]||'이벤트 진행은 어떠셨나요?';
@@ -128,5 +144,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,paintPayment,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();
