@@ -13,11 +13,12 @@ async function harness(){
  const context=vm.createContext({crypto:{randomUUID},window:{MomentLinkComposer:{isBusy:()=>false,isDirty:()=>true,clear(){}},MomentLinkSound:()=>({reset(){},stop(){}}),MomentLinkDirectBooking:()=>({close(){}}),addEventListener(){}},document:{title:'test',hidden:false,querySelector:s=>elements[s]||null,querySelectorAll:()=>[],getElementById:id=>elements['#'+id],addEventListener(){}},location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,setTimeout:()=>1,clearTimeout(){},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,reject,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data})}))});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
  vm.runInContext(await readFile(new URL('../messages.js',import.meta.url),'utf8'),context);
+ vm.runInContext(await readFile(new URL('../ownership.js',import.meta.url),'utf8'),context);context.window.MomentLinkOwnership=context.MomentLinkOwnership;
  context.window.intentTest={};
- const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={listCardActions,openInboxCard,cardDates,setSelection:value=>window.getSelection=()=>value,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
+ const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={listCardActions,openInboxCard,cardDates,statusTrail,paymentWindow,paintPaymentWindows,setSelection:value=>window.getSelection=()=>value,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
  vm.runInContext(exposed.replace('window.MomentLinkAdmin={mount,clear};',`window.test={saveListStatus,saveNote,saveListNote,listNoteEditor,listNoteEditing,statusOrder:()=>Object.keys(statuses),draft:(id,text)=>listNoteDrafts.set(id,text),get:()=>({items,counts,detail,dirty,busy}),set:item=>{items=[item,{...item,id:'other'}];detail={item,notes:[],history:[]};counts={all:2,new:2};}};user={id:'synthetic',role:'admin'};inboxListing=()=>'';render=()=>{};`),context);
  const item={id:'synthetic',person:'합성 고객',version:3,status:'new',assignee:null,contacted:false,communication:{}};context.window.test.set(item);
- return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,item,elements,requests,save,listFields};
+ return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,document:context.document,item,elements,requests,save,listFields};
 }
 test('list status persists once, refreshes counts, and blocks concurrent clicks',async()=>{
  const h=await harness(),saving=h.api.saveListStatus(h.item.id,'consulting');
@@ -98,5 +99,16 @@ test('card backgrounds open the same detail action while every embedded control 
 test('card dates use Korean calendar dates and do not invent dates for missing or invalid history',async()=>{
  const h=await harness(),html=h.intent.cardDates({...h.item,created_at:'2026-11-07T15:30:00Z',consultation_started_at:'2026-11-09T01:00:00Z'});
  assert.match(html,/접수 <time[^>]*>26\.11\.08/);assert.match(html,/상담 시작 <time[^>]*>26\.11\.09/);assert.match(html,/datetime="2026-11-07T15:30:00.000Z"/);
+ assert.match(html,/26\.11\.08 00:30/);assert.match(html,/26\.11\.09 10:00/);
  const missing=h.intent.cardDates({...h.item,created_at:'bad',consultation_started_at:null});assert.equal((missing.match(/기록 없음/g)||[]).length,2);assert.doesNotMatch(missing,/Invalid|NaN/);
+});
+
+test('overdue card warning opens the shared payment reminder and a timer repaint preserves memo drafts',async()=>{
+ const h=await harness(),r={...h.item,status:'awaiting_payment',awaiting_payment_at:new Date(Date.now()-3*3600000).toISOString(),person:'합성 <고객>',status_timeline:[{from:'consulting',to:'awaiting_payment',at:new Date(Date.now()-3*3600000).toISOString(),actor:'합성 상담사'}]};
+ h.api.set(r);const html=h.intent.paymentWindow(r);assert.match(html,/data-ml="messageCustomer"/);assert.match(html,/data-stage="payment_reminder"/);assert.match(html,/입금기한 경과/);assert.match(html,/합성 &lt;고객&gt;/);
+ assert.match(h.intent.statusTrail(r),/상담중 →/);assert.match(h.intent.statusTrail(r),/입금대기/);assert.match(h.intent.statusTrail(r),/합성 상담사/);
+ const card={dataset:{}},region={dataset:{paymentWindow:r.id},innerHTML:'',closest:()=>card,contains:()=>false};h.document.querySelectorAll=selector=>selector==='[data-payment-window]'?[region]:[];
+ const before=JSON.stringify(h.api.get());h.intent.paintPaymentWindows();assert.equal(card.dataset.paymentState,'overdue');assert.equal(region.innerHTML,html);assert.equal(JSON.stringify(h.api.get()),before);assert.equal(h.elements['#requestNote'].value,'고객 요청\n합성 메모');assert.equal(h.requests.length,0);
+ h.intent.setUser({id:'other',role:'counselor'});assert.doesNotMatch(h.intent.paymentWindow({...r,assignee:'owner'}),/<button/);assert.match(h.intent.paymentWindow({...r,assignee:'owner'}),/담당자 확인 필요/);
+ assert.equal(h.intent.paymentWindow({...r,status:'confirmed'}),'');assert.match(h.intent.paymentWindow({...r,awaiting_payment_at:null,status_timeline:[]}),/기록 없음/);
 });

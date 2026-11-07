@@ -1,7 +1,8 @@
 /* Shared, deterministic message helpers. No customer data is stored in this module. */
 (() => {
 'use strict';
-const stages={receipt:'예약 접수·금액 안내',confirmed:'결제 후 예약 확정',reminder:'하루 전 안내',thanks:'이벤트 후 안부',intent:'예약 의사 확인'};
+const stages={receipt:'예약 접수·금액 안내',confirmed:'결제 후 예약 확정',reminder:'하루 전 안내',thanks:'이벤트 후 안부',intent:'예약 의사 확인',payment_reminder:'입금 리마인드'};
+const templateOnly=stage=>['intent','payment_reminder'].includes(stage);
 const bank='우리은행 1005-703-823528\n예금주: (주)보트앤럭스';
 const contact='문의: 1833-8047\n담당자: 010-8009-8047';
 const refunds='취소·환불 안내 (이벤트 예정일 기준)\n45~31일 전: 90% 환불\n30~16일 전: 80% 환불\n15~11일 전: 70% 환불\n10~7일 전: 60% 환불\n6~2일 전: 50% 환불\n1일 전·당일: 환불 불가';
@@ -23,7 +24,7 @@ function prepareDrafts(r,drafts,deadline){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
   let text=eventWording(body);
   if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
-  if(r.category==='yacht'&&stage==='receipt'){
+  if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
    text=old.test(text)?text.replace(old,paymentLine(deadline)):text+'\n\n'+paymentLine(deadline);
   }
@@ -31,7 +32,7 @@ function prepareDrafts(r,drafts,deadline){
  }));
 }
 function paymentDeadlineError(r,stage,deadline,now=Date.now()){
- if(r.category!=='yacht'||stage!=='receipt')return '';
+ if((r.category!=='yacht'&&r.status!=='awaiting_payment')||stage!=='receipt')return '';
  return Number.isFinite(Date.parse(deadline))&&Date.parse(deadline)>Number(new Date(now))?'':'입금 기한을 새로 계산하려면 ‘저장하고 문자 준비’를 다시 눌러 주세요.';
 }
 function defaults(r,settings={}){
@@ -59,6 +60,12 @@ function validate(stage,b,r){
  if(!stages[stage])return '안내 단계를 선택해 주세요.';
  if(!/^01[016789]\d{7,8}$/.test(r.phone||''))return '고객 휴대전화 번호를 확인해 주세요.';
  if(stage==='intent')return '';
+ if(stage==='payment_reminder'){
+  if(r.status!=='awaiting_payment')return '입금대기 상태에서만 입금 리마인드를 보낼 수 있습니다.';
+  const wait=globalThis.MomentLinkOwnership?.paymentWait(r);
+  if(wait?.state==='unknown')return '입금대기 시작 시각을 확인할 수 없습니다. 상태 변경 이력을 확인해 주세요.';
+  return wait?.overdue?'':'입금대기 유효시간 2시간이 아직 지나지 않았습니다.';
+ }
  if(r.status==='cancelled')return '취소된 상담에는 이 예약 안내를 보낼 수 없습니다.';
  if(r.status==='closed'&&r.communication?.reservation&&stage!=='thanks')return '이벤트 완료된 예약은 이벤트 후 안부 문자를 이용해 주세요.';
  if(!dateOK(b.date))return '안내할 이벤트 날짜를 입력해 주세요.';
@@ -94,12 +101,13 @@ function preparation(r,b,short=false){
 }
 function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  if(stage==='intent')return reservationIntent();
+ if(stage==='payment_reminder')return paymentReminder(r);
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
  const summary=['상품: '+selection,options?'추가 선택: '+options:'',extraLines,'이벤트 일정: '+schedule,'금액: '+money(b.amount),'장소: '+(b.place||'담당자와 협의 후 안내')].filter(Boolean).join('\n');
  let parts=[];
- if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,r.category==='yacht'?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
+ if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
  if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, 입금 확인이 완료되어 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
  if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
  if(stage==='thanks'){
@@ -111,10 +119,14 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
 function reservationIntent(){
  return '안녕하세요, 모먼트링크입니다.\n안내드린 문자 확인 부탁드립니다.\n\n예약을 원하지 않으시면 답장으로 알려 주세요. 회신해 주시면 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다.\n\n감사합니다.';
 }
+function paymentReminder(r){
+ const deadline=globalThis.MomentLinkOwnership?.paymentWait(r)?.deadline;
+ return '[모먼트링크 · 입금 확인 안내]\n'+r.person+'님, 안내드린 예약의 입금 확인 기한(2시간)이 지났습니다.'+(deadline?'\n입금 확인 기한: '+paymentDeadlineLabel(deadline):'')+'\n\n이미 입금하셨다면 입금자명과 함께 회신 부탁드립니다. 아직 입금 전이시면 예약 진행 의사를 알려 주세요. 일정 가능 여부를 다시 확인해 드리겠습니다.\n\n예약을 원하지 않으시면 답장으로 알려 주세요. 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다.\n\n감사합니다.';
+}
 function smsURI(phone,body,ua='',platform='',touch=0){
  if(!/^01[016789]\d{7,8}$/.test(phone))throw Error('잘못된 수신 번호');
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,defaults,validate,generate,reservationIntent,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();

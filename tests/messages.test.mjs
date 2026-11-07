@@ -66,6 +66,46 @@ test('intent is a message template with no schedule or payment prerequisite',()=
  assert.match(M.validate('intent',{}, {...sample(),phone:'invalid'}),/번호/);
 });
 
+test('payment reminder uses the status-change deadline and is blocked before expiry or outside awaiting payment',()=>{
+ const r={...sample(),status:'awaiting_payment',awaiting_payment_at:new Date(Date.now()-3*3600000).toISOString()};
+ assert.equal(M.validate('payment_reminder',{},r),'');assert.match(M.generate(r,'payment_reminder',{}),/입금 확인 기한\(2시간\)이 지났습니다/);assert.match(M.generate(r,'payment_reminder',{}),/일정 가능 여부를 다시 확인/);assert.doesNotMatch(M.generate(r,'payment_reminder',{}),/예약이 취소|undefined|NaN/);
+ assert.match(M.validate('payment_reminder',{}, {...r,awaiting_payment_at:new Date().toISOString()}),/아직/);
+ assert.match(M.validate('payment_reminder',{}, {...r,status:'confirmed'}),/입금대기 상태/);
+ assert.match(M.validate('payment_reminder',{}, {...r,awaiting_payment_at:null}),/시작 시각/);
+});
+
+test('overdue reminder only saves its template and records manual actions without dispatching existing OPS jobs',async()=>{
+ const origin='https://test.moment-link.invalid',f=await ownershipFixture(origin);
+ try{
+  const app=createApp({db:f.db,env:{APP_ORIGIN:origin,OPS_WRITES_ENABLED:'true'}});
+  const send=async(path,method,data,who='counselor-a')=>{const response=await app(new Request(origin+'/api/'+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...f.sessions[who]},body:JSON.stringify(data)}));return {status:response.status,data:await response.json()};};
+  for(const state of ['conflict','pending']){
+   const start=new Date(Date.now()-3*3600000).toISOString(),row=await f.add({owner:f.staff['counselor-a'].id,status:'awaiting_payment',communication:{booking,drafts:{receipt:'기존 안내'},paymentDeadline:'2099-01-01T00:00:00Z'}}),path='admin/consultations/'+row.id+'/communications';
+   await f.db.query("INSERT INTO moment_link.audit_logs(id,actor_id,action,entity_id,detail,created_at) VALUES($1,$2,'consultation.updated',$3,$4,$5)",[randomUUID(),f.staff['counselor-a'].id,row.id,JSON.stringify({from:'consulting',to:'awaiting_payment'}),start]);
+   await f.db.query("INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,state,attempts,error_code,approved_by,booking) VALUES($1,$2,'boatn',$3,$4,2,'OPS_RESOURCE_CONFLICT',$5,$6)",[randomUUID(),row.id,'moment-link:'+row.id,state,f.staff['owner-admin'].id,JSON.stringify({operation:'reschedule'})]);
+   const before=(await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[row.id])).rows;
+   const payload={version:row.version,prepareStage:'payment_reminder',drafts:{payment_reminder:'합성 입금 리마인드'}};
+   assert.equal((await send(path,'PUT',payload,'counselor-b')).status,403);
+   let out=await send(path,'PUT',payload);assert.equal(out.status,200,JSON.stringify(out.data));assert.deepEqual(out.data.item.communication.booking,booking);assert.equal(out.data.item.communication.paymentDeadline,'2099-01-01T00:00:00Z');assert.equal(Date.parse(out.data.item.communication.paymentReminderFor),Date.parse(start));assert.equal(out.data.item.status,'awaiting_payment');
+   const event={version:out.data.item.version,stage:'payment_reminder',kind:'composer_requested',eventId:randomUUID()};
+   out=await send(path,'POST',event);assert.equal(out.status,200);assert.equal(out.data.item.communication.events[0].kind,'composer_requested');
+   assert.equal((await send(path,'POST',event)).data.item.communication.events.length,1);
+   out=await send(path,'POST',{...event,version:out.data.item.version,kind:'manual_sent',eventId:randomUUID()});assert.equal(out.status,200);assert.ok(MomentLinkOwnership.paymentWait(out.data.item).lastSentAt);
+   assert.deepEqual((await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[row.id])).rows,before);
+   await f.db.query("INSERT INTO moment_link.audit_logs(id,actor_id,action,entity_id,detail,created_at) VALUES($1,$2,'consultation.updated',$3,$4,now()-interval '1 hour')",[randomUUID(),f.staff['counselor-a'].id,row.id,JSON.stringify({from:'awaiting_payment',to:'hold'})]);
+   await f.db.query("INSERT INTO moment_link.audit_logs(id,actor_id,action,entity_id,detail) VALUES($1,$2,'consultation.updated',$3,$4)",[randomUUID(),f.staff['counselor-a'].id,row.id,JSON.stringify({from:'hold',to:'awaiting_payment'})]);
+   assert.equal((await send(path,'POST',{...event,version:out.data.item.version,eventId:randomUUID()})).data.error,'PAYMENT_WAIT_CHANGED');
+  }
+  const row=await f.add({owner:f.staff['counselor-a'].id,status:'awaiting_payment'}),start=new Date(Date.now()-3600000).toISOString();
+  await f.db.query("INSERT INTO moment_link.audit_logs(id,actor_id,action,entity_id,detail,created_at) VALUES($1,$2,'consultation.updated',$3,$4,$5)",[randomUUID(),f.staff['counselor-a'].id,row.id,JSON.stringify({from:'consulting',to:'awaiting_payment'}),start]);
+  const path='admin/consultations/'+row.id+'/communications';let out=await send(path,'PUT',{version:row.version,booking,drafts:{receipt:'합성 입금 안내'},prepareStage:'receipt'});assert.equal(out.status,200,JSON.stringify(out.data));const deadline=out.data.item.communication.paymentDeadline;
+  assert.equal(Date.parse(deadline),Date.parse(start)+7200000);assert.match(out.data.item.communication.drafts.receipt,/입금 기한:/);
+  out=await send(path,'PUT',{version:out.data.item.version,booking,drafts:out.data.item.communication.drafts,prepareStage:'receipt'});assert.equal(out.data.item.communication.paymentDeadline,deadline);
+  assert.equal((await send(path,'PUT',{version:out.data.item.version,prepareStage:'payment_reminder',drafts:{payment_reminder:'합성 안내'}})).status,400);
+  assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
+ }finally{await f.pg.close();}
+});
+
 test('intent preparation and logs preserve booking data, permissions and existing OPS conflicts',async()=>{
  const f=await ownershipFixture();
  try{

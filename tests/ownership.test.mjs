@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {ownershipFixture} from './ownership-fixture.mjs';
 import '../ownership.js';
+import {statusTimeline} from '../server/consultation-timeline.mjs';
 let f,a,b;
 before(async()=>{f=await ownershipFixture();a=f.staff['counselor-a'].id;b=f.staff['counselor-b'].id;});
 after(async()=>f.pg.close());
@@ -107,4 +108,37 @@ test('reading alone has no consultation date while starting or saving the first 
  const first=await call(notePath+'/notes','counselor-a','POST',{body:'첫 상담 내용'});assert.equal(first.status,200);assert.ok(first.data.consultation_started_at);
  const second=await call(notePath+'/notes','counselor-a','POST',{body:'다음 상담 내용'});assert.equal(second.data.consultation_started_at,first.data.consultation_started_at);
  assert.equal((await call(notePath,'counselor-b')).data.item.consultation_started_at,first.data.consultation_started_at);
+});
+
+test('payment window expires at exactly two hours and never uses an unrelated update timestamp',()=>{
+ const start='2026-11-07T01:23:00Z',row={status:'awaiting_payment',awaiting_payment_at:start,updated_at:'2026-11-07T04:00:00Z',communication:{paymentDeadline:'2026-11-09T00:00:00Z'}};
+ const wait=MomentLinkOwnership.paymentWait;
+ assert.equal(wait(row,'2026-11-07T03:22:59.999Z').overdue,false);assert.equal(wait(row,'2026-11-07T03:22:59.999Z').remainingMinutes,1);
+ assert.equal(wait(row,'2026-11-07T03:23:00Z').overdue,true);assert.equal(wait(row,'2026-11-07T03:24:00Z').overdueMinutes,1);
+ assert.equal(wait({...row,awaiting_payment_at:null}).state,'unknown');assert.equal(wait({...row,status:'confirmed'}).state,'none');assert.equal(wait({...row,deleted_at:start}).state,'none');
+ const sent={...row,communication:{events:[{stage:'payment_reminder',kind:'manual_sent',at:'2026-11-07T03:30:00Z',waitingStartedAt:start}]}};
+ assert.ok(wait(sent,'2026-11-07T04:00:00Z').lastSentAt);assert.equal(wait({...sent,awaiting_payment_at:'2026-11-07T04:00:00Z'},'2026-11-07T06:00:00Z').lastSentAt,null);
+});
+
+test('timeline orders direct creation before same-transaction confirmation and removes duplicate state audits',()=>{
+ const at='2026-11-07T01:23:00Z',rows=[
+  {id:'a',action:'reservation.confirmed',created_at:at,detail:{from:'consulting',to:'confirmed'}},
+  {id:'z',action:'reservation.direct_created',created_at:at,detail:{mode:'confirmed'}},
+  {id:'b',action:'consultation.updated',created_at:at,detail:{from:'consulting',to:'confirmed'}},
+  {id:'c',action:'consultation.updated',created_at:at,detail:{from:'confirmed',to:'confirmed'}}
+ ];
+ assert.deepEqual(statusTimeline(rows).map(x=>x.to),['consulting','confirmed']);
+ assert.deepEqual(statusTimeline([{action:'ownership.started',created_at:at,detail:{from:null,to:a}}]),[]);
+});
+
+test('list and detail expose status times and actors; memo and repeated same status do not extend payment validity',async()=>{
+ const row=await f.add({owner:a,status:'consulting'}),path='consultations/'+row.id;
+ let out=await call(path,'counselor-a','PATCH',{version:row.version,status:'awaiting_payment'});assert.equal(out.status,200);
+ const start=out.data.item.awaiting_payment_at;assert.ok(start);assert.equal(out.data.item.status_timeline.at(-1).actor,'합성 상담사 가');
+ await call(path+'/notes','counselor-a','POST',{body:'입금 확인 대기 메모'});
+ out=await call(path,'counselor-a','PATCH',{version:out.data.item.version,status:'awaiting_payment',contacted:true});assert.equal(out.status,200);assert.equal(out.data.item.awaiting_payment_at,start);
+ const listed=(await call('consultations?owner=all','owner-admin')).data.items.find(x=>x.id===row.id);assert.equal(listed.awaiting_payment_at,start);
+ const detail=await call(path,'counselor-a');assert.ok(detail.data.history.every(x=>x.actor_name&&x.created_at));assert.equal(detail.data.item.status_timeline.length,1);
+ out=await call(path,'counselor-a','PATCH',{version:out.data.item.version,status:'hold'});assert.equal(out.data.item.awaiting_payment_at,null);
+ out=await call(path,'counselor-a','PATCH',{version:out.data.item.version,status:'awaiting_payment'});assert.ok(Date.parse(out.data.item.awaiting_payment_at)>Date.parse(start));assert.deepEqual(out.data.item.status_timeline.map(x=>x.to),['awaiting_payment','hold','awaiting_payment']);
 });

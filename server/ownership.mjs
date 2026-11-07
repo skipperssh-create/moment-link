@@ -11,7 +11,7 @@ export async function claim(tx,r,user,version){
  if(!canClaim(r))fail(409,'STATE','진행 가능한 상담만 시작할 수 있습니다.');
  if(r.version!==version)fail(409,'VERSION','상담 내용이 변경되었습니다. 새로고침해 주세요.');
  const item=(await tx.query("UPDATE moment_link.consultations SET assignee=$1,status=CASE WHEN status='new' THEN 'consulting' ELSE status END,version=version+1,updated_at=now() WHERE id=$2 RETURNING *",[user.id,r.id])).rows[0];
- await audit(tx,user.id,'ownership.started',r.id,{from:null,to:user.id});
+ await audit(tx,user.id,'ownership.started',r.id,{from:null,to:user.id,statusFrom:r.status,statusTo:item.status});
  return item;
 }
 

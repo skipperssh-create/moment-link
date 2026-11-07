@@ -6,38 +6,43 @@ import '../pricing.js';
 import '../booking-addons.js';
 import '../messages.js';
 import '../ownership.js';
-const stages=z.enum(['receipt','confirmed','reminder','thanks','intent']);
+import {attachStatusTimelines} from './consultation-timeline.mjs';
+const stages=z.enum(['receipt','confirmed','reminder','thanks','intent','payment_reminder']);
 const addOnSchema=z.object({id:z.enum(['bouquet','bouquet_custom','fireworks','cake','wine_bottle']),quantity:z.number().int().min(1).max(100),unitAmount:z.number().int().min(0).max(10000000),description:text(50).optional()}).strict();
 export const bookingSchema=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),baseAmount:z.number().int().min(0).max(100000000).nullable().optional(),addOns:z.array(addOnSchema).max(5).optional(),amountMode:z.enum(['auto','manual']).optional(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000),opsPax:z.number().int().min(1).max(63).optional(),opsPaymentMethod:text(80).optional()}).strict().superRefine((b,ctx)=>{const message=MomentLinkAddOns.problem(b);if(message)ctx.addIssue({code:z.ZodIssueCode.custom,message});});
 const extrasChanged=(a,b)=>JSON.stringify(MomentLinkAddOns.validate(a?.addOns))!==JSON.stringify(MomentLinkAddOns.validate(b?.addOns));
 const booking=bookingSchema;
-const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks','intent'].map(k=>[k,text(5000).optional()]))).strict();
-const intentPreparation=z.object({version:z.number().int(),prepareStage:z.literal('intent'),drafts:z.object({intent:text(5000).refine(value=>!!value.trim(),'보낼 내용을 입력해 주세요.')}).strict()}).strict();
+const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks','intent','payment_reminder'].map(k=>[k,text(5000).optional()]))).strict();
+const templatePreparation=z.discriminatedUnion('prepareStage',['intent','payment_reminder'].map(stage=>z.object({version:z.number().int(),prepareStage:z.literal(stage),drafts:z.object({[stage]:text(5000).refine(value=>!!value.trim(),'보낼 내용을 입력해 주세요.')}).strict()}).strict()));
 export const reservationSchema=z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict();
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
- const intentOnly=method==='PUT'?input?.prepareStage==='intent':input?.stage==='intent';
- const changing=intentOnly?null:(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'",[r.id])).rows[0];
+ const templateOnly=MomentLinkMessages.templateOnly(method==='PUT'?input?.prepareStage:input?.stage);
+ const changing=templateOnly?null:(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'",[r.id])).rows[0];
  if(changing?.operation==='restore')fail(409,'OPS_RESTORATION_PENDING','OPS 복원 결과를 확인한 뒤 문자를 준비해 주세요. 복원 완료 전까지 취소 상태가 유지됩니다.');
  if(changing?.operation==='cancel')fail(409,'OPS_CANCELLATION_PENDING','OPS 취소 결과를 확인한 뒤 문자를 준비해 주세요. 취소 완료로 확인되기 전까지 기존 예약 상태가 유지됩니다.');
  if(changing)fail(409,'OPS_SCHEDULE_PENDING','OPS 일정 변경 결과를 확인한 뒤 문자를 준비해 주세요. 기존 확정 일정은 유지됩니다.');
- const d=parse(method==='PUT'?(intentOnly?intentPreparation:z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict()):z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
+ const d=parse(method==='PUT'?(templateOnly?templatePreparation:z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict()):z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
  // Retried clicks cannot duplicate the log, even if the original response was lost.
- if(method==='POST'&&(old.events||[]).some(e=>e.id===d.eventId))return {item:r};
+ if(method==='POST'&&(old.events||[]).some(e=>e.id===d.eventId))return {item:r,messageOnly:templateOnly};
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
+ if(d.prepareStage==='payment_reminder'||d.stage==='payment_reminder'||d.prepareStage==='receipt'&&r.status==='awaiting_payment')await attachStatusTimelines(tx,[r]);
  let next;
- if(method==='PUT'&&intentOnly){
-  const problem=MomentLinkMessages.validate('intent',{},r);if(problem)fail(400,'MESSAGE_NOT_READY',problem);
-  next={...old,drafts:{...old.drafts,intent:d.drafts.intent}};
-  await audit(tx,user.id,'communication.saved',r.id,{stage:'intent'});
+ if(method==='PUT'&&templateOnly){
+  const problem=MomentLinkMessages.validate(d.prepareStage,{},r);if(problem)fail(400,'MESSAGE_NOT_READY',problem);
+  next={...old,drafts:{...old.drafts,...d.drafts},...(d.prepareStage==='payment_reminder'?{paymentReminderFor:r.awaiting_payment_at}:{})};
+  await audit(tx,user.id,'communication.saved',r.id,{stage:d.prepareStage});
  }else if(method==='PUT'){
   const amountProblem=MomentLinkMessages.amountError(d.booking,r);if(amountProblem)fail(400,'PRICE_CHANGED',amountProblem);
   if(old.reservation&&(['date','time','amount','place','opsPax','opsPaymentMethod'].some(k=>d.booking[k]!==old.booking?.[k])||extrasChanged(d.booking,old.booking)||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
   // The server clock anchors the deadline to preparation, never presumed delivery.
-  const paymentDeadline=r.category==='yacht'&&d.prepareStage==='receipt'?MomentLinkMessages.paymentDeadlineFrom():old.paymentDeadline;
+  const waitingDeadline=r.status==='awaiting_payment'?MomentLinkOwnership.paymentWait(r).deadline:null;
+  if(d.prepareStage==='receipt'&&r.status==='awaiting_payment'&&!waitingDeadline)fail(400,'PAYMENT_WAIT_TIME_UNKNOWN','입금대기 시작 시각을 확인할 수 없습니다. 상태 변경 이력을 확인해 주세요.');
+  const paymentDeadline=d.prepareStage==='receipt'?(waitingDeadline||(r.category==='yacht'?MomentLinkMessages.paymentDeadlineFrom():old.paymentDeadline)):old.paymentDeadline;
   next={...old,booking:d.booking,drafts:parse(drafts,MomentLinkMessages.prepareDrafts(r,d.drafts,paymentDeadline)),...(paymentDeadline?{paymentDeadline}:{})};
   await audit(tx,user.id,'communication.saved',r.id);
  }else{
+  if(d.stage==='payment_reminder'&&old.paymentReminderFor!==r.awaiting_payment_at)fail(409,'PAYMENT_WAIT_CHANGED','입금대기 시각이 변경되었습니다. 입금 리마인드 문구를 다시 준비해 주세요.');
   const problem=MomentLinkMessages.validate(d.stage,old.booking||{},r);
   if(problem)fail(400,'MESSAGE_NOT_READY',problem);
   if(d.kind==='composer_requested'){
@@ -46,11 +51,11 @@ export async function saveCommunication(tx,r,user,method,input){
   }
   const message=old.drafts?.[d.stage];if(!message?.trim())fail(400,'MESSAGE_EMPTY','문구를 먼저 저장해 주세요.');
   const digest=createHash('sha256').update(message).digest('hex');
-  next={...old,events:[...(old.events||[]),{id:d.eventId||randomUUID(),stage:d.stage,kind:d.kind,at:new Date().toISOString(),actor:user.displayName||user.username,actorId:user.id,bookingKey:MomentLinkOwnership.bookingKey(r),digest}].slice(-40)};
+  next={...old,events:[...(old.events||[]),{id:d.eventId||randomUUID(),stage:d.stage,kind:d.kind,at:new Date().toISOString(),actor:user.displayName||user.username,actorId:user.id,bookingKey:MomentLinkOwnership.bookingKey(r),...(d.stage==='payment_reminder'?{waitingStartedAt:r.awaiting_payment_at}:{}),digest}].slice(-40)};
   await audit(tx,user.id,'communication.'+d.kind,r.id,{stage:d.stage});
  }
  const item=(await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2 RETURNING *',[JSON.stringify(next),r.id])).rows[0];
- return {item};
+ return {item,messageOnly:templateOnly};
 }
 
 export async function confirmReservation(tx,r,user,input){
