@@ -50,7 +50,7 @@ test('composer exposes purchases, switches yacht/package, blocks premature confi
  const document={getElementById:id=>elements[id]??=element(),addEventListener:(name,fn)=>listeners[name]=fn};
  const ctx=vm.createContext({document,navigator:{userAgent:'Android'},window:{},console,Intl,Date,URL});ctx.window=ctx;ctx.globalThis=ctx;
  ctx.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
- for(const file of ['pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);
+ for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);
  const catalog=JSON.parse(await readFile(new URL('../catalog.confirmed.json',import.meta.url),'utf8')),products=catalog.products||catalog;
  const p=products.find(x=>x.id==='classic'),pk=p.packages.find(x=>x.id==='light');
  const item={id:'synthetic-product',version:1,person:'합성 검수',phone:'01000000000',category:'yacht',product_id:p.id,package_id:pk.id,status:'consulting',preferences:[{date:'2027-11-16',time:'20:00'}],snapshot:{product:p,package:pk,price:pk,options:[]},communication:{}};

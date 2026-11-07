@@ -42,7 +42,7 @@ async function composer(){
  const document={getElementById:id=>elements[id]??=el(),addEventListener:(name,fn)=>listeners[name]=fn};
  const context=vm.createContext({console,Intl,Date,URL,Object,document,navigator:{userAgent:'Android'},window:{},crypto:{randomUUID:()=> '00000000-0000-4000-8000-000000000000'}});
  context.globalThis=context;context.window=context;context.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
- for(const file of ['pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),context);
+ for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),context);
  const item={id:'synthetic',version:1,person:'합성 검수',phone:'01000000000',category:'visit',status:'consulting',communication:{booking:structuredClone(base)},snapshot:{product:{name:'합성 상품'},package:{name:'라이트'},price:{weekday:540000,weekend:540000}}};
  const request=(path,method,data)=>new Promise((resolve,reject)=>requests.push({path,method,data:structuredClone(data),resolve,reject}));
  const click=action=>listeners.click({target:{closest:()=>({dataset:{message:action}})},preventDefault(){}});

@@ -72,6 +72,18 @@
     if(button&&!installed)showInstall(button);
   });
   if('serviceWorker' in navigator&&window.isSecureContext){
-    navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
+    const wasControlled=!!navigator.serviceWorker.controller;
+    let registration,lastUpdate=0;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!wasControlled||document.getElementById('pwaUpdate'))return;
+      const update=document.createElement('div');update.id='pwaUpdate';update.className='pwa-update';update.setAttribute('role','status');
+      update.innerHTML='<span>새 기능이 준비됐습니다. 작성 중인 내용을 저장한 뒤 적용해 주세요.</span><button type="button">새 화면 적용</button>';
+      update.querySelector('button').addEventListener('click',()=>window.location.reload());
+      document.body.prepend(update);
+    });
+    const checkUpdate=()=>{if(!registration||document.visibilityState==='hidden'||!navigator.onLine||Date.now()-lastUpdate<60000)return;lastUpdate=Date.now();registration.update().catch(()=>{});};
+    navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(result=>{registration=result;checkUpdate();}).catch(()=>{});
+    document.addEventListener('visibilitychange',checkUpdate);
+    window.addEventListener('online',checkUpdate);
   }
 })();

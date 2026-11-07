@@ -17,3 +17,10 @@ Implemented 2026-11-07.
 - Browser verification used synthetic local data: product/package change, bouquet plus cake, draft save/reopen, memo preservation and save, weekday recalculation, message total, confirmed product lock and visible purchase controls.
 - Responsive browser sizes: 320×760, 760×320, 390×844, 844×390, 750×1000, 1000×750, 820×1180, 1180×820 and 1440×900. No page overflow; expanded ownership controls were also checked at 320 px.
 - Actual phones, real customer messages and real OPS reservations were not modified for testing.
+
+## Ten-minute times and visible totals (2026-11-07)
+
+- Consultation detail, direct booking and list confirmation use explicit hour/minute selectors. Minutes offer only 00, 10, 20, 30, 40 and 50. The submitted value remains HH:mm for the existing booking and OPS contracts. Existing irregular-minute reservations display their original value without silent rounding.
+- The product area now shows the reservation total, base price, additional purchase amount and selected purchases together. The 추가상품 button jumps to the item controls. Changes update the total and message text immediately; 예약사항 저장 persists them without confirming.
+- An updated service worker shows 새 화면 적용 rather than automatically replacing an open editor. The existing unsaved-work guard remains active when the user chooses to reload.
+- All 134 automated tests passed. A synthetic browser booking saved 21:30 with 390,000 KRW base + 30,000 KRW bouquet + 16,500 KRW cake = 436,500 KRW, and preserved it after reopening. Direct entry saved 09:40 with a cake at 406,500 KRW total. The same nine responsive sizes had no page overflow or clipped time controls; no browser console errors were observed. Build includes 29 public files.

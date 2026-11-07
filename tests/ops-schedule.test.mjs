@@ -79,7 +79,7 @@ test('schedule transport uses scoped stable request IDs and read-only reconcilia
 test('registered reservations visibly offer 수정·확정 and preserve synced price fields',async()=>{
  const window={},document={addEventListener(){},getElementById(){return null;}};
  const context={window,document,navigator:{},console,globalThis:null};context.globalThis=context;
- for(const path of ['pricing.js','booking-addons.js','messages.js'])vm.runInNewContext(await readFile(new URL('../'+path,import.meta.url),'utf8'),context);
+ for(const path of ['time-picker.js','pricing.js','booking-addons.js','messages.js'])vm.runInNewContext(await readFile(new URL('../'+path,import.meta.url),'utf8'),context);
  context.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};vm.runInNewContext(await readFile(new URL('../message-ui.js',import.meta.url),'utf8'),context);
  const r={id:'synthetic',status:'confirmed',category:'yacht',phone:'01000000000',person:'합성',snapshot:{product:{name:'합성 요트'},package:{name:'합성',weekday:440000,weekend:440000},price:{weekday:440000,weekend:440000}},preferences:[{date:'2027-12-24',time:'14:00'}],integration:{state:'succeeded'},communication:{reservation:{source:'manual'},booking:{date:'2027-12-24',time:'14:00',amount:440000,place:'합성 장소',scheduleConfirmed:true,paymentConfirmed:true,extra:''}}};
  window.MomentLinkComposer.init(r,async()=>({}),()=>{});const html=window.MomentLinkComposer.html();assert.match(html,/data-message="reserve" aria-label="수정·확정"/);assert.match(html,/>수정·확정<\/span>/);assert.match(html,/OPS 예약에도 자동 반영/);assert.match(html,/id="msg_amount"[^>]*disabled/);
