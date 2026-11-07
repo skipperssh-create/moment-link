@@ -50,6 +50,11 @@ test('SMS URI encodes Korean, newlines and reserved characters for both mobile f
  }
  assert.throws(()=>M.smsURI('01000000000?body=evil',body));
 });
+
+test('booking intent wording is ready without payment or schedule data and uses the existing mobile SMS links',()=>{
+ const body=M.reservationIntent();assert.match(body,/모먼트링크/);assert.match(body,/예약을 원하지 않으시면 답장으로 알려 주세요/);assert.match(body,/회신해 주시면 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다/);assert.doesNotMatch(body,/입금|확정되었습니다|undefined|NaN/);
+ for(const [ua,platform,touch,separator] of [['Android','',0,'?'],['iPhone','',0,'&'],['Safari','MacIntel',5,'&']]){const uri=M.smsURI('01000000000',body,ua,platform,touch);assert.ok(uri.startsWith('sms:01000000000'+separator+'body='));assert.equal(decodeURIComponent(uri.split('body=')[1]),body);}
+});
 test('payment deadline is two hours after preparation and uses Korea time across date boundaries',()=>{
  for(const [prepared,expected] of [
   ['2026-11-01T13:05:00Z','2026년 11월 2일(월) 오전 12:05'],

@@ -12,9 +12,12 @@ async function harness(){
  elements['#requestNote'].value='고객 요청\n합성 메모';elements['#requestStatus'].value='hold';elements['#requestAssignee'].value='unsaved-assignee';elements['#requestContacted'].checked=true;
  const context=vm.createContext({crypto:{randomUUID},window:{MomentLinkComposer:{isBusy:()=>false,isDirty:()=>true,clear(){}},MomentLinkSound:()=>({reset(){},stop(){}}),MomentLinkDirectBooking:()=>({close(){}}),addEventListener(){}},document:{title:'test',hidden:false,querySelector:s=>elements[s]||null,querySelectorAll:()=>[],getElementById:id=>elements['#'+id],addEventListener(){}},location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,setTimeout:()=>1,clearTimeout(){},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,reject,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data})}))});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
- vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.test={saveListStatus,saveNote,saveListNote,listNoteEditor,listNoteEditing,statusOrder:()=>Object.keys(statuses),draft:(id,text)=>listNoteDrafts.set(id,text),get:()=>({items,counts,detail,dirty,busy}),set:item=>{items=[item,{...item,id:'other'}];detail={item,notes:[],history:[]};counts={all:2,new:2};}};user={id:'synthetic',role:'admin'};inboxListing=()=>'';render=()=>{};`),context);
+ vm.runInContext(await readFile(new URL('../messages.js',import.meta.url),'utf8'),context);
+ context.window.intentTest={};
+ const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={reservationIntentAction,listCardActions,openReservationIntent,copyReservationIntent,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
+ vm.runInContext(exposed.replace('window.MomentLinkAdmin={mount,clear};',`window.test={saveListStatus,saveNote,saveListNote,listNoteEditor,listNoteEditing,statusOrder:()=>Object.keys(statuses),draft:(id,text)=>listNoteDrafts.set(id,text),get:()=>({items,counts,detail,dirty,busy}),set:item=>{items=[item,{...item,id:'other'}];detail={item,notes:[],history:[]};counts={all:2,new:2};}};user={id:'synthetic',role:'admin'};inboxListing=()=>'';render=()=>{};`),context);
  const item={id:'synthetic',person:'합성 고객',version:3,status:'new',assignee:null,contacted:false,communication:{}};context.window.test.set(item);
- return {api:context.window.test,item,elements,requests,save,listFields};
+ return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,item,elements,requests,save,listFields};
 }
 test('list status persists once, refreshes counts, and blocks concurrent clicks',async()=>{
  const h=await harness(),saving=h.api.saveListStatus(h.item.id,'consulting');
@@ -75,4 +78,36 @@ test('inline memo ignores late responses and rejects blank text before writing',
 
 test('contact states follow the consultation workflow order',async()=>{
  const h=await harness();assert.deepEqual(Array.from(h.api.statusOrder()),['new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']);
+});
+
+test('booking intent SMS is available in every editable consultation state without booking details',async()=>{
+ const h=await harness();
+ for(const status of h.api.statusOrder()){
+  const r={...h.item,status,phone:'01000000000'};
+  const html=h.intent.reservationIntentAction(r),href=html.match(/href="([^"]+)"/)[1];
+  assert.match(html,/예약 의사 확인 문자/);assert.match(href,/^sms:01000000000\?body=/);
+  assert.match(decodeURIComponent(href.split('body=')[1]),/예약을 원하지 않으시면 답장/);
+  assert.equal((h.intent.listCardActions(r,status==='confirmed').match(/data-reservation-intent=/g)||[]).length,1);
+ }
+ assert.equal(h.intent.reservationIntentAction({...h.item,phone:'01000000000?body=evil'}),'');
+ assert.equal(h.intent.reservationIntentAction({...h.item,phone:'01000000000',can_edit:false}),'');
+ h.intent.setUser({id:'staff',role:'counselor'});assert.equal(h.intent.reservationIntentAction({...h.item,phone:'01000000000',assignee:'other'}),'');
+ assert.match(h.intent.reservationIntentAction({...h.item,phone:'01000000000',assignee:'staff'}),/sms:/);
+ assert.equal(h.requests.length,0);
+});
+
+test('intent SMS opens the current customer URI synchronously without changing notes, status or sent records',async()=>{
+ const h=await harness(),r={...h.item,phone:'01000000000',status:'no_response',person:'<합성 & 고객>'};h.api.set(r);
+ let panel='',href='',prevented=false;const actions={insertAdjacentHTML:(where,html)=>{panel=html;}};
+ const link={dataset:{reservationIntent:r.id},setAttribute:(name,value)=>{href=value;},closest:()=>actions},event={preventDefault(){prevented=true;}};
+ const before=JSON.stringify(h.api.get());h.intent.openReservationIntent(link,event);
+ assert.equal(prevented,false);assert.match(href,/^sms:01000000000\?body=/);assert.match(panel,/&lt;합성 &amp; 고객&gt;/);assert.match(panel,/readonly/);assert.match(panel,/문구 복사/);
+ assert.equal(JSON.stringify(h.api.get()),before);assert.equal(h.elements['#requestNote'].value,'고객 요청\n합성 메모');assert.equal(h.requests.length,0);
+ h.intent.setUser(null);h.intent.openReservationIntent(link,event);assert.equal(prevented,true);
+});
+
+test('intent message copy supports clipboard success and manual copy fallback',async()=>{
+ const h=await harness();let copied='',selected=false;const field={value:'합성 문구',focus(){},select(){selected=true;}},feedback={textContent:''},panel={querySelector:s=>s==='[data-intent-body]'?field:feedback},button={closest:()=>panel};
+ h.navigator.clipboard={writeText:async value=>{copied=value;}};await h.intent.copyReservationIntent(button);assert.equal(copied,'합성 문구');assert.match(feedback.textContent,/복사했습니다/);
+ h.navigator.clipboard.writeText=async()=>{throw Error('denied');};await h.intent.copyReservationIntent(button);assert.equal(selected,true);assert.match(feedback.textContent,/복사 메뉴/);assert.equal(h.requests.length,0);
 });

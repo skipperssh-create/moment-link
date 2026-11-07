@@ -106,10 +106,13 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  }
  return prepareDrafts(r,{[stage]:[...parts,b.extra,contact].filter(Boolean).join('\n\n')},deadline)[stage];
 }
+function reservationIntent(){
+ return '안녕하세요, 모먼트링크입니다.\n안내드린 문자 확인 부탁드립니다.\n\n예약을 원하지 않으시면 답장으로 알려 주세요. 회신해 주시면 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다.\n\n감사합니다.';
+}
 function smsURI(phone,body,ua='',platform='',touch=0){
  if(!/^01[016789]\d{7,8}$/.test(phone))throw Error('잘못된 수신 번호');
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,defaults,validate,generate,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,defaults,validate,generate,reservationIntent,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();
