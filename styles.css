@@ -658,3 +658,23 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .pwa-update{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#eaf2f9;border-bottom:1px solid #cbdbe8;color:#315a78;font-size:13px}.pwa-update[hidden]{display:none}.pwa-update button{border:1px solid #b7ccdf;border-radius:8px;padding:8px 12px;background:#fff;color:inherit;white-space:nowrap}.pwa-update button:hover{background:#dceaf6}
 .booking-intent-panel{flex-basis:100%;grid-column:1/-1;min-width:0;max-width:100%;box-sizing:border-box;padding:16px;margin-top:8px;border:1px solid var(--line);border-radius:14px;background:#f7fafc;text-align:left}.booking-intent-panel>strong{display:block;margin-bottom:14px;overflow-wrap:anywhere}.booking-intent-panel .admin-input{box-sizing:border-box;width:100%;min-width:0;line-height:1.7;font-size:16px;font-weight:400;word-break:keep-all;overflow-wrap:break-word;resize:vertical}.booking-intent-panel .micro{line-height:1.7}
 @media(max-width:360px){.consultation-quote{padding:12px;gap:8px}.consultation-quote-copy>strong{font-size:21px}.booking-time-picker>.admin-select{font-size:13px}}
+
+/* Compact consultation cards, sized by available space for folded and unfolded screens. */
+.inbox-results{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));align-items:start;gap:10px}
+.inbox-results>.inbox-item[data-card-open]{min-width:0;padding:12px 14px;border-radius:13px;cursor:pointer;transition:border-color 160ms ease,background-color 160ms ease}
+.inbox-item[data-card-open]:hover{border-color:#c6d7e5;background:#fdfefe}
+.inbox-item[data-card-open]:focus-within{border-color:#b5cddd}
+.inbox-name{display:inline-flex;align-items:center;gap:6px;max-width:100%;width:fit-content;min-height:28px;margin:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;font-size:16px;font-weight:650;text-align:left;word-break:keep-all;overflow-wrap:anywhere;cursor:pointer}
+.inbox-name>.admin-icon{width:14px;height:14px;flex:none;color:#8b959d}.inbox-name:hover{color:#315a78}.inbox-name:focus-visible{outline:2px solid #567da2;outline-offset:3px;border-radius:4px}
+.inbox-item .inbox-card-heading{gap:8px}.inbox-item .inbox-customer{min-width:0}.inbox-item .inbox-phone{min-height:22px;line-height:22px}
+.inbox-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 12px;margin:6px 0}
+.inbox-meta>.ownership-bar{margin:0;gap:6px;min-width:0}.inbox-meta .owner-badge,.inbox-meta .followup-badge{font-size:11px}.inbox-meta .owner-badge>.admin-icon{width:14px;height:14px}
+.inbox-dates{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}.inbox-dates>span{white-space:nowrap}.inbox-dates time{color:#52616c}
+.inbox-item .inbox-product{margin:6px 0 2px;font-size:13px;line-height:1.5}.inbox-item .inbox-date{margin:0;font-size:12px;line-height:1.5}
+.inbox-item .list-note-editor{margin-top:8px;padding-top:8px;cursor:default}.inbox-item .list-note-row{margin-bottom:5px}.inbox-item .list-note-row p{font-size:12px;line-height:1.5}
+.inbox-item .list-note-compose{gap:6px;align-items:stretch}.inbox-item .list-note-compose .admin-input{height:48px;min-height:48px;padding:12px 10px;font-size:16px}
+.inbox-item .admin-icon-button{flex-basis:48px;width:48px;min-height:48px;padding:5px 2px;gap:3px;border-radius:11px}.inbox-item .admin-icon-button>.admin-icon{width:18px;height:18px;flex-basis:18px}.inbox-item .admin-action-text{font-size:10px}
+.inbox-item .list-note-editor .quick-status-feedback:empty{display:none}.inbox-card-footer{gap:5px 8px;margin-top:6px}.inbox-item .inbox-receipt{font-size:9px;overflow-wrap:anywhere}
+.inbox-item .inbox-contact-actions,.inbox-item .reservation-message-actions{gap:4px}.inbox-item .reservation-overview{margin-top:6px;gap:6px 10px}.inbox-item .booking-intent-panel{cursor:default}.inbox-item [data-list-confirmation]{cursor:default}
+@media(max-width:600px){.inbox-results>.inbox-item[data-card-open]{padding:11px 12px}.inbox-item .inbox-card-footer{align-items:center}.inbox-item .inbox-receipt{flex-basis:100%}.inbox-item .inbox-contact-actions{margin-left:0;display:flex;flex-wrap:wrap;width:100%}.inbox-item .inbox-contact-actions>.admin-icon-button{width:48px;flex-basis:48px}.inbox-name{font-size:15px}}
+@media(prefers-reduced-motion:reduce){.inbox-item[data-card-open]{transition:none}}

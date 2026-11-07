@@ -16,6 +16,8 @@ import {processOutbox,processIntegration,dispatchIntegrations,opsAdapter} from '
 import {changeTrash,emptyTrash} from './trash.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
+// Derive the first real staff activity from history, never from a later read/update timestamp.
+const consultationStartAudit="(a.action IN ('ownership.started','consultation.note','communication.saved','communication.manual_sent','reservation.direct_created') OR (a.action='consultation.updated' AND a.detail->>'to' IN ('initial_unreachable','consulting','no_response','awaiting_payment','hold','confirmed') AND COALESCE(a.detail->>'from','')<>a.detail->>'to'))";
 const categoryNames={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
 export const settingsSchema=z.object({solapi:z.boolean(),customerAuto:z.boolean(),adminAuto:z.boolean(),push:z.boolean(),smsNumber:text(30),mainNumber:text(30),adminSms:text(30),yachtPlace:text(500),yachtAddress:text(500),heliGunsan:text(500),heliByeonsan:text(500),privacyController:text(100),privacyContact:text(100),retentionDays:z.number().int().min(1).max(3650).nullable(),privacyText:text(10000),consentVersion:text(80,1),accepting:z.boolean(),customerTemplate:text(1000),adminTemplate:text(1000),completionText:text(1000).optional(),manualSmsTemplate:text(3000).optional(),locations:z.array(z.object({id:z.string().uuid(),category:z.enum(['yacht','visit','trunk','heli']),name:text(100,1),status:z.enum(['candidate','confirmed']),address:text(500),mapUrl:z.string().max(2000).refine(v=>!v||/^https:\/\//.test(v)),parking:text(500),contact:text(100)}).strict()).max(50).optional()}).strict().refine(s=>!s.accepting||(s.privacyController&&s.privacyContact&&s.retentionDays&&s.privacyText&&s.consentVersion!=='draft'));
 async function config(db,id){return (await db.query('SELECT * FROM moment_link.config WHERE id=$1',[id])).rows[0];}
@@ -153,7 +155,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const counts={all:0,new:0,initial_unreachable:0,consulting:0,no_response:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
    const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
    for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
-   const r=await db.query("SELECT c.*, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
+   const r=await db.query("SELECT c.*, (SELECT min(a.created_at) FROM moment_link.audit_logs a WHERE a.entity_id=c.id::text AND "+consultationStartAudit+") AS consultation_started_at, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
    return json({items:r.rows.map(present),counts,trashBefore});
   }
   const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
@@ -231,7 +233,9 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(result.cancellationQueued||result.restorationQueued||['reservation','addons'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
     result.item=present(result.item);
-   }return json(result);
+   }
+   if(result.item||result.note){const started=(await db.query("SELECT min(a.created_at) AS at FROM moment_link.audit_logs a WHERE a.entity_id=$1 AND "+consultationStartAudit,[id])).rows[0]?.at||null;if(result.item)result.item.consultation_started_at=started;if(result.note)result.consultation_started_at=started;}
+   return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
   if(path==='/api/admin/retention'&&method==='POST'){authorize(user,true);return json(await purgeExpired(db));}

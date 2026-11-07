@@ -80,3 +80,31 @@ test('staff creation persists a private display name, enforces first password ch
  f.sessions[data.username]={Cookie:login.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':login.data.csrf};assert.equal((await call('staff',data.username)).status,403);
  assert.equal((await f.request('catalog',null)).data.settings['staff:'+created.data.id],undefined);
 });
+
+test('consultation dates use the earliest actual work and ignore read, assignment and later update dates',async()=>{
+ const row=await f.add({owner:a,status:'consulting'}),received='2026-11-04T01:00:00.000Z',started='2026-11-05T02:00:00.000Z';
+ await f.db.query('UPDATE moment_link.consultations SET created_at=$1,updated_at=now() WHERE id=$2',[received,row.id]);
+ for(const [action,detail,at] of [
+  ['ownership.assigned',{to:a},'2026-11-04T02:00:00Z'],
+  ['consultation.updated',{from:'new',to:'new'},'2026-11-04T03:00:00Z'],
+  ['consultation.updated',{from:'new',to:'initial_unreachable'},started],
+  ['communication.saved',{},'2026-11-06T03:00:00Z'],
+  ['ownership.transferred',{from:a,to:b},'2026-11-07T03:00:00Z']
+ ])await f.db.query('INSERT INTO moment_link.audit_logs(id,actor_id,action,entity_id,detail,created_at) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),a,action,row.id,JSON.stringify(detail),at]);
+ const detail=(await call('consultations/'+row.id,'counselor-a')).data.item;
+ assert.equal(detail.created_at,received);assert.equal(detail.consultation_started_at,started);
+ const listed=(await call('consultations?owner=all','owner-admin')).data.items.find(x=>x.id===row.id);assert.equal(listed.consultation_started_at,started);assert.equal(listed.created_at,received);
+ const changed=await call('consultations/'+row.id,'counselor-a','PATCH',{version:detail.version,status:'no_response'});assert.equal(changed.status,200);assert.equal(changed.data.item.consultation_started_at,started);
+});
+
+test('reading alone has no consultation date while starting or saving the first note returns a stable date',async()=>{
+ const blank=await f.add(),path='consultations/'+blank.id;
+ assert.equal((await call(path,'owner-admin')).data.item.consultation_started_at,null);
+ assert.equal((await call('consultations?owner=all','owner-admin')).data.items.find(x=>x.id===blank.id).consultation_started_at,null);
+ const claimed=await call(path+'/claim','counselor-a','POST',{version:1});assert.equal(claimed.status,200);const started=claimed.data.item.consultation_started_at;assert.ok(Number.isFinite(Date.parse(started)));
+ assert.equal((await call(path,'counselor-a')).data.item.consultation_started_at,started);
+ const noted=await f.add({owner:a}),notePath='consultations/'+noted.id;
+ const first=await call(notePath+'/notes','counselor-a','POST',{body:'첫 상담 내용'});assert.equal(first.status,200);assert.ok(first.data.consultation_started_at);
+ const second=await call(notePath+'/notes','counselor-a','POST',{body:'다음 상담 내용'});assert.equal(second.data.consultation_started_at,first.data.consultation_started_at);
+ assert.equal((await call(notePath,'counselor-b')).data.item.consultation_started_at,first.data.consultation_started_at);
+});

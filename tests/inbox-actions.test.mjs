@@ -14,7 +14,7 @@ async function harness(){
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
  vm.runInContext(await readFile(new URL('../messages.js',import.meta.url),'utf8'),context);
  context.window.intentTest={};
- const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={reservationIntentAction,listCardActions,openReservationIntent,copyReservationIntent,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
+ const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={reservationIntentAction,listCardActions,openReservationIntent,copyReservationIntent,openInboxCard,cardDates,setSelection:value=>window.getSelection=()=>value,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
  vm.runInContext(exposed.replace('window.MomentLinkAdmin={mount,clear};',`window.test={saveListStatus,saveNote,saveListNote,listNoteEditor,listNoteEditing,statusOrder:()=>Object.keys(statuses),draft:(id,text)=>listNoteDrafts.set(id,text),get:()=>({items,counts,detail,dirty,busy}),set:item=>{items=[item,{...item,id:'other'}];detail={item,notes:[],history:[]};counts={all:2,new:2};}};user={id:'synthetic',role:'admin'};inboxListing=()=>'';render=()=>{};`),context);
  const item={id:'synthetic',person:'합성 고객',version:3,status:'new',assignee:null,contacted:false,communication:{}};context.window.test.set(item);
  return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,item,elements,requests,save,listFields};
@@ -55,7 +55,7 @@ test('inline memo saves only its card and keeps other drafts across renders',asy
  const h=await harness(),card=h.listFields.synthetic,other=h.listFields.other;
  card.field.value='창가 연출 요청\n합성 메모';other.field.value='아직 저장 안 한 다른 고객 메모';h.api.draft('other',other.field.value);
  const saving=h.api.saveListNote('synthetic');await h.api.saveListNote('synthetic');assert.equal(h.requests.length,1);
- const data=JSON.parse(h.requests[0].options.body);h.requests[0].resolve({note:{id:data.noteId,body:data.body,created_at:'2026-11-04T00:00:00Z'}});await saving;
+ const data=JSON.parse(h.requests[0].options.body);h.requests[0].resolve({note:{id:data.noteId,body:data.body,created_at:'2026-11-04T00:00:00Z'},consultation_started_at:'2026-11-04T00:00:00Z'});await saving;assert.equal(h.api.get().items[0].consultation_started_at,'2026-11-04T00:00:00Z');
  assert.equal(card.field.value,'');assert.equal(other.field.value,'아직 저장 안 한 다른 고객 메모');assert.equal(h.api.get().items[0].note_count,1);assert.match(card.summary.innerHTML,/창가 연출 요청/);assert.match(card.feedback.textContent,/저장되었습니다/);
  assert.match(h.api.listNoteEditor({...h.item,id:'other'}),/아직 저장 안 한 다른 고객 메모/);assert.equal(h.api.listNoteEditing(),true);assert.equal(h.api.get().dirty,false);
 });
@@ -110,4 +110,19 @@ test('intent message copy supports clipboard success and manual copy fallback',a
  const h=await harness();let copied='',selected=false;const field={value:'합성 문구',focus(){},select(){selected=true;}},feedback={textContent:''},panel={querySelector:s=>s==='[data-intent-body]'?field:feedback},button={closest:()=>panel};
  h.navigator.clipboard={writeText:async value=>{copied=value;}};await h.intent.copyReservationIntent(button);assert.equal(copied,'합성 문구');assert.match(feedback.textContent,/복사했습니다/);
  h.navigator.clipboard.writeText=async()=>{throw Error('denied');};await h.intent.copyReservationIntent(button);assert.equal(selected,true);assert.match(feedback.textContent,/복사 메뉴/);assert.equal(h.requests.length,0);
+});
+
+test('card backgrounds open the same detail action while every embedded control stays independent',async()=>{
+ const h=await harness();let opened=0,interactive=false;const card={querySelector:s=>{assert.equal(s,'[data-ml="detail"]');return {click(){opened++;}};}},target={closest:s=>s==='[data-card-open]'?card:interactive?{}:null};
+ const event={target,button:0};h.intent.openInboxCard(event);assert.equal(opened,1);
+ interactive=true;h.intent.openInboxCard(event);assert.equal(opened,1);interactive=false;
+ for(const flags of [{button:1},{ctrlKey:true},{metaKey:true},{shiftKey:true},{altKey:true},{defaultPrevented:true}])h.intent.openInboxCard({...event,...flags});assert.equal(opened,1);
+ h.intent.setSelection('복사하려는 고객 이름');h.intent.openInboxCard(event);assert.equal(opened,1);
+ h.intent.setSelection('');h.intent.openInboxCard(event);assert.equal(opened,2);assert.equal(h.requests.length,0);
+});
+
+test('card dates use Korean calendar dates and do not invent dates for missing or invalid history',async()=>{
+ const h=await harness(),html=h.intent.cardDates({...h.item,created_at:'2026-11-07T15:30:00Z',consultation_started_at:'2026-11-09T01:00:00Z'});
+ assert.match(html,/접수 <time[^>]*>26\.11\.08/);assert.match(html,/상담 시작 <time[^>]*>26\.11\.09/);assert.match(html,/datetime="2026-11-07T15:30:00.000Z"/);
+ const missing=h.intent.cardDates({...h.item,created_at:'bad',consultation_started_at:null});assert.equal((missing.match(/기록 없음/g)||[]).length,2);assert.doesNotMatch(missing,/Invalid|NaN/);
 });
