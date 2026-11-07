@@ -709,3 +709,21 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .request-detail #detailStatusTimeline{margin:10px 0}.request-detail [data-payment-window]{max-width:100%}
 @media(max-width:600px){.inbox-dates{font-size:10px;gap:3px 9px}.status-chip{font-size:10px}.payment-alert{padding:10px;gap:7px}.card-status-history>summary{min-height:28px;display:flex;align-items:center}.card-status-history li{gap:2px 7px}}
 @media(prefers-reduced-motion:reduce){.payment-alert,.reservation-filters .status-filter{transition:none}}
+
+/* Compact confirmation: size fields by the card width, including folded phones. */
+.list-confirmation{container-type:inline-size;margin:12px 0;padding:14px;background:#fff;border-color:#dbe3eb;border-radius:12px;color:var(--ink)}
+.list-confirmation-heading{margin-bottom:14px}.list-confirmation-heading h3{margin:0;font-size:17px;line-height:1.4}.list-confirmation .micro{font-size:12px;line-height:1.6;margin:6px 0 0}
+.list-confirmation-fields,.list-confirmation-money{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+.list-confirmation .list-confirmation-field{display:grid;gap:6px;min-width:0;font-size:12px;font-weight:550;line-height:1.5}
+.list-confirmation .admin-input,.list-confirmation .admin-select{box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:48px;margin:0;padding:11px 12px;border-radius:10px;font-size:16px;font-weight:400;line-height:1.5;background:#fff}
+.list-confirmation input[type=date]{font-weight:550;appearance:none}.list-confirmation .booking-time-picker{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:8px}.list-confirmation .booking-time-picker .admin-select{padding-inline:8px}
+.list-confirmation-place{grid-column:1/-1}.list-confirmation .list-confirmation-place textarea{min-height:80px;resize:vertical;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.6}
+.list-confirmation-payment{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}.list-confirmation-money .admin-input{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}.list-confirmation-money .admin-input::placeholder{font-size:14px;font-weight:400}
+.list-confirmation .booking-payment-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px 12px;margin-top:12px;padding:12px;border-radius:10px;background:#f6f8fb}.list-confirmation .booking-payment-summary>span{font-size:12px;gap:3px}.list-confirmation .booking-payment-summary strong{font-size:18px;line-height:1.4}.list-confirmation .booking-payment-summary>span:last-child strong{color:#315f8b}
+.list-confirmation .ops-booking-fields{margin:14px 0 0;padding:14px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}.list-confirmation .ops-booking-fields h3{font-size:14px;line-height:1.5;margin:0}.list-confirmation .ops-booking-fields .admin-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:12px}.list-confirmation .ops-booking-fields .admin-cols>div{min-width:0}.list-confirmation .ops-booking-fields .admin-label{margin:0 0 6px;font-size:12px;line-height:1.5}
+.list-confirmation-checks{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}.list-confirmation .list-confirmation-check{align-items:flex-start;gap:8px;min-height:44px;margin:0;padding:8px 0;font-size:13px;line-height:1.6;font-weight:400}.list-confirmation-check input{margin:1px 0 0}.list-confirmation-check span{min-width:0;word-break:keep-all;overflow-wrap:anywhere}
+.list-confirmation .btnrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px}.list-confirmation .btnrow>button{min-width:0;min-height:48px;padding:10px 8px;font-size:14px;white-space:nowrap;border-radius:10px}
+@container(min-width:260px){.list-confirmation-money{grid-template-columns:repeat(2,minmax(0,1fr))}.list-confirmation .ops-booking-fields .admin-cols{grid-template-columns:100px minmax(0,1fr)}}
+@container(min-width:480px){.list-confirmation-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.list-confirmation{padding:12px}.list-confirmation .booking-payment-summary{padding:10px}}
+.inbox-results>.inbox-item:has(.list-confirmation){grid-column:1/-1}

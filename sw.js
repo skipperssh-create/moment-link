@@ -1,5 +1,5 @@
 /* Public shell only. No API, private pages, or remote photos are cached. */
-const CACHE='moment-link-shell-v104';
+const CACHE='moment-link-shell-v105';
 const FILES=['index.html','app.js','admin.js','ownership.js','notification-sound.js','pricing.js','booking-addons.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','pwa.js','styles.css','manifest.webmanifest','assets/moment-new-consultation.mp3','assets/icon.svg','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png','assets/apple-touch-icon.png','assets/notification-badge.png','assets/favicon-32.png'];
 const urls=FILES.map(p=>new URL(p,self.registration.scope).href);
 const rootURL=new URL('./',self.registration.scope).href;

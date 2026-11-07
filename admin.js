@@ -86,8 +86,30 @@ function listStatusFeedback(state,text){const el=document.getElementById('listSt
 function closeListStatus(focus=false){const previous=listStatusState.id;if(focus)document.querySelector(`[data-list-status-toggle="${previous}"]`)?.focus({preventScroll:true});listStatusState.id='';document.querySelectorAll('[data-list-status-toggle]').forEach(el=>el.setAttribute('aria-expanded','false'));document.querySelectorAll('.list-quick-status .quick-status-menu').forEach(el=>{el.hidden=true;});}
 function listConfirmation(r){
  const b=MomentLinkMessages.defaults(r,settings);
- return `<form class="list-confirmation" data-list-confirmation="${e(r.id)}"><h3>예약 확정</h3><p class="micro">고객과 정한 일정·금액·장소와 입금을 확인해 주세요.</p><div class="list-confirmation-fields"><label>이벤트 날짜<input class="admin-input" name="date" type="date" value="${e(b.date)}" required></label><div><span class="admin-label">시간</span>${globalThis.MomentLinkTime.html('listConfirm_time','예약 시간',b.time,'name="time" required')}</div><label>금액 (원)<input class="admin-input" name="amount" type="number" min="0" step="1" value="${e(b.amount??'')}" required></label><label>장소<input class="admin-input" name="place" maxlength="500" value="${e(b.place)}" required></label></div>${MomentLinkMessages.paymentFields(b,'listConfirm')}${window.MomentLinkOps.fields(r,b,'listConfirm')}<label class="list-confirmation-check"><input name="scheduleConfirmed" type="checkbox" ${b.scheduleConfirmed?'checked':''} required> 일정·장소를 고객과 확정했습니다</label><label class="list-confirmation-check"><input name="paymentConfirmed" type="checkbox" ${b.paymentConfirmed?'checked':''} required> 예약금 또는 완납 입금을 확인했습니다</label><div class="btnrow"><button type="submit" class="primary">확정하고 저장</button><button type="button" class="secondary" data-list-confirmation-cancel>닫기</button></div></form>`;
+ return `<form class="list-confirmation" data-list-confirmation="${e(r.id)}">
+ <header class="list-confirmation-heading"><h3>예약 확정</h3><p class="micro">일정·장소와 받은 예약금을 확인해 주세요.</p></header>
+ <div class="list-confirmation-fields">
+ <label class="list-confirmation-field">이벤트 날짜<input class="admin-input" name="date" type="date" value="${e(b.date)}" required></label>
+ <div class="list-confirmation-field"><span>시간</span>${globalThis.MomentLinkTime.html('listConfirm_time','예약 시간',b.time,'name="time" required')}</div>
+ <label class="list-confirmation-field list-confirmation-place">장소·주소<textarea class="admin-input" name="place" rows="3" maxlength="500" required>${e(b.place)}</textarea></label>
+ </div>
+ <section class="list-confirmation-payment" aria-label="예약금·잔금">
+ <div class="list-confirmation-money">
+ <label class="list-confirmation-field">총 예약금액 (원)<input class="admin-input" name="amount" type="number" inputmode="numeric" min="0" max="100000000" step="1" value="${e(b.amount??'')}" required></label>
+ <label class="list-confirmation-field">실제 입금액 (원)<input class="admin-input" name="receivedAmount" type="number" inputmode="numeric" min="0" max="100000000" step="1" placeholder="입금액 입력" value="${e(b.receivedAmount??'')}"></label>
+ </div>
+ <div class="booking-payment-summary" data-payment-summary>${MomentLinkMessages.paymentSummary(b)}</div><p class="micro">예약금만 입금되어도 확정할 수 있습니다.</p>
+ </section>
+ ${window.MomentLinkOps.fields(r,b,'listConfirm')}
+ <div class="list-confirmation-checks"><label class="list-confirmation-check"><input name="scheduleConfirmed" type="checkbox" ${b.scheduleConfirmed?'checked':''} required><span>일정·장소를 고객과 확정했습니다</span></label><label class="list-confirmation-check"><input name="paymentConfirmed" type="checkbox" ${b.paymentConfirmed?'checked':''} required><span>예약금 또는 완납 입금을 확인했습니다</span></label></div>
+ <div class="btnrow"><button type="submit" class="primary">예약 확정</button><button type="button" class="secondary" data-list-confirmation-cancel>닫기</button></div></form>`;
 }
+function fitConfirmationAddress(){
+ const field=document.querySelector('.list-confirmation textarea[name="place"]');if(!field)return;
+ field.style.height='auto';field.style.height=Math.max(80,field.scrollHeight+2)+'px';
+}
+window.addEventListener('resize',fitConfirmationAddress);
+
 function openListStatus(root,edge){
  const trigger=root.querySelector('[data-list-status-toggle]'),menu=root.querySelector('[role=menu]');
  closeListStatus();listStatusState.id=trigger.dataset.listStatusToggle;
@@ -108,13 +130,13 @@ async function saveListStatus(id,status,confirmation){
   try{if(window.MomentLinkOps.eligible(item))await window.MomentLinkOps.load(api);
    if(!user||!document.getElementById('inboxListing'))return;
    listStatusState.confirmationId=id;document.getElementById('inboxListing').innerHTML=inboxListing();
-   document.querySelector('[data-list-confirmation] input')?.focus();listStatusFeedback('','');
+   fitConfirmationAddress();document.querySelector('[data-list-confirmation] input')?.focus();listStatusFeedback('','');
   }finally{busy=false;scheduleLive();}return;
  }
  const root=document.getElementById('inboxListing'),path=listPath(),current=()=>!!user&&document.getElementById('inboxListing')===root&&path===listPath();
  suspendLive();listStatusState.saving=true;busy=true;paintLive();
  listStatusFeedback('saving','상태를 저장하고 있습니다…');
- document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select').forEach(el=>{el.disabled=true;});
+ document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select,.list-confirmation textarea').forEach(el=>{el.disabled=true;});
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),status==='cancelled'?60000:12000);
  try{
   const result=await api('admin/consultations/'+encodeURIComponent(id),'PATCH',{version:item.version,status,...(confirmation?{confirmation}:{})},controller.signal);
@@ -130,7 +152,7 @@ async function saveListStatus(id,status,confirmation){
  }catch(err){
   if(!user){notice='로그인이 만료되었습니다. 다시 로그인해 주세요.';render();}
   else if(current())listStatusFeedback('error',!err.status?'저장 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.':err.message);
- }finally{clearTimeout(timeout);listStatusState.saving=false;busy=false;if(current())document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select').forEach(el=>{el.disabled=false;});paintLive();scheduleLive();}
+ }finally{clearTimeout(timeout);listStatusState.saving=false;busy=false;if(current())document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select,.list-confirmation textarea').forEach(el=>{el.disabled=false;});paintLive();scheduleLive();}
 }
 document.addEventListener('click',ev=>{
  if(!location.hash.startsWith('#admin')||busy||composer.isBusy())return;
@@ -150,7 +172,7 @@ document.addEventListener('keydown',ev=>{
  const options=[...root.querySelectorAll('[data-list-status]')],i=options.indexOf(document.activeElement);
  options[ev.key==='Home'?0:ev.key==='End'?options.length-1:Math.max(0,Math.min(options.length-1,i+(ev.key==='ArrowDown'?1:-1)))]?.focus();
 });
-document.addEventListener('input',ev=>{const form=ev.target.closest('.list-confirmation');if(form&&['date','time','amount','receivedAmount','place'].includes(ev.target.name)){form.elements.scheduleConfirmed.checked=false;form.elements.paymentConfirmed.checked=false;MomentLinkMessages.paintPayment(form,{amount:Number(form.elements.amount.value),receivedAmount:form.elements.receivedAmount.value===''?null:Number(form.elements.receivedAmount.value)});}});
+document.addEventListener('input',ev=>{const form=ev.target.closest('.list-confirmation');if(form&&['date','time','amount','receivedAmount','place'].includes(ev.target.name)){if(ev.target.name==='place')fitConfirmationAddress();form.elements.scheduleConfirmed.checked=false;form.elements.paymentConfirmed.checked=false;MomentLinkMessages.paintPayment(form,{amount:Number(form.elements.amount.value),receivedAmount:form.elements.receivedAmount.value===''?null:Number(form.elements.receivedAmount.value)});}});
 document.addEventListener('submit',ev=>{
  const form=ev.target;if(!form.matches('[data-list-confirmation]'))return;ev.preventDefault();if(busy)return;
  const r=items.find(x=>x.id===form.dataset.listConfirmation);if(!r)return;
