@@ -39,10 +39,10 @@ async function browserHarness(){
  const element=()=>({textContent:'',hidden:false,disabled:false,classList:{toggle(){}},querySelector(){return element();}});
  const elements={'#inboxLive':element(),'#inboxLiveSummary':element(),'#inboxLiveTime':element()},document={title:'MOMENT LINK',hidden:false,querySelector:s=>elements[s]||null,addEventListener:(n,fn)=>{listeners[n]=fn;}};
  const composer={clear(){},isBusy:()=>false,isDirty:()=>false};
- const context=vm.createContext({window:{MomentLinkSound:()=>({state:()=>({}),reset(){sounds.push('reset');},stop(){sounds.push('stop');},notify(){sounds.push('new');}}),MomentLinkComposer:composer,MomentLinkDirectBooking:()=>({close(){},isOpen:()=>false}),addEventListener:(n,fn)=>{listeners[n]=fn;},scrollTo(){},scrollBy(){}},document,location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,confirm:()=>false,
+ const context=vm.createContext({window:{MomentLinkSound:()=>({state:()=>({}),start(){sounds.push('start');},reset(){sounds.push('reset');},stop(){sounds.push('stop');},notify(){sounds.push('new');}}),MomentLinkComposer:composer,MomentLinkDirectBooking:()=>({close(){},isOpen:()=>false}),addEventListener:(n,fn)=>{listeners[n]=fn;},scrollTo(){},scrollBy(){}},document,location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,confirm:()=>false,
   setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),fetch:(url,options)=>new Promise((resolve,reject)=>{options.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')));requests.push({url,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data}),reject});})});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
- vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:()=>user={id:'synthetic',role:'admin'},getDetail:()=>detail};render=()=>{};`),context);
+ vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,startSound,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:(value={id:'synthetic',role:'admin'})=>user=value,getDetail:()=>detail};render=()=>{};`),context);
  const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds,composer};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -111,4 +111,11 @@ test('voice cue ignores the initial list, repeated polls and removals, but notic
  assert.deepEqual(h.sounds,['new','new']);
  h.document.hidden=true;h.listeners.visibilitychange();assert.equal(h.sounds.at(-1),'stop');
  h.api.clear();assert.equal(h.sounds.at(-1),'reset');
+});
+
+test('admin sound starts once after authentication and starts again after a fresh session',async()=>{
+ const h=await browserHarness();h.api.clear();h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,0);
+ h.api.setUser({id:'synthetic',role:'admin',mustChangePassword:true});h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,0);
+ h.api.setUser();h.api.startSound();h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,1);
+ h.api.clear();h.api.setUser();h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,2);
 });
