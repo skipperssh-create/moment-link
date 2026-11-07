@@ -59,8 +59,14 @@ function paymentProblem(b,confirming=false){
  if(!Number.isSafeInteger(b.receivedAmount)||b.receivedAmount<0||b.receivedAmount>100000000||Number.isInteger(b.amount)&&b.receivedAmount>b.amount)return '입금액은 총 예약금액 이하의 0원 이상 정수로 입력해 주세요.';
  return confirming&&b.amount>0&&b.receivedAmount===0?'예약금 입금액을 입력하고 확인해 주세요. 잔금이 있어도 예약을 확정할 수 있습니다.':'';
 }
-function paymentSummary(b){const p=paymentState(b);return '<span>총 예약금액 <strong>'+money(b.amount)+'</strong></span><span>입금 확인액 <strong>'+money(p.received)+'</strong></span><span>남은 잔금 <strong>'+money(p.balance)+'</strong></span>';}
-function paymentFields(b,prefix,locked=false){return '<section class="booking-payment" aria-label="예약금·잔금"><label class="admin-label" for="'+prefix+'_receivedAmount">실제 입금액 (예약금·완납, 원)</label><input class="admin-input" id="'+prefix+'_receivedAmount" name="receivedAmount" data-message-field="receivedAmount" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="실제 받은 금액 입력" value="'+(Number.isInteger(b.receivedAmount)?b.receivedAmount:'')+'" '+(locked?'disabled':'')+'/><div class="booking-payment-summary" data-payment-summary>'+paymentSummary(b)+'</div><p class="micro">예약금만 입금되어도 예약을 확정할 수 있습니다. 남은 금액은 잔금으로 표시합니다.'+(locked?' 연결된 예약의 추가 수납·정정은 OPS에서 처리해 주세요.':'')+'</p></section>';}
+function paymentSummary(b){const p=paymentState(b);return '<span>총 예약금액 <strong>'+money(b.amount)+'</strong></span><span>예약금·입금액 <strong>'+money(p.received)+'</strong></span><span>남은 잔금 <strong>'+money(p.balance)+'</strong></span>';}
+function paymentFields(b,prefix,locked=false){return '<section class="booking-payment" aria-label="예약금·잔금"><div class="booking-payment-entry"><label class="admin-label" for="'+prefix+'_receivedAmount">실제 입금액 (예약금·완납, 원)</label><input class="admin-input" id="'+prefix+'_receivedAmount" name="receivedAmount" data-message-field="receivedAmount" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="실제 받은 금액 입력" value="'+(Number.isInteger(b.receivedAmount)?b.receivedAmount:'')+'" '+(locked?'disabled':'')+'/></div><div class="booking-payment-summary" data-payment-summary>'+paymentSummary(b)+'</div><p class="micro">예약금만 입금되어도 예약을 확정할 수 있습니다. 남은 금액은 잔금으로 표시합니다.'+(locked?' 연결된 예약의 추가 수납·정정은 OPS에서 처리해 주세요.':'')+'</p></section>';}
+function fitAddresses(root){
+ for(const field of root?.querySelectorAll?.('[data-booking-address]')||[]){
+  if(!field.getBoundingClientRect().width)continue;
+  field.style.height='auto';field.style.height=Math.max(80,field.scrollHeight+2)+'px';
+ }
+}
 function paintPayment(root,b){const el=root?.querySelector('[data-payment-summary]');if(el)el.innerHTML=paymentSummary(b);}
 function amountError(b,r){
  const extraProblem=A?.problem(b)||paymentProblem(b);if(extraProblem)return extraProblem;
@@ -144,5 +150,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,paintPayment,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();
