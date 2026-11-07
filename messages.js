@@ -1,7 +1,7 @@
 /* Shared, deterministic message helpers. No customer data is stored in this module. */
 (() => {
 'use strict';
-const stages={receipt:'예약 접수·금액 안내',confirmed:'결제 후 예약 확정',reminder:'하루 전 안내',thanks:'이벤트 후 안부'};
+const stages={receipt:'예약 접수·금액 안내',confirmed:'결제 후 예약 확정',reminder:'하루 전 안내',thanks:'이벤트 후 안부',intent:'예약 의사 확인'};
 const bank='우리은행 1005-703-823528\n예금주: (주)보트앤럭스';
 const contact='문의: 1833-8047\n담당자: 010-8009-8047';
 const refunds='취소·환불 안내 (이벤트 예정일 기준)\n45~31일 전: 90% 환불\n30~16일 전: 80% 환불\n15~11일 전: 70% 환불\n10~7일 전: 60% 환불\n6~2일 전: 50% 환불\n1일 전·당일: 환불 불가';
@@ -58,6 +58,7 @@ function amountError(b,r){
 function validate(stage,b,r){
  if(!stages[stage])return '안내 단계를 선택해 주세요.';
  if(!/^01[016789]\d{7,8}$/.test(r.phone||''))return '고객 휴대전화 번호를 확인해 주세요.';
+ if(stage==='intent')return '';
  if(r.status==='cancelled')return '취소된 상담에는 이 예약 안내를 보낼 수 없습니다.';
  if(r.status==='closed'&&r.communication?.reservation&&stage!=='thanks')return '이벤트 완료된 예약은 이벤트 후 안부 문자를 이용해 주세요.';
  if(!dateOK(b.date))return '안내할 이벤트 날짜를 입력해 주세요.';
@@ -92,6 +93,7 @@ function preparation(r,b,short=false){
  }
 }
 function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
+ if(stage==='intent')return reservationIntent();
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}

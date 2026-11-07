@@ -6,25 +6,31 @@ import '../pricing.js';
 import '../booking-addons.js';
 import '../messages.js';
 import '../ownership.js';
-const stages=z.enum(['receipt','confirmed','reminder','thanks']);
+const stages=z.enum(['receipt','confirmed','reminder','thanks','intent']);
 const addOnSchema=z.object({id:z.enum(['bouquet','bouquet_custom','fireworks','cake','wine_bottle']),quantity:z.number().int().min(1).max(100),unitAmount:z.number().int().min(0).max(10000000),description:text(50).optional()}).strict();
 export const bookingSchema=z.object({date:z.union([z.literal(''),text(10).refine(validDate)]),time:z.union([z.literal(''),z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)]),amount:z.number().int().min(0).max(100000000).nullable(),baseAmount:z.number().int().min(0).max(100000000).nullable().optional(),addOns:z.array(addOnSchema).max(5).optional(),amountMode:z.enum(['auto','manual']).optional(),place:text(500),scheduleConfirmed:z.boolean(),paymentConfirmed:z.boolean(),extra:text(1000),opsPax:z.number().int().min(1).max(63).optional(),opsPaymentMethod:text(80).optional()}).strict().superRefine((b,ctx)=>{const message=MomentLinkAddOns.problem(b);if(message)ctx.addIssue({code:z.ZodIssueCode.custom,message});});
 const extrasChanged=(a,b)=>JSON.stringify(MomentLinkAddOns.validate(a?.addOns))!==JSON.stringify(MomentLinkAddOns.validate(b?.addOns));
 const booking=bookingSchema;
-const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks'].map(k=>[k,text(5000).optional()]))).strict();
+const drafts=z.object(Object.fromEntries(['receipt','confirmed','reminder','thanks','intent'].map(k=>[k,text(5000).optional()]))).strict();
+const intentPreparation=z.object({version:z.number().int(),prepareStage:z.literal('intent'),drafts:z.object({intent:text(5000).refine(value=>!!value.trim(),'보낼 내용을 입력해 주세요.')}).strict()}).strict();
 export const reservationSchema=z.object({version:z.number().int(),booking,drafts,approved:z.literal(true)}).strict();
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
- const changing=(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'",[r.id])).rows[0];
+ const intentOnly=method==='PUT'?input?.prepareStage==='intent':input?.stage==='intent';
+ const changing=intentOnly?null:(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'",[r.id])).rows[0];
  if(changing?.operation==='restore')fail(409,'OPS_RESTORATION_PENDING','OPS 복원 결과를 확인한 뒤 문자를 준비해 주세요. 복원 완료 전까지 취소 상태가 유지됩니다.');
  if(changing?.operation==='cancel')fail(409,'OPS_CANCELLATION_PENDING','OPS 취소 결과를 확인한 뒤 문자를 준비해 주세요. 취소 완료로 확인되기 전까지 기존 예약 상태가 유지됩니다.');
  if(changing)fail(409,'OPS_SCHEDULE_PENDING','OPS 일정 변경 결과를 확인한 뒤 문자를 준비해 주세요. 기존 확정 일정은 유지됩니다.');
- const d=parse(method==='PUT'?z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict():z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
+ const d=parse(method==='PUT'?(intentOnly?intentPreparation:z.object({version:z.number().int(),booking,drafts,prepareStage:stages.optional()}).strict()):z.object({version:z.number().int(),stage:stages,kind:z.enum(['composer_requested','manual_sent']),eventId:z.string().uuid()}).strict(),input);
  // Retried clicks cannot duplicate the log, even if the original response was lost.
  if(method==='POST'&&(old.events||[]).some(e=>e.id===d.eventId))return {item:r};
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
  let next;
- if(method==='PUT'){
+ if(method==='PUT'&&intentOnly){
+  const problem=MomentLinkMessages.validate('intent',{},r);if(problem)fail(400,'MESSAGE_NOT_READY',problem);
+  next={...old,drafts:{...old.drafts,intent:d.drafts.intent}};
+  await audit(tx,user.id,'communication.saved',r.id,{stage:'intent'});
+ }else if(method==='PUT'){
   const amountProblem=MomentLinkMessages.amountError(d.booking,r);if(amountProblem)fail(400,'PRICE_CHANGED',amountProblem);
   if(old.reservation&&(['date','time','amount','place','opsPax','opsPaymentMethod'].some(k=>d.booking[k]!==old.booking?.[k])||extrasChanged(d.booking,old.booking)||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
   // The server clock anchors the deadline to preparation, never presumed delivery.

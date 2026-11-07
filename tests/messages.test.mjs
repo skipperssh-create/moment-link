@@ -8,13 +8,16 @@ import {passwordHash} from '../server/security.mjs';
 import {initialSettings} from '../server/seed.mjs';
 import {purgeExpired} from '../server/retention.mjs';
 import catalog from '../catalog.confirmed.json' with {type:'json'};
+import {ownershipFixture} from './ownership-fixture.mjs';
+import {readFile} from 'node:fs/promises';
+import vm from 'node:vm';
 import '../messages.js';
 const M=globalThis.MomentLinkMessages;
 function sample(id='classic',packageId='light',options=[]){const p=catalog.find(p=>p.id===id),g=p.packages.find(g=>g.id===packageId)||p.packages[0];return {person:'합성 검수',phone:'01000000000',category:p.category,status:'new',preferences:[{date:'2099-11-01',time:'오후'}],place:'',snapshot:{product:p,package:g,options,price:{weekday:g.weekday,weekend:g.weekend}}};}
 const booking={date:'2099-11-01',time:'13:30',amount:390000,place:'합성 검수 장소',scheduleConfirmed:true,paymentConfirmed:true,extra:''};
 test('all four stages cover every category and preserve quoted facts',()=>{
  for(const id of ['classic','premium','signature','docked','visit','trunk','heli']){
-  const r=sample(id);for(const stage of Object.keys(M.stages)){
+  const r=sample(id);for(const stage of ['receipt','confirmed','reminder','thanks']){
    const message=M.generate(r,stage,booking);assert.ok(message.includes(r.person));assert.ok(message.includes(booking.date));assert.ok(message.length<5000);assert.doesNotMatch(message,/undefined|NaN|풍랑주의보시에도|행사/);
    if(stage==='receipt'){assert.match(message,/우리은행 1005-703-823528/);assert.match(message,/390,000원/);assert.match(message,/확인.*예약 확정/s);}
    if(stage==='confirmed')assert.match(message,/입금 확인이 완료/);
@@ -54,6 +57,60 @@ test('SMS URI encodes Korean, newlines and reserved characters for both mobile f
 test('booking intent wording is ready without payment or schedule data and uses the existing mobile SMS links',()=>{
  const body=M.reservationIntent();assert.match(body,/모먼트링크/);assert.match(body,/예약을 원하지 않으시면 답장으로 알려 주세요/);assert.match(body,/회신해 주시면 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다/);assert.doesNotMatch(body,/입금|확정되었습니다|undefined|NaN/);
  for(const [ua,platform,touch,separator] of [['Android','',0,'?'],['iPhone','',0,'&'],['Safari','MacIntel',5,'&']]){const uri=M.smsURI('01000000000',body,ua,platform,touch);assert.ok(uri.startsWith('sms:01000000000'+separator+'body='));assert.equal(decodeURIComponent(uri.split('body=')[1]),body);}
+});
+
+test('intent is a message template with no schedule or payment prerequisite',()=>{
+ for(const status of ['new','initial_unreachable','consulting','no_response','awaiting_payment','hold','confirmed','cancelled','closed']){
+  const row={...sample(),status};assert.equal(M.validate('intent',{},row),'');assert.equal(M.generate(row,'intent',{}),M.reservationIntent());
+ }
+ assert.match(M.validate('intent',{}, {...sample(),phone:'invalid'}),/번호/);
+});
+
+test('intent preparation and logs preserve booking data, permissions and existing OPS conflicts',async()=>{
+ const f=await ownershipFixture();
+ try{
+  for(const status of ['initial_unreachable','no_response','confirmed','cancelled']){
+   const communication=status==='initial_unreachable'?{}:{booking,reservation:{source:'manual'},paymentDeadline:'2099-11-01T00:00:00Z',drafts:{receipt:'기존 접수 안내'},events:[]};
+   const row=await f.add({owner:f.staff['counselor-a'].id,status,communication}),path='admin/consultations/'+row.id+'/communications';
+   const payload={version:row.version,prepareStage:'intent',drafts:{intent:M.reservationIntent()+'\n합성 추가 안내'}};
+   await f.db.query("INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,state,attempts,error_code,approved_by,booking) VALUES($1,$2,'boatn',$3,'conflict',2,'OPS_RESOURCE_CONFLICT',$4,$5)",[randomUUID(),row.id,'moment-link:'+row.id,f.staff['owner-admin'].id,JSON.stringify({operation:'reschedule'})]);
+   const jobsBefore=(await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[row.id])).rows;
+   assert.equal((await f.request(path,null,'PUT',payload)).status,401);
+   assert.equal((await f.request(path,'counselor-b','PUT',payload)).status,403);
+   assert.equal((await f.request(path,'counselor-a','PUT',{...payload,booking})).status,400);
+   assert.equal((await f.request(path,'counselor-a','PUT',{...payload,drafts:{intent:'  '}})).status,400);
+   let out=await f.request(path,'counselor-a','PUT',payload);assert.equal(out.status,200,JSON.stringify(out.data));
+   assert.equal(out.data.item.status,status);assert.deepEqual(out.data.item.communication,{...communication,drafts:{...communication.drafts,...payload.drafts}});
+   assert.equal((await f.request(path,'counselor-a','PUT',payload)).status,409);
+   const event={version:out.data.item.version,stage:'intent',kind:'composer_requested',eventId:randomUUID()};
+   out=await f.request(path,'counselor-a','POST',event);assert.equal(out.status,200,JSON.stringify(out.data));assert.equal(out.data.item.communication.events.length,1);
+   assert.equal((await f.request(path,'counselor-a','POST',event)).data.item.communication.events.length,1);
+   out=await f.request(path,'counselor-a','POST',{...event,version:out.data.item.version,kind:'manual_sent',eventId:randomUUID()});assert.equal(out.status,200);assert.equal(out.data.item.communication.events.at(-1).stage,'intent');
+   assert.deepEqual(out.data.item.communication.booking,communication.booking);assert.deepEqual(out.data.item.communication.reservation,communication.reservation);assert.equal(out.data.item.status,status);
+   assert.deepEqual((await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[row.id])).rows,jobsBefore);
+  }
+  assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
+ }finally{await f.pg.close();}
+});
+
+test('existing composer saves intent alone and preserves unsaved booking edits and custom text',async()=>{
+ const listeners={},elements={},calls=[];let saved,copied='';
+ const element=()=>({innerHTML:'',outerHTML:'',value:'',contains:()=>true,querySelector:()=>({textContent:''}),replaceWith(){},focus(){},scrollIntoView(){}});
+ const document={getElementById:id=>elements[id]??=element(),addEventListener:(name,fn)=>listeners[name]=fn};
+ const ctx=vm.createContext({document,navigator:{userAgent:'Android',clipboard:{writeText:async body=>copied=body}},console,Intl,Date,URL,crypto:{randomUUID}});ctx.window=ctx;ctx.globalThis=ctx;
+ ctx.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
+ for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);
+ const row={...sample('visit'),id:'synthetic-intent',version:1,status:'no_response',communication:{}};
+ const api=async(path,method,data)=>{if(path==='catalog')return {version:1,products:catalog};calls.push({path,method,data});saved={...row,version:2,communication:{drafts:{intent:data.drafts.intent}}};return {item:saved};};
+ const composer=ctx.MomentLinkComposer;composer.init(row,api,()=>{});composer.openStage('intent');
+ const click=action=>listeners.click({target:{closest:()=>({dataset:{message:action}})},preventDefault(){}});
+ const custom='합성 의사 확인 문구';listeners.input({target:{id:'messageBody',value:custom}});
+ listeners.input({target:{dataset:{messageField:'extra'},value:'저장하지 않은 예약 안내'}});
+ assert.match(composer.html(),new RegExp(custom));await click('save');
+ assert.equal(calls.length,1);assert.deepEqual(JSON.parse(JSON.stringify(calls[0].data)),{version:1,prepareStage:'intent',drafts:{intent:custom}});
+ assert.equal(composer.isDirty(),true);assert.match(composer.html(),/저장하지 않은 예약 안내/);assert.match(composer.html(),/data-message="sms"/);
+ await click('copy');assert.equal(copied,custom);
+ composer.clear();composer.init(saved,api,()=>{});composer.openStage('intent');assert.match(composer.html(),new RegExp(custom));assert.equal(composer.isDirty(),false);
 });
 test('payment deadline is two hours after preparation and uses Korea time across date boundaries',()=>{
  for(const [prepared,expected] of [
