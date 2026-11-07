@@ -753,3 +753,21 @@ textarea.message-place{field-sizing:content;min-height:96px}
 @container booking-screen (min-width:480px){.request-detail .message-booking .booking-schedule-grid,.request-detail .booking-amount-row,.direct-booking .direct-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.request-detail .booking-payment-summary>span,.direct-booking .booking-payment-summary>span{display:grid;justify-content:start}.request-detail .booking-payment-summary,.direct-booking .booking-payment-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @container booking-screen (min-width:700px){.request-detail .booking-payment,.direct-booking .booking-payment{grid-template-columns:210px minmax(0,1fr)}}
 @media(max-width:600px){.request-detail,.direct-booking{padding:14px}.direct-booking{--booking-action-size:56px}.direct-booking .admin-action-text{font-size:10px}.request-detail .workflow-section,.direct-booking .direct-section{padding-block:14px}.request-detail .booking-payment-summary,.direct-booking .booking-payment-summary{padding:10px}.request-detail .booking-payment-summary strong,.direct-booking .booking-payment-summary strong{font-size:18px}}
+/* Reservation balances stay legible at the card's actual width. */
+.reservation-overview[data-balance-state]{container:reservation-summary / inline-size;display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:8px}
+.reservation-overview-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px;min-width:0}
+.reservation-balance-badge{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:5px 8px;border:1px solid #dbe1e8;border-radius:8px;background:#f5f7fa;color:#586573;font-size:12px;font-weight:600;line-height:1.4;white-space:nowrap}
+.reservation-balance-badge .admin-icon{width:15px;height:15px;flex:none}
+.reservation-balance-summary{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:12px;border:1px solid #dce4e1;border-radius:10px;background:#fff;min-width:0}
+.reservation-balance-summary>div{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:3px 12px;min-width:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.reservation-balance-summary strong{font-size:18px;line-height:1.4;font-weight:650;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.reservation-balance-due{padding-top:8px;border-top:1px solid #e6ebe8}
+[data-balance-state="due"] .reservation-balance-badge{color:#94531c;background:#fff1df;border-color:#edcda5}
+[data-balance-state="due"] .reservation-balance-summary{background:#fffaf2;border-color:#edcda5}
+[data-balance-state="due"] .reservation-balance-due{border-color:#efdfc8}
+[data-balance-state="due"] .reservation-balance-due strong{color:#94531c}
+[data-balance-state="paid"] .reservation-balance-badge{color:#28634b;background:#edf7f1;border-color:#c5dfd0}
+[data-balance-state="paid"] .reservation-balance-due strong{color:#28634b}
+.reservation-payment-note{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
+.reservation-overview .reservation-place{font-size:12px;line-height:1.65}.reservation-overview .reservation-place .admin-icon{flex:none}
+@container reservation-summary (min-width:480px){.reservation-balance-summary{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.reservation-balance-summary>div{display:grid;justify-content:start;gap:4px}.reservation-balance-due{padding:0 0 0 12px;border-top:0;border-left:1px solid #e6ebe8}}

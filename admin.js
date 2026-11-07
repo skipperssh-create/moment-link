@@ -8,6 +8,7 @@ const sound=window.MomentLinkSound(paintSound);
 const messageLabel=phone=>`<span class="customer-message-label">문자 안내</span><span class="customer-message-phone">${e(phone)}</span>`;
 const statuses={new:'접수중',initial_unreachable:'최초연락안됨',consulting:'상담중',no_response:'답변없음',awaiting_payment:'입금대기',confirmed:'확정',hold:'보류',closed:'종결',cancelled:'취소'};
 const iconPaths={
+ info:'M12 11v6 M12 7h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
  person:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M4 21v-2a8 8 0 0 1 16 0v2',personPlus:'M14 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M2 21v-2a8 8 0 0 1 12-7 M19 13v8 M15 17h8',key:'M8 14a5 5 0 1 1 3-9 5 5 0 0 1 1 6l9 9-2 2-3-3-2 2-3-3 M6 7h.01',
  bellOff:'m3 3 18 18 M9 3.8A6 6 0 0 1 18 8v4 M6 6v2c0 7-3 7-3 9h14 M10 21h4',
  up:'m5 12 7-7 7 7 M12 5v14',down:'m5 12 7 7 7-7 M12 5v14',archive:'M3 3h18v5H3z M5 8v13h14V8 M9 12h6',publish:'M12 16V3 m-5 5 5-5 5 5 M4 14v7h16v-7',
@@ -359,7 +360,19 @@ async function restoreReservation(id){
  }catch(error){feedback.textContent=error.status?error.message:'복원 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.';}
  finally{clearTimeout(timeout);app.inert=false;busy=false;if(saved)render();else panel.querySelectorAll('button').forEach(b=>b.disabled=false);paintLive();scheduleLive();}
 }
-function reservationOverview(r){const b=r.communication?.booking;return `<div class="reservation-overview"><div class="reservation-schedule"><span class="micro">확정 일정</span><div class="reservation-date-line">${b?.date?'<time datetime="'+e(b.date)+'">'+e(b.date)+'</time><span>'+e(b.time||'시간 확인 필요')+'</span>':'<span>일정 확인 필요</span>'}</div></div><div class="reservation-amount"><span class="micro">총 예약금액</span><strong>${Number.isInteger(b?.amount)?b.amount.toLocaleString('ko-KR')+'원':'금액 확인 필요'}</strong></div><p class="reservation-place">${icon('pin')}<span>${e(b?.place||'확정 장소 확인 필요')}</span></p>${Number.isInteger(b?.receivedAmount)?`<div class="reservation-payment"><span>${b.paymentConfirmed?'입금 확인':'입금 확인 필요'} · ${e(b.receivedAmount.toLocaleString('ko-KR')+'원')}</span><strong>잔금 ${e((b.amount-b.receivedAmount).toLocaleString('ko-KR')+'원')}</strong></div>`:''}</div>`;}
+function reservationOverview(r){
+ const b=r.communication?.booking||{},p=MomentLinkMessages.paymentState(b);
+ const amountKnown=Number.isSafeInteger(b.amount)&&b.amount>=0,receivedKnown=p.received!==null&&p.received>=0,balanceKnown=amountKnown&&receivedKnown&&p.balance>=0;
+ const state=r.status==='cancelled'?'cancelled':!balanceKnown?'unknown':p.balance>0?'due':b.paymentConfirmed?'paid':'unverified';
+ const label={due:'잔금 남음',paid:'완납',unknown:'입금액 확인 필요',unverified:'입금 확인 필요',cancelled:'취소 예약'}[state];
+ const value=(amount,known)=>known?e(amount.toLocaleString('ko-KR')+'원'):'확인 필요';
+ return `<div class="reservation-overview" data-balance-state="${state}">
+ <div class="reservation-overview-heading"><div class="reservation-schedule"><span class="micro">확정 일정</span><div class="reservation-date-line">${b.date?'<time datetime="'+e(b.date)+'">'+e(b.date)+'</time><span>'+e(b.time||'시간 확인 필요')+'</span>':'<span>일정 확인 필요</span>'}</div></div><span class="reservation-balance-badge">${icon(state==='due'?'clock':state==='paid'?'check':'info')}${label}</span></div>
+ <div class="reservation-balance-summary" role="group" aria-label="예약 금액 요약"><div><span>총액</span><strong>${value(b.amount,amountKnown)}</strong></div><div><span>예약금·입금액</span><strong>${value(p.received,receivedKnown)}</strong></div><div class="reservation-balance-due"><span>잔금</span><strong>${value(p.balance,balanceKnown)}</strong></div></div>
+ ${!['unknown','cancelled'].includes(state)&&!b.paymentConfirmed?'<p class="reservation-payment-note">입금 확인 전 · 입력된 금액 기준</p>':''}
+ <p class="reservation-place">${icon('pin')}<span>${e(b.place||'확정 장소 확인 필요')}</span></p></div>`;
+}
+
 function reservationMessageActions(r){
  if(r.status==='cancelled'||!canWork(r))return '';
  const icons={receipt:'document',confirmed:'calendar',reminder:'bell',thanks:'chat'},captions={receipt:'접수안내',confirmed:'확정안내',reminder:'전날안내',thanks:'안부문자'};
