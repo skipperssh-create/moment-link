@@ -635,3 +635,20 @@ textarea.message-place{field-sizing:content;min-height:96px}
  .inbox-toolbar-actions{width:100%;margin-left:0}
  .inbox-toolbar-actions>.admin-icon-button{flex:1;width:auto}
 }
+
+/* Consultation follows the work: quote, notes, confirmation, then message. */
+.request-detail .message-composer{margin:0;padding:0;border:0;background:transparent}
+.workflow-nav{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:8px 0;background:#fff;border-bottom:1px solid var(--line)}
+.workflow-nav button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 6px;background:#f6f7f9;border:0;border-radius:10px;color:#526475;font-size:12px;white-space:nowrap;transition:background-color 160ms,color 160ms}
+.workflow-nav button:is(:hover,:focus-visible){background:#e7f0f8;color:#285c83}
+.workflow-nav button span{font-size:10px;color:#8995a1}
+.workflow-section{padding:22px 0;scroll-margin-top:76px;border-bottom:1px solid var(--line);min-width:0}
+.workflow-section>h3{margin:0 0 18px;font-size:16px}.workflow-section:last-child{border-bottom:0}
+.request-detail .message-booking{margin:0;padding:0;border:0;background:transparent}.workflow-current-product{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px}.workflow-current-product span{color:var(--muted)}
+.product-selection .admin-select{width:100%;min-width:0;box-sizing:border-box}.product-options{display:flex;flex-wrap:wrap;gap:12px 20px;margin:10px 0}.product-options>.admin-label{width:100%;margin-bottom:0}.product-options .inline-check{margin:0;align-items:flex-start}.product-change-hint{margin:6px 0 20px}
+.workflow-save-row{display:flex;align-items:center;gap:14px;margin-top:18px}.workflow-save-row>.micro{margin:0;flex:1;line-height:1.7}.workflow-save-row .admin-icon-button{flex-shrink:0}
+#workflowNotes .detail-notes{margin:0;padding:0;border:0}#workflowNotes .request-status-editor{margin:12px 0 0}.workflow-status{margin-top:14px}.workflow-status>summary{font-size:12px;color:var(--muted);cursor:pointer;padding:10px 0}
+.request-detail #workflowConfirm .message-checks{margin-top:0}.request-detail #workflowConfirm .reservation-confirm{margin-bottom:0}.request-detail #workflowMessages .message-stages{margin-bottom:18px}.request-detail #messageOpsFields{margin-top:16px}
+.request-detail .booking-addon-choice{min-height:60px;padding:10px}.request-detail .booking-addon-grid{grid-template-columns:repeat(auto-fit,minmax(185px,1fr))}.request-detail .booking-addons{margin:18px 0}.request-detail .booking-price-breakdown{background:#f6f8fa;border-radius:12px;padding:14px}
+@media(max-width:600px){.workflow-nav{gap:4px}.workflow-nav button{flex-direction:column;gap:2px;font-size:11px;min-height:48px}.workflow-section{padding:20px 0;scroll-margin-top:80px}.workflow-save-row{align-items:flex-start}.request-detail .booking-addon-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.booking-addon-fields{grid-template-columns:minmax(0,1fr)}.booking-addon-description{grid-column:auto}.request-detail .booking-addon-choice{align-items:flex-start;gap:6px}.request-detail .booking-addon-choice strong{font-size:12px}.request-detail .booking-addon-choice small{font-size:10px}}
+@media(max-height:440px){.workflow-nav{position:static}}
