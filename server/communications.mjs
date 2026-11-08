@@ -19,7 +19,7 @@ export const reservationSchema=z.object({version:z.number().int(),booking,drafts
 export async function saveCommunication(tx,r,user,method,input){
  const old=r.communication||{};
  const templateOnly=MomentLinkMessages.templateOnly(method==='PUT'?input?.prepareStage:input?.stage);
- const changing=templateOnly?null:(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'",[r.id])).rows[0];
+ const changing=templateOnly?null:(await tx.query("SELECT booking->>'operation' AS operation FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons','payment') AND state<>'succeeded'",[r.id])).rows[0];
  if(changing?.operation==='restore')fail(409,'OPS_RESTORATION_PENDING','OPS 복원 결과를 확인한 뒤 문자를 준비해 주세요. 복원 완료 전까지 취소 상태가 유지됩니다.');
  if(changing?.operation==='cancel')fail(409,'OPS_CANCELLATION_PENDING','OPS 취소 결과를 확인한 뒤 문자를 준비해 주세요. 취소 완료로 확인되기 전까지 기존 예약 상태가 유지됩니다.');
  if(changing)fail(409,'OPS_SCHEDULE_PENDING','OPS 일정 변경 결과를 확인한 뒤 문자를 준비해 주세요. 기존 확정 일정은 유지됩니다.');

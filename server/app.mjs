@@ -1,3 +1,4 @@
+import {queueCollection,balanceDueSql} from './collections.mjs';
 import {attachStatusTimelines} from './consultation-timeline.mjs';
 import {changeConsultationProduct} from './consultation-product.mjs';
 import {queueAddOnChange} from './ops-addons.mjs';
@@ -143,7 +144,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
-   const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled']),url.searchParams.get('status')||'all');
+   const view=parse(z.enum(['all','inbox','reservations','trash']),url.searchParams.get('view')||'all'),status=parse(z.enum(['all','new','initial_unreachable','consulting','no_response','awaiting_payment','confirmed','hold','closed','cancelled','balance_due']),url.searchParams.get('status')||'all');
    if(view==='trash')authorize(user,true);
    const reserved="(c.status='confirmed' OR c.communication ? 'reservation' OR EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id AND j.state='succeeded'))";
    const owner=parse(z.union([z.enum(['all','mine','unassigned']),z.string().uuid()]),url.searchParams.get('owner')||(user.role==='admin'?'all':'mine'));
@@ -153,10 +154,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const filter=(view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'')+(followup==='reminder'?' AND '+reminderDueSql:'');
    const order=view==='trash'?'c.deleted_at DESC':view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
    const trashBefore=new Date().toISOString(),args=[owner,owner==='mine'?user.id:['all','unassigned'].includes(owner)?null:owner,search,'%'+search+'%'];
-   const counts={all:0,new:0,initial_unreachable:0,consulting:0,no_response:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
-   const rows=(await db.query('SELECT c.status,count(*)::int AS n FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
-   for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;}
-   const r=await db.query("SELECT c.*, (SELECT min(a.created_at) FROM moment_link.audit_logs a WHERE a.entity_id=c.id::text AND "+consultationStartAudit+") AS consultation_started_at, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
+   const counts={balance_due:0,all:0,new:0,initial_unreachable:0,consulting:0,no_response:0,awaiting_payment:0,confirmed:0,hold:0,closed:0,cancelled:0};
+   const rows=(await db.query('SELECT c.status,count(*)::int AS n,count(*) FILTER (WHERE '+balanceDueSql+')::int AS due FROM moment_link.consultations c WHERE '+scope+' AND '+active+filter+' GROUP BY c.status',args)).rows;
+   for(const row of rows){counts[row.status]=row.n;counts.all+=row.n;counts.balance_due+=row.due;}
+   const r=await db.query("SELECT c.*, (SELECT min(a.created_at) FROM moment_link.audit_logs a WHERE a.entity_id=c.id::text AND "+consultationStartAudit+") AS consultation_started_at, (SELECT jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'operation',j.booking->>'operation','error_code',j.error_code) FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id) AS integration, (SELECT to_jsonb(n) FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id ORDER BY n.created_at DESC,n.id DESC LIMIT 1) AS latest_note, (SELECT count(*)::int FROM moment_link.consultation_notes n WHERE n.consultation_id=c.id) AS note_count FROM moment_link.consultations c WHERE "+scope+' AND '+active+filter+" AND ($6='all' OR ($6='balance_due' AND "+balanceDueSql+") OR c.status=$6) ORDER BY "+order+' LIMIT 50 OFFSET $5',[...args,offset,status]);
    await attachStatusTimelines(db,r.rows);
    return json({items:r.rows.map(present),counts,trashBefore,serverTime:new Date().toISOString()});
   }
@@ -167,7 +168,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'ops-retry:'+user.id,5,60);
    return json(await processIntegration(db,row.id,env,adapters));
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(product|addons|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(product|addons|payments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
    const result=await db.transaction(async tx=>{
@@ -177,9 +178,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if((method==='DELETE'&&!action)||(action==='restore'&&method==='POST')||(action==='permanent'&&method==='DELETE')){authorize(user,true);return changeTrash(tx,r,user,action||'trash',await body(request));}
     if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query("SELECT a.id,a.action,a.detail,a.created_at,a.actor_id,COALESCE(p.data->>'name',u.username,'시스템') AS actor_name FROM moment_link.audit_logs a LEFT JOIN moment_link.admin_users u ON u.id=a.actor_id LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE a.entity_id=$1 ORDER BY a.created_at,a.id",[id])).rows};
-    if(['product','addons','communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
+    if(['product','addons','payments','communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
     if(action==='product'&&method==='POST'){const out=await changeConsultationProduct(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request));return {item:visibleRequest(out.item),messageOnly:out.messageOnly};}
+    if(action==='payments'&&method==='POST'){const data=await body(request),out=await queueCollection(tx,r,user,data);return {item:visibleRequest(out.item),collectionRequest:data.requestId};}
     if(action==='addons'&&method==='POST'){const out=await queueAddOnChange(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(['reservation','addons'].includes(action)&&method==='POST'){const out=await confirmReservation(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='notes'&&method==='POST'){
@@ -224,21 +226,23 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      }
      if(r.communication?.reservation&&r.status!=='confirmed'&&d.status&&d.status!==r.status)fail(409,'STATE','완료·취소된 예약의 상태는 다시 변경할 수 없습니다.');
      if(d.assignee){const assigned=(await tx.query('SELECT id FROM moment_link.admin_users WHERE id=$1 AND active=true',[d.assignee])).rows[0];if(!assigned)fail(400,'ASSIGNEE','사용 중인 직원 계정을 선택해 주세요.');}
-     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
+     if(['closed','cancelled'].includes(d.status)){const unresolved=(await tx.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND (state IN ('pending','checking','uncertain','failed') OR (booking->>'operation' IN ('reschedule','cancel','restore','registration_revision','addons','payment') AND state<>'succeeded'))",[id])).rows[0];if(unresolved)fail(409,'OPS_UNRESOLVED','진행 중인 OPS 작업의 결과를 먼저 확인해 주세요.');}
      if(d.status==='cancelled'&&r.status==='confirmed')cancellationQueued=await queueCancellation(tx,r,user);
      // Confirm through the same validation and audit path, atomically with assignment/contact changes.
      if(d.status==='confirmed'&&d.confirmation)await confirmReservation(tx,r,user,{...d.confirmation,version:d.version});
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[cancellationQueued?r.status:d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated),cancellationQueued};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
-   });if(!result.messageOnly&&action!=='product'&&(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id))await dispatch(id,result.cancellationQueued||result.restorationQueued||['reservation','addons'].includes(action)&&method==='POST');
+   });
+   if(result.collectionRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='payment' AND booking->>'changeId'=$2",[id,result.collectionRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
+   if(!result.collectionRequest&&!result.messageOnly&&action!=='product'&&(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id))await dispatch(id,result.cancellationQueued||result.restorationQueued||['reservation','addons','payments'].includes(action)&&method==='POST');
    if(result.item){
-    if(result.cancellationQueued||result.restorationQueued||['reservation','addons'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
+    if(result.cancellationQueued||result.restorationQueued||['reservation','addons','payments'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
     await attachStatusTimelines(db,[result.item]);
     result.item=present(result.item);
    }
    if(result.item||result.note){const started=(await db.query("SELECT min(a.created_at) AS at FROM moment_link.audit_logs a WHERE a.entity_id=$1 AND "+consultationStartAudit,[id])).rows[0]?.at||null;if(result.item)result.item.consultation_started_at=started;if(result.note)result.consultation_started_at=started;}
-   delete result.messageOnly;result.serverTime=new Date().toISOString();
+   delete result.collectionRequest;delete result.messageOnly;result.serverTime=new Date().toISOString();
    return json(result);
   }
   if(path==='/api/admin/retention'&&method==='GET'){authorize(user,true);return json({maintenance:await config(db,'maintenance')});}
