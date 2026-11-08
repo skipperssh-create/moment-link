@@ -5,6 +5,7 @@ const stages={receipt:'예약 접수·금액 안내',confirmed:'결제 후 예�
 const templateOnly=stage=>['intent','payment_reminder'].includes(stage);
 const bank='우리은행 1005-703-823528\n예금주: (주)보트앤럭스';
 const contact='문의: 1833-8047\n담당자: 010-8009-8047';
+const receivingEmail='seolvidmoa@gmail.com';
 const refunds='취소·환불 안내 (이벤트 예정일 기준)\n45~31일 전: 90% 환불\n30~16일 전: 80% 환불\n15~11일 전: 70% 환불\n10~7일 전: 60% 환불\n6~2일 전: 50% 환불\n1일 전·당일: 환불 불가';
 const dateOK=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const timeOK=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -22,7 +23,7 @@ function paymentDeadlineLabel(value){
 function paymentLine(deadline){const label=paymentDeadlineLabel(deadline);return label?'입금 기한: '+label+'까지 입금 부탁드립니다.':'입금 기한: 문자 준비 시 2시간 뒤로 계산됩니다.';}
 function prepareDrafts(r,drafts,deadline){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
-  let text=eventWording(body);
+  let text=eventWording(body).replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
   if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
@@ -105,7 +106,7 @@ function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\
 function videoGuide(r,b){
  if(!hasVideo(r))return '';
  const deadline=dateOK(b.date)?new Date(Date.parse(b.date)-7*86400000).toISOString().slice(0,10):'';
- return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 boatn@naver.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+(r.category==='yacht'?'제출 기한: '+(deadline||'이벤트 7일 이전')+' (이벤트 7일 이전까지)\n'+videoSubmissionNotice:'자료 전달·제작 일정은 담당자와 확인해 주세요.');
+ return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 '+receivingEmail+'으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+(r.category==='yacht'?'제출 기한: '+(deadline||'이벤트 7일 이전')+' (이벤트 7일 이전까지)\n'+videoSubmissionNotice:'자료 전달·제작 일정은 담당자와 확인해 주세요.');
 }
 function preparation(r,b,short=false){
  switch(r.category){

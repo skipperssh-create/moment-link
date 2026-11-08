@@ -38,6 +38,20 @@ test('video instructions depend on included content or selected video option',()
  assert.match(M.generate(sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}]),'confirmed',booking),/영상편지 준비/);
  assert.doesNotMatch(M.generate(sample('docked'),'confirmed',booking),/사진 약 30장/);
 });
+test('video materials use the current receiving address in new and saved drafts',()=>{
+ for(const r of [sample(),sample('classic','all'),sample('visit','all'),sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}])]){
+  for(const stage of ['receipt','confirmed']){
+   const body=M.generate(r,stage,booking);assert.match(body,/seolvidmoa@gmail\.com/);assert.doesNotMatch(body,/boatn@naver\.com/i);
+  }
+ }
+ const saved={confirmed:'자료: BOATN@NAVER.COM\n메일 제목: 날짜 / 시간 / 성함\n담당 메모 유지\n고객: customer@example.com',thanks:'다른 주소 xboatn@naver.com / boatn@naver.com.example'};
+ const prepared=M.prepareDrafts(sample(),saved);
+ assert.equal(prepared.confirmed,saved.confirmed.replace('BOATN@NAVER.COM','seolvidmoa@gmail.com'));
+ assert.equal(prepared.thanks,saved.thanks);assert.match(saved.confirmed,/BOATN@NAVER.COM/);
+ assert.deepEqual(M.prepareDrafts(sample(),prepared),prepared);
+ assert.match(decodeURIComponent(M.smsURI('01000000000',prepared.confirmed,'Android').split('body=')[1]),/seolvidmoa@gmail\.com/);
+});
+
 test('unsafe or incomplete preparation cannot open a confirmation composer',()=>{
  assert.match(M.validate('confirmed',{...booking,paymentConfirmed:false},sample()),/입금/);
  assert.match(M.validate('reminder',{...booking,place:''},sample()),/장소/);
