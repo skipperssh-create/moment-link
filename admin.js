@@ -90,7 +90,7 @@ function listQuickStatus(r){
  return `<div class="quick-status list-quick-status" data-status="${e(r.status)}"><button type="button" class="quick-status-trigger" data-list-status-toggle="${e(r.id)}" aria-label="${e(r.person)} 상담 상태 변경: ${e(statusLabel(r))}" aria-haspopup="menu" aria-expanded="${open}" ${listStatusState.saving?'disabled':''}><span>${e(statusLabel(r))}</span>${icon('chevron')}</button><div class="quick-status-menu" role="menu" aria-label="상담 상태 변경" ${open?'':'hidden'}>${entries.map(([id,label])=>`<button type="button" role="menuitemradio" aria-checked="${id===r.status}" tabindex="-1" data-list-status-id="${e(r.id)}" data-list-status="${id}" data-status="${id}">${iconLabel(statusIcon[id],label)}${id===r.status?icon('check'):''}</button>`).join('')}<p class="micro">선택하면 바로 저장됩니다.</p></div></div>`;
 }
 function listStatusFeedback(state,text){const el=document.getElementById('listStatusFeedback');if(el){el.dataset.state=state;el.textContent=text;}}
-function closeListStatus(focus=false){const previous=listStatusState.id;if(focus)document.querySelector(`[data-list-status-toggle="${previous}"]`)?.focus({preventScroll:true});listStatusState.id='';document.querySelectorAll('[data-list-status-toggle]').forEach(el=>el.setAttribute('aria-expanded','false'));document.querySelectorAll('.list-quick-status .quick-status-menu').forEach(el=>{el.hidden=true;});}
+function closeListStatus(focus=false){const previous=listStatusState.id;if(focus)document.querySelector(`[data-list-status-toggle="${previous}"]`)?.focus({preventScroll:true});listStatusState.id='';document.querySelectorAll('[data-list-status-toggle]').forEach(el=>el.setAttribute('aria-expanded','false'));document.querySelectorAll('.list-quick-status .quick-status-menu').forEach(hidePopup);}
 function listConfirmation(r){
  const b=MomentLinkMessages.defaults(r,settings);
  return `<form class="list-confirmation" data-list-confirmation="${e(r.id)}">
@@ -118,12 +118,44 @@ function fitConfirmationAddress(){
 }
 window.addEventListener('resize',fitConfirmationAddress);
 
+// Both list and detail menus must follow the visible viewport, including fold/zoom changes.
+function menuPlacement(anchor,viewport,width,height){
+ const gap=8,pad=12,left=viewport.left+pad,top=viewport.top+pad;
+ const right=viewport.left+viewport.width-pad,bottom=viewport.top+viewport.height-pad;
+ width=Math.min(width,Math.max(1,right-left));
+ const below=Math.max(0,bottom-anchor.bottom-gap),above=Math.max(0,anchor.top-gap-top);
+ const up=below<Math.min(height,280)&&above>below;
+ const maxHeight=Math.min(height,Math.max(1,bottom-top),Math.max(1,up?above:below));
+ return {left:Math.max(left,Math.min(anchor.right-width,right-width)),top:Math.max(top,Math.min(up?anchor.top-gap-maxHeight:anchor.bottom+gap,bottom-maxHeight)),width,maxHeight};
+}
+function hidePopup(menu){if(menu.matches?.(':popover-open'))menu.hidePopover();menu.hidden=true;}
+function fitPopup(trigger,menu,maxHeight=390,matchWidth=false){
+ const visual=window.visualViewport,viewport={left:visual?.offsetLeft||0,top:visual?.offsetTop||0,width:Math.min(visual?.width||Infinity,document.documentElement.clientWidth),height:Math.min(visual?.height||Infinity,innerHeight)};
+ const anchor=trigger.getBoundingClientRect(),root=menu.parentElement.getBoundingClientRect();
+ // The top layer avoids clipping/offsets from cards with container queries.
+ const topLayer=typeof menu.showPopover==='function';
+ if(topLayer){menu.setAttribute('popover','manual');if(!menu.matches(':popover-open'))menu.showPopover();}
+ menu.style.width=Math.min(matchWidth?Math.max(208,anchor.width):208,viewport.width-24)+'px';
+ menu.style.maxWidth='none';
+ const box=menuPlacement(anchor,viewport,menu.offsetWidth,Math.min(maxHeight,menu.scrollHeight+2));
+ Object.assign(menu.style,topLayer?{position:'fixed',margin:'0',right:'auto',bottom:'auto',width:'min('+box.width+'px, calc(100% - 24px))',left:'clamp(12px, '+box.left+'px, calc(100% - min('+box.width+'px, 100% - 24px) - 12px))',top:'clamp(12px, '+box.top+'px, calc(100dvh - min('+box.maxHeight+'px, 100dvh - 24px) - 12px))',maxHeight:'min('+box.maxHeight+'px, calc(100dvh - 24px))'}:{left:box.left-root.left+'px',right:'auto',top:box.top-root.top+'px',bottom:'auto',width:box.width+'px',maxHeight:box.maxHeight+'px'});
+}
+function repositionOpenMenus(){
+ document.querySelectorAll('.quick-status-menu:not([hidden]),.assignee-options:not([hidden])').forEach(menu=>{
+  const trigger=menu.parentElement.querySelector('.quick-status-trigger,.assignee-trigger');
+  if(trigger)fitPopup(trigger,menu,menu.classList.contains('assignee-options')?240:390,menu.classList.contains('assignee-options'));
+ });
+}
+window.addEventListener('resize',repositionOpenMenus);
+window.addEventListener('scroll',event=>{if(!event.target?.closest?.('.quick-status-menu,.assignee-options'))repositionOpenMenus();},true);
+window.visualViewport?.addEventListener('resize',repositionOpenMenus);
+window.visualViewport?.addEventListener('scroll',repositionOpenMenus);
+// A breakpoint can move the trigger after the viewport event (or after text wraps).
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(repositionOpenMenus).observe(document.body);
 function openListStatus(root,edge){
  const trigger=root.querySelector('[data-list-status-toggle]'),menu=root.querySelector('[role=menu]');
  closeListStatus();listStatusState.id=trigger.dataset.listStatusToggle;
- const rect=trigger.getBoundingClientRect(),below=innerHeight-rect.bottom-12,above=rect.top-12,up=below<280&&above>below;
- menu.style.left=rect.right<224?'0':'auto';menu.style.right=rect.right<224?'auto':'0';root.classList.toggle('opens-up',up);menu.style.maxHeight=Math.max(100,Math.min(390,up?above:below))+'px';
- menu.hidden=false;trigger.setAttribute('aria-expanded','true');
+ menu.hidden=false;trigger.setAttribute('aria-expanded','true');fitPopup(trigger,menu);
  const options=[...menu.querySelectorAll('[data-list-status]')];
  (edge==='last'?options.at(-1):edge==='first'?options[0]:options.find(x=>x.getAttribute('aria-checked')==='true')||options[0])?.focus({preventScroll:true});
 }
@@ -310,14 +342,11 @@ function assigneePicker(value){
 }
 function closeAssignee(returnFocus=false){
  const trigger=$('#requestAssignee'),list=$('#requestAssigneeOptions');if(!trigger||!list)return;
- trigger.setAttribute('aria-expanded','false');list.hidden=true;if(returnFocus)trigger.focus();
+ trigger.setAttribute('aria-expanded','false');hidePopup(list);if(returnFocus)trigger.focus();
 }
 function openAssignee(edge){
  const trigger=$('#requestAssignee'),list=$('#requestAssigneeOptions');if(!trigger||!list)return;
- const rect=trigger.getBoundingClientRect(),below=innerHeight-rect.bottom-8,above=rect.top-8,upward=below<180&&above>below;
- trigger.closest('.assignee-control').classList.toggle('opens-up',upward);
- list.style.maxHeight=Math.max(88,Math.min(240,upward?above:below))+'px';
- trigger.setAttribute('aria-expanded','true');list.hidden=false;
+ trigger.setAttribute('aria-expanded','true');list.hidden=false;fitPopup(trigger,list,240,true);
  const options=[...list.querySelectorAll('[role=option]')];
  (edge==='first'?options[0]:edge==='last'?options.at(-1):options.find(x=>x.getAttribute('aria-selected')==='true')||options[0])?.focus();
 }
@@ -461,12 +490,10 @@ function detailIconButton(action,name,label,kind=''){return `<button type="butto
 function paintDetailAction(button,name,label){button.innerHTML=detailIconContent(name,label);button.setAttribute('aria-label',label);button.setAttribute('title',label);}
 function paintDetailSave(button,state,label){paintDetailAction(button,state==='success'?'check':state==='saving'||state==='error'?'refresh':'save',state==='saving'?label+' 중':state==='success'?label+' 완료':state==='error'?label+' 다시 시도':label);}
 function quickStatus(r){return `<div class="quick-status" id="quickStatus" data-status="${e(r.status)}"><button type="button" class="quick-status-trigger" id="quickStatusTrigger" aria-label="상담 상태 변경: ${e(statusLabel(r))}" aria-haspopup="menu" aria-expanded="false" aria-controls="quickStatusMenu"><span>${e(statusLabel(r))}</span>${icon('chevron')}</button><div class="quick-status-menu" id="quickStatusMenu" role="menu" aria-label="상담 상태 변경" hidden>${requestStatusEntries(r).map(([id,label])=>`<button type="button" role="menuitemradio" aria-checked="${id===r.status}" tabindex="-1" data-quick-status="${id}" data-status="${id}">${iconLabel(statusIcon[id],label)}${id===r.status?icon('check'):''}</button>`).join('')}<p class="micro">선택하면 바로 저장됩니다.</p></div></div>`;}
-function closeQuickStatus(focus=false){const trigger=$('#quickStatusTrigger'),menu=$('#quickStatusMenu');if(!trigger||!menu)return;trigger.setAttribute('aria-expanded','false');menu.hidden=true;if(focus)trigger.focus({preventScroll:true});}
+function closeQuickStatus(focus=false){const trigger=$('#quickStatusTrigger'),menu=$('#quickStatusMenu');if(!trigger||!menu)return;trigger.setAttribute('aria-expanded','false');hidePopup(menu);if(focus)trigger.focus({preventScroll:true});}
 function openQuickStatus(edge){
  const trigger=$('#quickStatusTrigger'),menu=$('#quickStatusMenu');if(!trigger||!menu||busy||composer.isBusy())return;
- closeAssignee();const rect=trigger.getBoundingClientRect(),below=innerHeight-rect.bottom-12,above=rect.top-12,up=below<280&&above>below;
- $('#quickStatus').classList.toggle('opens-up',up);menu.style.maxHeight=Math.max(100,Math.min(390,up?above:below))+'px';
- trigger.setAttribute('aria-expanded','true');menu.hidden=false;
+ closeAssignee();closeListStatus();trigger.setAttribute('aria-expanded','true');menu.hidden=false;fitPopup(trigger,menu);
  const options=[...menu.querySelectorAll('[data-quick-status]')];
  (edge==='first'?options[0]:edge==='last'?options.at(-1):options.find(x=>x.getAttribute('aria-checked')==='true')||options[0])?.focus({preventScroll:true});
 }
