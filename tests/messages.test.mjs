@@ -15,6 +15,46 @@ import '../messages.js';
 const M=globalThis.MomentLinkMessages;
 function sample(id='classic',packageId='light',options=[]){const p=catalog.find(p=>p.id===id),g=p.packages.find(g=>g.id===packageId)||p.packages[0];return {person:'합성 검수',phone:'01000000000',category:p.category,status:'new',preferences:[{date:'2099-11-01',time:'오후'}],place:'',snapshot:{product:p,package:g,options,price:{weekday:g.weekday,weekend:g.weekend}}};}
 const booking={date:'2099-11-01',time:'13:30',amount:390000,place:'합성 검수 장소',scheduleConfirmed:true,paymentConfirmed:true,extra:''};
+test('reservation messages include the customer phone and upgrade saved summaries without discarding edits',()=>{
+ for(const id of ['classic','premium','signature','docked','visit','trunk','heli'])for(const stage of ['receipt','confirmed','reminder']){
+  const r=sample(id),body=M.generate(r,stage,booking);
+  assert.match(body,/고객 연락처: 010-0000-0000\n상품:/);
+  assert.equal(body.match(/고객 연락처:/g).length,1);
+  assert.match(decodeURIComponent(M.smsURI(r.phone,body,'Android').split('body=')[1]),/고객 연락처: 010-0000-0000/);
+ }
+ const r=sample('visit'),saved={receipt:'[모먼트링크 · 예약 접수]\n합성 검수님\n\n상품: 합성 상품\n금액: 390,000원\n별도 요청 유지',confirmed:'상품: 합성 상품\n고객 연락처: 010-0000-0001\n직접 작성한 안내'};
+ const updated=M.prepareDrafts(r,saved);
+ assert.equal(updated.receipt,saved.receipt.replace('상품:','고객 연락처: 010-0000-0000\n상품:'));
+ assert.equal(updated.confirmed,saved.confirmed.replace('010-0000-0001','010-0000-0000'));
+ assert.deepEqual(M.prepareDrafts(r,updated),updated);
+ assert.match(M.generate({...r,phone:'011-000-0000'},'receipt',booking),/고객 연락처: 011-000-0000/);
+ assert.doesNotMatch(M.generate({...r,phone:''},'receipt',booking),/고객 연락처:/);
+});
+test('full payment uses the full total, preserves schedule approval and rejects unknown or inconsistent totals',()=>{
+ const b={...booking,amount:420000,baseAmount:390000,addOns:[{id:'bouquet',quantity:1,unitAmount:30000}],receivedAmount:90000,scheduleConfirmed:false,paymentConfirmed:false};
+ assert.equal(M.applyFullPayment(b),'');assert.equal(b.receivedAmount,420000);assert.equal(b.paymentConfirmed,true);assert.equal(b.scheduleConfirmed,false);assert.equal(M.paymentState(b).balance,0);
+ assert.equal(M.applyFullPayment(b),'');assert.equal(b.receivedAmount,420000);
+ for(const amount of [null,undefined,NaN,-1,1.5,100000001]){const bad={amount,receivedAmount:90000,paymentConfirmed:false},before={...bad};assert.ok(M.applyFullPayment(bad));assert.deepEqual(bad,before);}
+ const zero={amount:0,baseAmount:0,addOns:[]};assert.equal(M.applyFullPayment(zero),'');assert.equal(zero.receivedAmount,0);
+ const inconsistent={...b,amount:390000};assert.ok(M.applyFullPayment(inconsistent));assert.equal(inconsistent.receivedAmount,420000);
+});
+test('full-payment draft and confirmation persist the total receipt, zero balance and customer contact',async()=>{
+ const f=await ownershipFixture();try{
+  let row=await f.add({owner:f.staff['owner-admin'].id,status:'consulting'});const path='admin/consultations/'+row.id;
+  const b={...booking,amountMode:'manual',baseAmount:booking.amount,addOns:[],receivedAmount:null,paymentConfirmed:false};
+  assert.equal(M.applyFullPayment(b),'');
+  const drafts={receipt:M.generate(row,'receipt',b),confirmed:M.generate(row,'confirmed',b)};
+  let out=await f.request(path+'/communications','owner-admin','PUT',{version:row.version,booking:b,drafts});
+  assert.equal(out.status,200,JSON.stringify(out.data));assert.equal(out.data.item.status,'consulting');
+  row=(await f.request(path)).data.item;assert.equal(row.communication.booking.receivedAmount,390000);
+  assert.match(row.communication.drafts.receipt,/고객 연락처: 010-0000-0000/);
+  out=await f.request(path+'/reservation','owner-admin','POST',{version:row.version,booking:row.communication.booking,drafts:row.communication.drafts,approved:true});
+  assert.equal(out.status,200,JSON.stringify(out.data));assert.equal(out.data.item.status,'confirmed');
+  row=(await f.request(path)).data.item;assert.equal(M.paymentState(row.communication.booking).balance,0);
+  assert.match(row.communication.drafts.confirmed,/입금 확인액: 390,000원/);assert.match(row.communication.drafts.confirmed,/남은 잔금: 0원/);
+  assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
+ }finally{await f.pg.close();}
+});
 test('all four stages cover every category and preserve quoted facts',()=>{
  for(const id of ['classic','premium','signature','docked','visit','trunk','heli']){
   const r=sample(id);for(const stage of ['receipt','confirmed','reminder','thanks']){

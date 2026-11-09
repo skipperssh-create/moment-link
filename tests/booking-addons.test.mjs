@@ -57,6 +57,47 @@ test('booking save is independent of confirmation, blocks double clicks and keep
 test('a late booking save response cannot replace a newly opened consultation',async()=>{
  const h=await composer(),saving=h.click('bookingSave');h.context.MomentLinkComposer.init({...h.item,id:'second',person:'다른 합성 검수'},h.request,()=>{});h.requests[0].resolve({item:{...h.item,communication:{booking:base,drafts:{}}}});await saving;assert.equal(h.updates.length,0);assert.equal(h.context.MomentLinkComposer.isBusy(),false);
 });
+test('full-payment action fills extras-inclusive amount without saving until booking save and survives reopening',async()=>{
+ const h=await composer(),b={...base,amount:570000,addOns:[{id:'bouquet',quantity:1,unitAmount:30000}],receivedAmount:90000,scheduleConfirmed:false};
+ h.item.communication.booking=b;h.context.MomentLinkComposer.clear();h.context.MomentLinkComposer.init(h.item,h.request,item=>h.updates.push(item));
+ await h.click('fullPayment');assert.equal(h.requests.length,0);assert.equal(h.context.MomentLinkComposer.isDirty(),true);
+ assert.match(h.elements.messageComposer.outerHTML,/name="receivedAmount"[^>]*value="570000"/);
+ assert.match(h.elements.messageComposer.outerHTML,/남은 잔금 <strong>0원/);
+ const saving=h.click('bookingSave'),sent=h.requests[0].data;
+ assert.equal(sent.booking.receivedAmount,570000);assert.equal(sent.booking.paymentConfirmed,true);assert.equal(sent.booking.scheduleConfirmed,false);
+ assert.match(sent.drafts.receipt,/고객 연락처: 010-0000-0000/);
+ const saved={...h.item,version:2,communication:{booking:sent.booking,drafts:sent.drafts}};
+ h.requests[0].resolve({item:saved});await saving;
+ h.context.MomentLinkComposer.clear();h.context.MomentLinkComposer.init(saved,h.request,()=>{});assert.match(h.context.MomentLinkComposer.html(),/name="receivedAmount"[^>]*value="570000"/);
+});
+test('full-payment action cannot overwrite a linked OPS payment',async()=>{
+ const h=await composer();h.item.integration={state:'conflict'};
+ h.context.MomentLinkComposer.init(h.item,h.request,()=>{});await h.click('fullPayment');
+ assert.equal(h.requests.length,0);assert.equal(h.context.MomentLinkComposer.isDirty(),false);
+ assert.match(h.context.MomentLinkComposer.html(),/data-payment-locked="true"[^>]*disabled/);
+});
+test('direct-booking full payment captures pending inputs and saves the full extras-inclusive total',async()=>{
+ const listeners={},elements={},requests=[],el=()=>({value:'',checked:false,outerHTML:'',focus(){},querySelectorAll:()=>[],querySelector:()=>null});
+ const document={getElementById:id=>elements[id]??=el(),addEventListener:(name,fn)=>listeners[name]=fn};
+ const context=vm.createContext({console,Intl,Date,URL,Object,document,crypto:{randomUUID:()=> '00000000-0000-4000-8000-000000000000'}});
+ context.window=context;context.globalThis=context;context.MomentLinkOps={load:async()=>{},eligible:()=>false,fields:()=>'',validate:()=>''};
+ for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','booking-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),context);
+ const catalog={version:1,settings:{},products:[{id:'test',category:'visit',name:'합성 상품',packages:[{id:'light',name:'라이트',weekday:390000,weekend:440000,options:[]}]}]};
+ const ui=context.MomentLinkDirectBooking({api:async(path,method,data)=>{if(path==='catalog')return catalog;requests.push(structuredClone(data));return {item:{id:'synthetic'}};},onDirty(){},onBusy(){},onSaved(){},onCancel(){}});
+ await ui.open({id:'synthetic-staff'},[{id:'synthetic-staff',active:true,username:'합성 담당'}]);
+ const values={person:'합성 직접 예약',phone:'01000000000',date:'2099-11-21',time:'20:00',place:'합성 장소',notes:'보존할 메모',assignee:'synthetic-staff',amountMode:'manual',amount:'390000',receivedAmount:'90000',productId:'test',opsPax:'2',opsPaymentMethod:'transfer'};
+ for(const [key,value] of Object.entries(values))document.getElementById('direct_'+key).value=value;
+ await listeners.change({target:{...document.getElementById('direct_productId'),id:'direct_productId',dataset:{},closest:()=>true}});
+ const toggle={id:'direct_addon_bouquet',dataset:{addonToggle:'bouquet'},checked:true,closest:()=>true};
+ listeners.input({target:toggle});
+ document.getElementById('direct_scheduleConfirmed').checked=true;
+ await listeners.click({target:{closest:()=>({dataset:{direct:'fullPayment'}})}});
+ assert.equal(requests.length,0);assert.match(elements.directBooking.outerHTML,/name="receivedAmount"[^>]*value="420000"/);assert.match(elements.directBooking.outerHTML,/남은 잔금 <strong>0원/);
+ // Reflect rendered fields as a browser would before submitting the form.
+ document.getElementById('direct_receivedAmount').value='420000';document.getElementById('direct_paymentConfirmed').checked=true;
+ await listeners.submit({target:{id:'directBooking'},submitter:{value:'draft'},preventDefault(){}});
+ assert.equal(requests.length,1);assert.equal(requests[0].mode,'draft');assert.equal(requests[0].booking.receivedAmount,420000);assert.equal(requests[0].booking.amount,420000);assert.equal(requests[0].notes,'보존할 메모');
+});
 test('confirmed extra purchases reach OPS as item rows with the same total, at most once',async()=>{
  const f=await ownershipFixture();try{
   const r=await f.add({status:'consulting',owner:f.staff['counselor-a'].id});await f.db.query("UPDATE moment_link.consultations SET category='yacht',product_id='classic',package_id='all' WHERE id=$1",[r.id]);

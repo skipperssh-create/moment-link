@@ -56,6 +56,10 @@ window.MomentLinkDirectBooking=function({api,onSaved,onCancel,onDirty,onBusy}){
  document.addEventListener('click',async ev=>{
   const button=ev.target.closest('[data-direct]');if(!button||!draft||busy)return;
   if(button.dataset.direct==='cancel'){onCancel();return;}
+  if(button.dataset.direct==='fullPayment'){
+   capture();price();const problem=MomentLinkMessages.applyFullPayment(draft);
+   if(problem)error=problem;else changed();repaint('direct_fullPayment');return;
+  }
   if(button.dataset.direct==='reload'){
    capture();busy=true;onBusy(true);error='';repaint();
    try{catalog=await api('catalog');if(!product()||product().salePaused){draft.productId='';draft.packageId='';}else if(!pack())draft.packageId=product().packages[0]?.id||'';draft.optionIds=[];draft.amountMode='auto';draft.scheduleConfirmed=false;draft.paymentConfirmed=false;price();changed();}

@@ -24,6 +24,11 @@ function paymentLine(deadline){const label=paymentDeadlineLabel(deadline);return
 function prepareDrafts(r,drafts,deadline){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
   let text=eventWording(body).replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
+  const phone=String(r.phone||'').replace(/[\s-]/g,'');
+  if(['receipt','confirmed','reminder'].includes(stage)&&/^01[016789]\d{7,8}$/.test(phone)){
+   const line='고객 연락처: '+phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/,'$1-$2-$3');
+   text=/^고객 연락처:.*$/m.test(text)?text.replace(/^고객 연락처:.*$/m,line):text.replace(/^상품:/m,line+'\n상품:');
+  }
   if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
@@ -61,14 +66,19 @@ function paymentProblem(b,confirming=false){
  return confirming&&b.amount>0&&b.receivedAmount===0?'예약금 입금액을 입력하고 확인해 주세요. 잔금이 있어도 예약을 확정할 수 있습니다.':'';
 }
 function paymentSummary(b){const p=paymentState(b);return '<span>총 예약금액 <strong>'+money(b.amount)+'</strong></span><span>예약금·입금액 <strong>'+money(p.received)+'</strong></span><span>남은 잔금 <strong>'+money(p.balance)+'</strong></span>';}
-function paymentFields(b,prefix,locked=false){return '<section class="booking-payment" aria-label="예약금·잔금"><div class="booking-payment-entry"><label class="admin-label" for="'+prefix+'_receivedAmount">실제 입금액 (예약금·완납, 원)</label><input class="admin-input" id="'+prefix+'_receivedAmount" name="receivedAmount" data-message-field="receivedAmount" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="실제 받은 금액 입력" value="'+(Number.isInteger(b.receivedAmount)?b.receivedAmount:'')+'" '+(locked?'disabled':'')+'/></div><div class="booking-payment-summary" data-payment-summary>'+paymentSummary(b)+'</div><p class="micro">예약금만 입금되어도 예약을 확정할 수 있습니다. 남은 금액은 잔금으로 표시합니다.'+(locked?' 추가 입금은 확정 예약 목록의 입금 확인에서 기록해 주세요.':'')+'</p></section>';}
+function fullPaymentError(b){return !Number.isSafeInteger(b.amount)||b.amount<0||b.amount>100000000?'총 예약금액을 먼저 입력해 주세요.':A?.problem(b)||'';}
+function applyFullPayment(b){const problem=fullPaymentError(b);if(problem)return problem;b.receivedAmount=b.amount;b.paymentConfirmed=true;return '';}
+function paymentFields(b,prefix,locked=false){
+ const action=prefix==='direct'?'data-direct':'data-message';
+ return '<section class="booking-payment" aria-label="예약금·잔금"><div class="booking-payment-entry"><label class="admin-label" for="'+prefix+'_receivedAmount">실제 입금액 (예약금·완납, 원)</label><div class="booking-payment-input"><input class="admin-input" id="'+prefix+'_receivedAmount" name="receivedAmount" data-message-field="receivedAmount" type="number" min="0" max="100000000" step="1" inputmode="numeric" placeholder="실제 받은 금액 입력" value="'+(Number.isInteger(b.receivedAmount)?b.receivedAmount:'')+'" '+(locked?'disabled':'')+'/><button type="button" id="'+prefix+'_fullPayment" class="admin-icon-button icon-primary" '+action+'="fullPayment" data-payment-full data-payment-locked="'+locked+'" aria-label="완납 · 총액 자동 입력" title="완납 · 총액을 입금액에 입력" '+(locked||fullPaymentError(b)?'disabled':'')+'><svg class="admin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg><span class="admin-action-text">완납</span></button></div></div><div class="booking-payment-summary" data-payment-summary aria-live="polite">'+paymentSummary(b)+'</div><p class="micro">예약금만 입금되어도 예약을 확정할 수 있습니다. 남은 금액은 잔금으로 표시합니다.'+(locked?' 추가 입금은 확정 예약 목록의 입금 확인에서 기록해 주세요.':' 전액 받았다면 완납을 누른 뒤 저장해 주세요.')+'</p></section>';
+}
 function fitAddresses(root){
  for(const field of root?.querySelectorAll?.('[data-booking-address]')||[]){
   if(!field.getBoundingClientRect().width)continue;
   field.style.height='auto';field.style.height=Math.max(80,field.scrollHeight+2)+'px';
  }
 }
-function paintPayment(root,b){const el=root?.querySelector('[data-payment-summary]');if(el)el.innerHTML=paymentSummary(b);}
+function paintPayment(root,b){const el=root?.querySelector('[data-payment-summary]');if(el)el.innerHTML=paymentSummary(b);const full=root?.querySelector('[data-payment-full]');if(full)full.disabled=full.dataset?.paymentLocked==='true'||!!fullPaymentError(b);}
 function amountError(b,r){
  const extraProblem=A?.problem(b)||paymentProblem(b);if(extraProblem)return extraProblem;
  if(b.amountMode!=='auto')return '';
@@ -151,5 +161,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();

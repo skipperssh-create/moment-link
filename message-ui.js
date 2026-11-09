@@ -169,6 +169,11 @@ document.addEventListener('click',async ev=>{
  }
  ev.preventDefault();
  if(action==='stage'){stage=b.dataset.stage;if(stage==='payment_reminder'&&item.communication?.paymentReminderFor!==item.awaiting_payment_at)drafts[stage]=M.generate(item,stage,booking);prepared=false;notice='';render();return;}
+ if(action==='fullPayment'){
+  if(item.integration)return;
+  const problem=M.applyFullPayment(booking);if(problem){feedback(problem);render();return;}
+  regenerate();invalidate();notice='완납 금액을 입력했습니다. 내용을 확인한 뒤 예약사항 저장 또는 예약 확정을 눌러 주세요.';render();return;
+ }
  if(action==='autoAmount'){booking.amountMode='auto';booking.baseAmount=P.quote(record(),booking.date).amount;A.recalculate(booking);booking.paymentConfirmed=false;regenerate();invalidate();notice='선택 날짜와 추가 옵션 금액을 반영했습니다. 내용을 확인해 주세요.';render();return;}
  if(action==='regenerate'){drafts[stage]=M.generate(record(),stage,booking,paymentDeadline);if(M.templateOnly(stage)){templateDirty[stage]=true;prepared=false;}else invalidate();notice='기본 문구를 다시 만들었습니다.';render();return;}
  if(action==='copy'){
