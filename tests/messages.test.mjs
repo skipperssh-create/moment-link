@@ -18,17 +18,36 @@ const booking={date:'2099-11-01',time:'13:30',amount:390000,place:'합성 검수
 test('reservation messages include the customer phone and upgrade saved summaries without discarding edits',()=>{
  for(const id of ['classic','premium','signature','docked','visit','trunk','heli'])for(const stage of ['receipt','confirmed','reminder']){
   const r=sample(id),body=M.generate(r,stage,booking);
-  assert.match(body,/고객 연락처: 010-0000-0000\n상품:/);
+  assert.match(body,/^\[모먼트링크 · [^\n]+\n합성 검수님[^\n]*\n고객 연락처: 010-0000-0000\n\n이벤트 일정:/);
   assert.equal(body.match(/고객 연락처:/g).length,1);
   assert.match(decodeURIComponent(M.smsURI(r.phone,body,'Android').split('body=')[1]),/고객 연락처: 010-0000-0000/);
  }
  const r=sample('visit'),saved={receipt:'[모먼트링크 · 예약 접수]\n합성 검수님\n\n상품: 합성 상품\n금액: 390,000원\n별도 요청 유지',confirmed:'상품: 합성 상품\n고객 연락처: 010-0000-0001\n직접 작성한 안내'};
  const updated=M.prepareDrafts(r,saved);
- assert.equal(updated.receipt,saved.receipt.replace('상품:','고객 연락처: 010-0000-0000\n상품:'));
+ assert.equal(updated.receipt,saved.receipt.replace('합성 검수님','합성 검수님\n고객 연락처: 010-0000-0000'));
  assert.equal(updated.confirmed,saved.confirmed.replace('010-0000-0001','010-0000-0000'));
  assert.deepEqual(M.prepareDrafts(r,updated),updated);
  assert.match(M.generate({...r,phone:'011-000-0000'},'receipt',booking),/고객 연락처: 011-000-0000/);
  assert.doesNotMatch(M.generate({...r,phone:''},'receipt',booking),/고객 연락처:/);
+});
+test('message layout groups schedule, purchases and money while preserving saved content and SMS line breaks',()=>{
+ const r=sample('visit','all'),b={...booking,baseAmount:390000,amount:450000,receivedAmount:90000,addOns:[{id:'bouquet',quantity:2,unitAmount:30000}],place:'합성 호텔\n상세 주소 101호',extra:'별도 고객 요청 보존'};
+ for(const stage of ['receipt','confirmed','reminder']){
+  const body=M.generate(r,stage,b);
+  assert.ok(body.indexOf('이벤트 일정:')<body.indexOf('장소:'));
+  assert.ok(body.indexOf('장소:')<body.indexOf('상품:'));
+  assert.ok(body.indexOf('추가 구매:')<body.indexOf('총 예약금액:'));
+  assert.match(body,/상세 주소 101호\n\n상품:/);
+  assert.match(body,/꽃다발 추가 · 2다발 · 60,000원\n\n총 예약금액: 450,000원\n입금 확인액: 90,000원\n남은 잔금: 360,000원/);
+  assert.ok(body.includes(b.extra));assert.equal(M.prepareDrafts(r,{[stage]:body})[stage],body);
+  for(const ua of ['Android','iPhone'])assert.equal(decodeURIComponent(M.smsURI(r.phone,body,ua).split('body=')[1]),body);
+ }
+ const intro='[모먼트링크 · 예약 접수]\n합성 검수님, 직접 작성한 인사입니다.',tail='입금 안내\n직접 작성한 계좌 안내\n\n취소·환불 안내\n직접 작성한 조건\n\n별도 고객 요청 보존';
+ const old=intro+'\n\n고객 연락처: 010-0000-0001\n상품: 상담 시 정한 상품\n추가 선택: USB\n추가 구매:\n꽃다발 추가 · 2다발 · 60,000원\n이벤트 일정: 2099-11-01 13:30\n금액: 450,000원\n입금 확인액: 90,000원\n남은 잔금: 360,000원\n장소: 합성 호텔\n상세 주소 101호\n\n'+tail;
+ const updated=M.prepareDrafts(r,{receipt:old.replace(/\n/g,'\r\n')}).receipt;
+ assert.ok(updated.startsWith(intro+'\n고객 연락처: 010-0000-0000\n\n이벤트 일정:'));
+ assert.match(updated,/장소: 합성 호텔\n상세 주소 101호\n\n상품: 상담 시 정한 상품/);
+ assert.ok(updated.endsWith(tail));assert.equal(M.prepareDrafts(r,{receipt:updated}).receipt,updated);
 });
 test('full payment uses the full total, preserves schedule approval and rejects unknown or inconsistent totals',()=>{
  const b={...booking,amount:420000,baseAmount:390000,addOns:[{id:'bouquet',quantity:1,unitAmount:30000}],receivedAmount:90000,scheduleConfirmed:false,paymentConfirmed:false};

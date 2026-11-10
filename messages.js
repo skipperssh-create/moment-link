@@ -21,14 +21,28 @@ function paymentDeadlineLabel(value){
  return `${d.getUTCFullYear()}년 ${d.getUTCMonth()+1}월 ${d.getUTCDate()}일(${'일월화수목금토'[d.getUTCDay()]}) ${hour<12?'오전':'오후'} ${hour%12||12}:${String(d.getUTCMinutes()).padStart(2,'0')}`;
 }
 function paymentLine(deadline){const label=paymentDeadlineLabel(deadline);return label?'입금 기한: '+label+'까지 입금 부탁드립니다.':'입금 기한: 문자 준비 시 2시간 뒤로 계산됩니다.';}
+function arrangeReservationSummary(text){
+ // Move existing field blocks as written; never regenerate a saved quote or staff note.
+ return text.split(/\n\n/).map(block=>{
+  if(!block.startsWith('상품: '))return block;
+  const fields=[...block.matchAll(/^(상품|추가 선택|추가 구매|이벤트 일정|금액|입금 확인액|남은 잔금|장소):/gm)];
+  const names=fields.map(x=>x[1]);
+  if(!['상품','이벤트 일정','금액','장소'].every(x=>names.includes(x))||new Set(names).size!==names.length)return block;
+  const values=Object.fromEntries(fields.map((x,i)=>[x[1],block.slice(x.index,fields[i+1]?.index??block.length).trimEnd()]));
+  return [[values['이벤트 일정'],values['장소']],[values['상품'],values['추가 선택'],values['추가 구매']],[values['금액'].replace(/^금액:/,'총 예약금액:'),values['입금 확인액'],values['남은 잔금']]].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
+ }).join('\n\n');
+}
 function prepareDrafts(r,drafts,deadline){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
-  let text=eventWording(body).replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
+  let text=eventWording(body).replace(/\r\n/g,'\n').replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
   const phone=String(r.phone||'').replace(/[\s-]/g,'');
   if(['receipt','confirmed','reminder'].includes(stage)&&/^01[016789]\d{7,8}$/.test(phone)){
    const line='고객 연락처: '+phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/,'$1-$2-$3');
-   text=/^고객 연락처:.*$/m.test(text)?text.replace(/^고객 연락처:.*$/m,line):text.replace(/^상품:/m,line+'\n상품:');
+   const greeting=/^(\[모먼트링크 · (?:예약 접수|예약 확정|이벤트 전 안내)\]\n[^\n]+)/;
+   if(greeting.test(text))text=text.replace(/^고객 연락처:[^\n]*(?:\n|$)/gm,'').replace(greeting,(_,intro)=>intro+'\n'+line);
+   else text=/^고객 연락처:.*$/m.test(text)?text.replace(/^고객 연락처:.*$/m,line):text.replace(/^상품:/m,line+'\n상품:');
   }
+  if(['receipt','confirmed','reminder'].includes(stage))text=arrangeReservationSummary(text);
   if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
@@ -138,7 +152,7 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
- const summary=['상품: '+selection,options?'추가 선택: '+options:'',extraLines,'이벤트 일정: '+schedule,'금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[]),'장소: '+(b.place||'담당자와 협의 후 안내')].filter(Boolean).join('\n');
+ const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])]].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
  if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
  if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
