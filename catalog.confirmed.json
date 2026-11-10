@@ -246,6 +246,11 @@
             "amount": 30000
           },
           {
+            "id": "paper-frame-photos",
+            "name": "종이액자 사진 출력 4개",
+            "amount": 10000
+          },
+          {
             "id": "video-letter",
             "name": "영상편지 제작",
             "amount": 30000
@@ -282,6 +287,11 @@
             "id": "bouquet",
             "name": "기본 꽃다발 추가",
             "amount": 30000
+          },
+          {
+            "id": "paper-frame-photos",
+            "name": "종이액자 사진 출력 4개",
+            "amount": 10000
           },
           {
             "id": "usb",

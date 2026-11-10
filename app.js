@@ -37,8 +37,8 @@ pack('light','라이트',290000,290000,'총 이용시간 약 30분 · 승·하�
 pack('all','올인원',390000,390000,'총 이용시간 약 50분 · 승·하선 포함',['요트 단독 대관','영상편지 포함','영상촬영 (마케팅 동의 시)'])
 ],'현장 운영 상황에 따라 프리미엄(메가)요트 또는 시그니처(리파리)요트로 배정합니다. 주중·주말 동일 대관금액입니다.'),
 product('visit','visit','main','출장 프로포즈 세팅','두 패키지의 장식 세팅은 동일합니다.',[
-{...pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),options:[{id:'bouquet',name:'기본 꽃다발 추가',amount:30000},{id:'video-letter',name:'영상편지 제작',amount:30000},{id:'usb',name:'소장용 USB',amount:10000,requiresOptionId:'video-letter'}]},
-{...pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.'),options:[{id:'usb',name:'소장용 USB',amount:10000},{id:'bouquet',name:'기본 꽃다발 추가',amount:30000}]}
+{...pack('light','라이트',249000,249000,'장식 세팅 · 현장 설치 · 행사 후 수거',visitBase,'고객은 장소만 준비하면 됩니다.'),options:[{id:'bouquet',name:'기본 꽃다발 추가',amount:30000},{id:'paper-frame-photos',name:'종이액자 사진 출력 4개',amount:10000},{id:'video-letter',name:'영상편지 제작',amount:30000},{id:'usb',name:'소장용 USB',amount:10000,requiresOptionId:'video-letter'}]},
+{...pack('all','올인원',348000,348000,'라이트 동일한 장식 + 추가 서비스',[...visitBase,...visitAdd],'액션캠 촬영 원본 전달은 별도 마케팅 활용 동의 조건 적용.'),options:[{id:'usb',name:'소장용 USB',amount:10000},{id:'bouquet',name:'기본 꽃다발 추가',amount:30000},{id:'paper-frame-photos',name:'종이액자 사진 출력 4개',amount:10000}]}
 ],'올인원은 장식의 품질이나 양이 달라지는 상품이 아니라 미니케이크·영상편지 등 추가 서비스가 포함되는 상품입니다.'),
 product('trunk','trunk','main','트렁크 프로포즈','차량 트렁크를 활용한 깜짝 이벤트',[
 pack('consult','해운대 사무실 방문',219000,219000,'사무실 방문형',[],'수거·반납: 당일 세팅 후 2시간 대기 후 수거 또는 다음 날 오전 11시 이전 해운대 사무실 방문 반납. 약속 시간 초과 시 1시간당 30,000원.'),
