@@ -80,8 +80,8 @@ test('late save responses cannot overwrite a different consultation',async()=>{
  h.requests[0].resolve({item:{...h.item,version:4,status:'hold'}});await saving;assert.equal(h.api.getDetail(),next);assert.equal(h.initializations.length,0);
 });
 
-test('confirmed bookings expose only valid completion/cancellation transitions',async()=>{
+test('confirmed bookings can reopen while completed/cancelled bookings stay protected',async()=>{
  const h=await harness(),r={...h.item,status:'confirmed',communication:{reservation:{}}};
- assert.deepEqual(JSON.parse(JSON.stringify(h.api.requestStatusEntries(r))),[['confirmed','확정'],['closed','이벤트 완료'],['cancelled','취소']]);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.api.requestStatusEntries(r))),[['new','접수중'],['initial_unreachable','최초연락안됨'],['consulting','상담중'],['no_response','답변없음'],['awaiting_payment','입금대기'],['confirmed','확정'],['hold','보류'],['closed','이벤트 완료'],['cancelled','취소']]);
  assert.deepEqual(JSON.parse(JSON.stringify(h.api.requestStatusEntries({...r,status:'cancelled'}))),[['cancelled','취소']]);
 });

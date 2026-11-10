@@ -10,7 +10,7 @@ const editable=new Set(['new','initial_unreachable','consulting','no_response','
 export async function changeConsultationProduct(tx,r,user,input){
  const d=parse(schema,input),s=d.selection;
  if(r.version!==d.version)fail(409,'VERSION','다른 직원이 변경했습니다. 상담을 다시 열고 확인해 주세요.');
- if(!editable.has(r.status)||r.communication?.reservation||(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[r.id])).rows.length)fail(409,'PRODUCT_LOCKED','상품 변경은 OPS에 등록되지 않은 상담중 예약에서만 가능합니다.');
+ if(!editable.has(r.status)||(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[r.id])).rows.length)fail(409,'PRODUCT_LOCKED','상품 변경은 OPS에 등록되지 않은 상담중 예약에서만 가능합니다.');
  const c=(await tx.query('SELECT * FROM moment_link.catalog_versions ORDER BY version DESC LIMIT 1')).rows[0];
  if(c?.version!==s.catalogVersion)fail(409,'CATALOG_CHANGED','상품 정보가 변경되었습니다. 상품 목록을 새로고침한 뒤 확인해 주세요.');
  const p=c.products.find(x=>x.id===s.productId&&x.visible&&!x.archived&&!x.salePaused),pk=p?.packages.find(x=>x.id===s.packageId);

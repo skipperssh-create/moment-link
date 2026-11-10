@@ -10,10 +10,10 @@ export function statusTimeline(history){
   if(entry.action==='ownership.started'){from=d.statusFrom;to=d.statusTo;}
   if(entry.action==='reservation.direct_created'){from=null;to='consulting';}
   if(entry.action==='ops.confirmed'){from=null;to='confirmed';}
-  if(entry.action==='ops.cancelled'){from='confirmed';to='cancelled';}
+  if(entry.action==='ops.cancelled'){from=d.from||'confirmed';to='cancelled';}
   if(['ops.restored','reservation.restored'].includes(entry.action)){from='cancelled';to='confirmed';}
   if(entry.action==='ops.inbound.applied'){
-   const names={ready:'confirmed',cancelled:'cancelled'};from=names[d.before?.state];to=names[d.after?.state];
+   const names={ready:'confirmed',cancelled:'cancelled'};from=d.statusFrom||names[d.before?.state];to=d.statusTo||names[d.after?.state];
   }
   if(!states.has(to)||from===to||!Number.isFinite(new Date(entry.created_at).getTime()))continue;
   // Confirmation and its enclosing status update can both audit the same transition.

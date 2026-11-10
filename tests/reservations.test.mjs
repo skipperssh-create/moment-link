@@ -53,8 +53,8 @@ test('payment waiting and dropdown confirmation persist, filter and enforce rese
   assert.deepEqual(current.snapshot,original.snapshot);assert.deepEqual(current.preferences,original.preferences);
   list=await req('admin/consultations?view=reservations&status=confirmed','GET',undefined,staff);assert.equal(list.data.items[0].id,original.id);
   assert.equal((await req('admin/consultations?status=awaiting_payment','GET',undefined,auth)).data.counts.awaiting_payment,0);
-  assert.equal((await req(base,'PATCH',{version:current.version,status:'awaiting_payment'},auth)).status,409);
-  for(const status of ['initial_unreachable','no_response'])assert.equal((await req(base,'PATCH',{version:current.version,status},auth)).status,409);
+  out=await req(base,'PATCH',{version:current.version,status:'awaiting_payment'},auth);assert.equal(out.status,200);current=out.data.item;
+  for(const status of ['initial_unreachable','no_response']){out=await req(base,'PATCH',{version:current.version,status},auth);assert.equal(out.status,200);current=out.data.item;}
   for(const table of ['outbox','integration_jobs'])assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.'+table)).rows[0].n,0);
   const audit=(await req(base,'GET',undefined,auth)).data.history;assert.ok(audit.some(x=>x.action==='reservation.confirmed'));
  }finally{await pg.close();}
@@ -93,7 +93,7 @@ test('manual reservation lifecycle, filtered search, permissions and messages re
   assert.equal((await req(base+'/communications','PUT',{version:current.version,booking:{...booking,amount:300000},drafts:data.drafts},auth)).status,409);
   out=await req(base+'/communications','POST',{version:current.version,stage:'confirmed',kind:'manual_sent',eventId:randomUUID()},auth);assert.equal(out.status,200);current=out.data.item;
   out=await req(path,'POST',{...data,version:current.version,booking:{...booking,date:'2099-11-22'}},auth);assert.equal(out.status,200);current=out.data.item;assert.equal(current.communication.events.length,1);
-  assert.equal((await req(base,'PATCH',{version:current.version,status:'new'},auth)).status,409);
+  out=await req(base,'PATCH',{version:current.version,status:'new'},auth);assert.equal(out.status,200);current=out.data.item;
   out=await req(base,'PATCH',{version:current.version,status:'closed'},staff);assert.equal(out.status,200);current=out.data.item;
   assert.equal((await req('admin/consultations?view=reservations&status=confirmed','GET',undefined,auth)).data.items.length,0);
   assert.equal((await req('admin/consultations?view=reservations&status=closed','GET',undefined,auth)).data.items[0].id,r.id);

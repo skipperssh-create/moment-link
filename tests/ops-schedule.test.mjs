@@ -27,6 +27,7 @@ test('linked schedule changes apply once, preserve the old schedule until acknow
   const make=async()=>{const p=catalog.products.find(p=>p.id==='classic'),pk=p.packages.find(p=>p.id==='all'),date='2027-12-24';const out=await req('admin/reservations','POST',{requestId:randomUUID(),catalogVersion:catalog.version,productId:p.id,packageId:pk.id,optionIds:[],person:'합성 일정 검수',phone:'01000000000',notes:'SYNTHETIC ONLY',assignee:adminId,mode:'confirmed',booking:{date,time:'14:00',amount:440000,amountMode:'manual',place:'합성 장소',scheduleConfirmed:true,paymentConfirmed:true,opsPax:2,opsPaymentMethod:'transfer',extra:''}});assert.equal(out.status,201,JSON.stringify(out.data));return out.data.item;};
   const change=(item,time)=>({version:item.version,booking:{...item.communication.booking,time,scheduleConfirmed:true,paymentConfirmed:true},drafts:{confirmed:'합성 변경 안내'},approved:true});
   let item=await make(),path='admin/consultations/'+item.id;
+  let reopened=await req(path,'PATCH',{version:item.version,status:'consulting'});assert.equal(reopened.status,200);item=reopened.data.item;assert.equal(item.status,'consulting');assert.equal(calls.change,0);
   const original={...item.communication.booking},body=change(item,'16:00');
   assert.equal((await req(path+'/reservation','POST',body,{})).status,401);
   assert.equal((await req(path+'/reservation','POST',body,{Cookie:auth.Cookie})).status,403);

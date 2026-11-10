@@ -6,6 +6,7 @@ import '../pricing.js';
 import '../booking-addons.js';
 import '../messages.js';
 import '../ownership.js';
+import {reopenedReservation} from './reservation-workflow.mjs';
 import {attachStatusTimelines} from './consultation-timeline.mjs';
 const stages=z.enum(['receipt','confirmed','reminder','thanks','intent','payment_reminder']);
 const addOnSchema=z.object({id:z.enum(['bouquet','bouquet_custom','fireworks','cake','wine_bottle']),quantity:z.number().int().min(1).max(100),unitAmount:z.number().int().min(0).max(10000000),description:text(50).optional()}).strict();
@@ -36,7 +37,7 @@ export async function saveCommunication(tx,r,user,method,input){
   await audit(tx,user.id,'communication.saved',r.id,{stage:d.prepareStage});
  }else if(method==='PUT'){
   const amountProblem=MomentLinkMessages.amountError(d.booking,r);if(amountProblem)fail(400,'PRICE_CHANGED',amountProblem);
-  if(old.reservation&&(['date','time','amount','receivedAmount','place','opsPax','opsPaymentMethod'].some(k=>d.booking[k]!==old.booking?.[k])||extrasChanged(d.booking,old.booking)||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
+  if(old.reservation&&(!reopenedReservation(r)||(await tx.query('SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1',[r.id])).rows.length)&&(['date','time','amount','receivedAmount','place','opsPax','opsPaymentMethod'].some(k=>d.booking[k]!==old.booking?.[k])||extrasChanged(d.booking,old.booking)||!d.booking.paymentConfirmed||!d.booking.scheduleConfirmed))fail(409,'RESERVATION_CHANGE_REQUIRED',r.status==='confirmed'?'예약 정보 변경 후에는 입금·일정을 확인하고 ‘수정·확정’을 눌러 주세요.':'완료·취소된 예약의 확정 정보는 변경할 수 없습니다.');
   // The server clock anchors the deadline to preparation, never presumed delivery.
   const waitingDeadline=r.status==='awaiting_payment'?MomentLinkOwnership.paymentWait(r).deadline:null;
   if(d.prepareStage==='receipt'&&r.status==='awaiting_payment'&&!waitingDeadline)fail(400,'PAYMENT_WAIT_TIME_UNKNOWN','입금대기 시작 시각을 확인할 수 없습니다. 상태 변경 이력을 확인해 주세요.');
@@ -107,6 +108,6 @@ export async function confirmReservation(tx,r,user,input){
   await tx.query('INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,approved_by,booking) VALUES($1,$2,$3,$4,$5,$6)',[randomUUID(),r.id,'boatn','moment-link:'+r.id,user.id,JSON.stringify(job)]);
   await audit(tx,user.id,'ops.queued',r.id,{target:'boatn'});
  }
- await audit(tx,user.id,old.reservation?'reservation.updated':'reservation.confirmed',r.id,{from:r.status,to:'confirmed',amount:d.booking.amount,...(Number.isInteger(d.booking.receivedAmount)?{receivedAmount:d.booking.receivedAmount,balance:d.booking.amount-d.booking.receivedAmount}:{})});
+ await audit(tx,user.id,r.status==='confirmed'&&old.reservation?'reservation.updated':'reservation.confirmed',r.id,{from:r.status,to:'confirmed',amount:d.booking.amount,...(Number.isInteger(d.booking.receivedAmount)?{receivedAmount:d.booking.receivedAmount,balance:d.booking.amount-d.booking.receivedAmount}:{})});
  return {item};
 }

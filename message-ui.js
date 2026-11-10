@@ -8,7 +8,7 @@ const A=globalThis.MomentLinkAddOns;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let item=null,booking={},drafts={},paymentDeadline='',stage='receipt',prepared=false,pending=false,changed=false,templateDirty={},notice='',api,updated;
 let catalog=null,catalogError='',catalogLoading=false,selection=null,selectionTouched=false,productSettings={};
-const canChangeProduct=()=>item&&!item.integration&&!item.communication?.reservation&&['new','initial_unreachable','consulting','no_response','awaiting_payment','hold'].includes(item.status);
+const canChangeProduct=()=>item&&!item.integration&&['new','initial_unreachable','consulting','no_response','awaiting_payment','hold'].includes(item.status);
 const selectedProduct=()=>catalog?.products.find(p=>p.id===selection?.productId);
 const selectedPackage=()=>selectedProduct()?.packages.find(p=>p.id===selection?.packageId);
 function resetSelection(){selection={productId:item?.product_id||item?.snapshot?.product?.id,packageId:item?.package_id||item?.snapshot?.package?.id,optionIds:(item?.snapshot?.options||[]).map(o=>o.id)};selectionTouched=false;}
@@ -55,6 +55,7 @@ function confirmation(){
  if(!drafts.confirmed?.trim())throw Error('예약 확정 안내 내용을 입력해 주세요.');
  return {booking:{...booking},drafts:{...drafts},approved:true};
 }
+function refreshStatus(){prepared=false;if(stage==='payment_reminder'&&item.status!=='awaiting_payment')stage='receipt';if(item.status==='awaiting_payment')drafts.payment_reminder=M.generate(item,'payment_reminder',booking);render();}
 function acceptConfirmation(r){
  item=r;booking={...r.communication.booking};drafts={...r.communication.drafts};paymentDeadline=r.communication.paymentDeadline||paymentDeadline;
  stage='confirmed';prepared=true;changed=false;notice='예약을 확정했습니다. 문자 앱 열기 버튼으로 예약 확정 문자를 준비할 수 있습니다.';render();
@@ -67,7 +68,7 @@ function reservationControls(){
  if(item.integration&&item.integration.state!=='succeeded')return `<p class="micro" role="status">${item.integration.operation==='restore'?'OPS 복원 결과를 확인 중입니다. 완료 전까지 취소 상태가 유지됩니다.':item.integration.operation==='cancel'?'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.':['reschedule','registration_revision'].includes(item.integration.operation)?'OPS 일정 변경 결과를 확인 중입니다. 반영 완료 전까지 기존 확정 일정이 유지됩니다.':'BOATN OPS 등록이 완료된 후 수정·확정할 수 있습니다.'} 아래 OPS 상태를 확인해 주세요.</p>`;
  if(item.status==='cancelled'||item.status==='closed'&&item.communication?.reservation)return '';
  if(item.status==='confirmed'&&!item.communication?.reservation)return '<p class="micro">OPS에서 확정된 예약입니다. 일정 변경은 OPS에서 확인해 주세요.</p>';
- return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'변경한 일정과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.':'입금 전에는 예약사항을 저장하고, 예약금 입금 확인 후 예약을 확정해 주세요. 잔금이 있어도 확정됩니다.'}</p><div class="reservation-confirm-actions">${actionButton('reserve','calendar',item.status==='confirmed'?'수정·확정':'예약 확정',true)}</div><p class="micro booking-save-feedback" role="status">${esc(notice)}</p><p class="micro">${item.integration?'날짜·시간은 연결된 OPS 예약에도 자동 반영합니다. 추가 구매는 ‘옵션 저장’으로 반영하며, 장소·인원·결제수단은 유지합니다. 상태 메뉴에서 취소하면 OPS에도 자동 반영합니다.':'확정하면 ‘확정 예약’ 목록에서 관리합니다.'} 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
+ return `<div class="reservation-confirm"><p>${item.status==='confirmed'?'변경한 일정과 입금을 확인한 뒤 ‘수정·확정’을 눌러 주세요.':'입금 전에는 예약사항을 저장하고, 예약금 입금 확인 후 예약을 확정해 주세요. 잔금이 있어도 확정됩니다.'}</p><div class="reservation-confirm-actions">${actionButton('reserve','calendar',item.status==='confirmed'?'수정·확정':'예약 확정',true)}</div><p class="micro booking-save-feedback" role="status">${esc(notice)}</p><p class="micro">${item.integration?'상담 상태를 되돌려도 OPS 예약 일정은 유지됩니다. 날짜·시간은 연결된 OPS 예약에도 자동 반영합니다. 추가 구매는 ‘옵션 저장’으로 반영하며, 장소·인원·결제수단은 유지합니다. 상태 메뉴에서 취소하면 OPS에도 자동 반영합니다.':'확정하면 ‘확정 예약’ 목록에서 관리합니다.'} 문자 발송은 아래에서 별도로 진행합니다.</p></div>`;
 }
 const field=(key,label,type='text')=>{const locked=pending||!!item.integration&&['amount','place'].includes(key);return `<div class="${key==='place'?'booking-address-field':''}"><label class="admin-label" for="msg_${key}">${label}</label>${type==='time'?globalThis.MomentLinkTime.html('msg_'+key,label,booking[key],'data-message-field="'+key+'" '+(locked?'disabled':'')):key==='place'?`<textarea class="admin-input message-place" data-booking-address data-message-field="place" id="msg_place" rows="3" maxlength="500" ${locked?'disabled':''}>${esc(booking.place)}</textarea>`:`<input class="admin-input" data-message-field="${key}" id="msg_${key}" type="${type}" value="${esc(key==='amount'?A.base(booking):booking[key])}" ${locked?'disabled':''} ${type==='number'?'min="0" max="100000000" step="1"':''}/>`}</div>`;};
 function pricingHint(){
@@ -227,5 +228,5 @@ document.addEventListener('click',async ev=>{
  }catch(err){prepared=false;notice=err.message;}
  finally{pending=false;render();}
 });
-window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed||Object.values(templateDirty).some(Boolean),isBusy:()=>pending,openStage,confirmation,acceptConfirmation,focusConfirmation(){focusSection('workflowConfirm');},focus(){reveal();focusSection('workflowMessages');}};
+window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed||Object.values(templateDirty).some(Boolean),isBusy:()=>pending,openStage,confirmation,acceptConfirmation,refreshStatus,focusConfirmation(){focusSection('workflowConfirm');},focus(){reveal();focusSection('workflowMessages');}};
 })();

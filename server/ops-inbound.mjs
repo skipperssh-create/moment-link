@@ -2,11 +2,12 @@ import {createHmac,timingSafeEqual} from 'node:crypto';
 import {z} from 'zod';
 import {audit,fail,hash} from './security.mjs';
 import '../messages.js';
+import {activeReservation,reopenedReservation} from './reservation-workflow.mjs';
 
 const base='/api/integrations/boatn/events';
 const state=z.object({state:z.enum(['ready','cancelled']),departure:z.string().datetime()}).strict();
 const eventSchema=z.object({version:z.literal(1),eventId:z.string().min(3).max(180),bookingId:z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/),externalRef:z.string().regex(/^moment-link:[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/),sequence:z.number().int().positive().max(Number.MAX_SAFE_INTEGER),at:z.string().datetime(),before:state,after:state}).strict();
-const localState=r=>r.status==='cancelled'?'cancelled':r.status==='confirmed'?'ready':null;
+const localState=r=>r.status==='cancelled'?'cancelled':activeReservation(r)?'ready':null;
 const localDeparture=r=>{const b=r.communication?.booking;return b?.date&&b?.time?new Date(b.date+'T'+b.time+':00+09:00').toISOString():null;};
 const receipt=async(db,eventId)=>(await db.query("SELECT detail FROM moment_link.audit_logs WHERE action='ops.inbound.applied' AND detail->>'eventId'=$1 LIMIT 1",[eventId])).rows[0]?.detail;
 
@@ -42,7 +43,7 @@ export async function receiveOpsEvent(request,db,env){
   if(job.state==='conflict')return outcome('skipped_conflict');
   if(job.state!=='succeeded')fail(503,'OPS_CHANGE_BUSY','진행 중인 변경을 확인하고 있습니다.');
   if(event.sequence<=Number(job.booking.inboundSequence||0))return outcome('stale');
-  if(!row.communication?.reservation||!['confirmed','cancelled'].includes(row.status))return outcome('unavailable');
+  if(!row.communication?.reservation||!['confirmed','cancelled'].includes(row.status)&&!reopenedReservation(row))return outcome('unavailable');
   const current={state:localState(row),departure:localDeparture(row)};
   const same=value=>value.state===current.state&&Date.parse(value.departure)===Date.parse(current.departure);
   if(!same(event.before)&&!same(event.after)){
@@ -52,7 +53,7 @@ export async function receiveOpsEvent(request,db,env){
   const at=new Date().toISOString(),korean=new Date(Date.parse(event.after.departure)+9*3600000).toISOString(),date=korean.slice(0,10),time=korean.slice(11,16),old=row.communication;
   if(korean.slice(17,23)!=='00.000')fail(400,'OPS_EVENT_INVALID','분 단위 예약시간을 확인해 주세요.');
   const dateChanged=old.booking.date!==date||old.booking.time!==time;
-  const booking={...old.booking,date,time},status=event.after.state==='cancelled'?'cancelled':'confirmed';
+  const booking={...old.booking,date,time},status=event.after.state==='cancelled'?'cancelled':reopenedReservation(row)?row.status:'confirmed';
   const reservation={...old.reservation,updatedAt:at,updatedBy:'BOATN OPS',...(row.status!==status?status==='cancelled'?{cancelledAt:at,cancelledBy:'BOATN OPS'}:{restoredAt:at,restoredBy:'BOATN OPS'}:{})};
   const communication={...old,booking,reservation,opsInbound:{eventId:event.eventId,sequence:event.sequence,at}};
   if(dateChanged){
@@ -62,7 +63,7 @@ export async function receiveOpsEvent(request,db,env){
   const {nextBooking,nextDrafts,changeId,expected:previousExpected,requestedBy,...original}=job.booking;
   await tx.query('UPDATE moment_link.consultations SET status=$1,communication=$2,version=version+1,updated_at=now() WHERE id=$3',[status,JSON.stringify(communication),id]);
   await tx.query("UPDATE moment_link.integration_jobs SET booking=$1,error_code=NULL,attempts=0,updated_at=now() WHERE id=$2",[JSON.stringify({...original,operation:'inbound',date,time,inboundSequence:event.sequence}),job.id]);
-  await audit(tx,null,'ops.inbound.applied',id,{eventId:event.eventId,digest,sequence:event.sequence,before:event.before,after:event.after});
+  await audit(tx,null,'ops.inbound.applied',id,{eventId:event.eventId,digest,sequence:event.sequence,before:event.before,after:event.after,statusFrom:row.status,statusTo:status});
   return outcome('applied');
  });
 }
