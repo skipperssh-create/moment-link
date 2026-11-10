@@ -12,6 +12,7 @@ const timeOK=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 const P=globalThis.MomentLinkPricing;
 const A=globalThis.MomentLinkAddOns;
 const money=value=>Number.isInteger(value)?value.toLocaleString('ko-KR')+'원':'금액 확인 필요';
+const depositNotice='예약금만 입금하셔도 담당자의 입금·일정 확인 후 예약이 확정됩니다. 잔금은 안내받은 일정에 맞춰 입금해 주세요.';
 const eventWording=value=>value.replace(/행사장/g,'이벤트 장소').replace(/행사/g,'이벤트');
 const videoSubmissionNotice='자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.';
 function paymentDeadlineFrom(now=Date.now()){return new Date(Number(new Date(now))+2*60*60*1000).toISOString();}
@@ -43,6 +44,14 @@ function prepareDrafts(r,drafts,deadline){
    else text=/^고객 연락처:.*$/m.test(text)?text.replace(/^고객 연락처:.*$/m,line):text.replace(/^상품:/m,line+'\n상품:');
   }
   if(['receipt','confirmed','reminder'].includes(stage))text=arrangeReservationSummary(text);
+  if(stage==='receipt'){
+   // Upgrade known money blocks without changing saved amounts or staff-written terms.
+   text=text.split(/\n\n/).map(block=>{
+    if(!/^총 예약금액: [^\n]+(?:\n입금 확인액: [^\n]+\n남은 잔금: [^\n]+)?$/.test(block))return block;
+    return block.includes('\n입금 확인액:')?block.replace('\n입금 확인액:','\n예약금·입금 확인액:'):block+'\n예약금: 담당자와 협의 후 안내\n잔금: 예약금 확정 후 안내';
+   }).join('\n\n');
+   if(text.includes('입금 안내\n'+bank)&&!text.includes(depositNotice))text=text.replace('입금 안내\n'+bank,'입금 안내\n'+bank+'\n\n'+depositNotice);
+  }
   if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
@@ -74,12 +83,27 @@ function paymentState(b={}){
  return {received,balance,partial:received>0&&balance>0};
 }
 function paymentProblem(b,confirming=false){
+ if(b.requestedDepositAmount!=null&&(!Number.isSafeInteger(b.requestedDepositAmount)||b.requestedDepositAmount<=0||b.requestedDepositAmount>100000000||Number.isInteger(b.amount)&&b.requestedDepositAmount>b.amount))return '안내할 예약금은 총 예약금액 이하의 1원 이상 정수로 입력해 주세요.';
  if(b.receivedAmount===undefined)return ''; // Preserve older recorded confirmations and clients.
  if(b.receivedAmount===null)return confirming?'실제 입금된 예약금 또는 완납 금액을 입력해 주세요.':'';
  if(!Number.isSafeInteger(b.receivedAmount)||b.receivedAmount<0||b.receivedAmount>100000000||Number.isInteger(b.amount)&&b.receivedAmount>b.amount)return '입금액은 총 예약금액 이하의 0원 이상 정수로 입력해 주세요.';
  return confirming&&b.amount>0&&b.receivedAmount===0?'예약금 입금액을 입력하고 확인해 주세요. 잔금이 있어도 예약을 확정할 수 있습니다.':'';
 }
 function paymentSummary(b){const p=paymentState(b);return '<span>총 예약금액 <strong>'+money(b.amount)+'</strong></span><span>예약금·입금액 <strong>'+money(p.received)+'</strong></span><span>남은 잔금 <strong>'+money(p.balance)+'</strong></span>';}
+function depositFields(b,prefix,locked=false){
+ return '<div class="booking-payment-entry"><label class="admin-label" for="'+prefix+'_requestedDepositAmount">안내할 예약금 (원)</label><input class="admin-input" id="'+prefix+'_requestedDepositAmount" data-message-field="requestedDepositAmount" type="number" min="1" max="100000000" step="1" inputmode="numeric" placeholder="고객과 협의한 예약금" value="'+(Number.isInteger(b.requestedDepositAmount)?b.requestedDepositAmount:'')+'" '+(locked?'disabled':'')+'/><p class="micro">입금 안내 문자에 표시할 금액입니다. 실제 입금액은 입금 확인 후 별도로 기록해 주세요.</p></div>';
+}
+function receiptMoney(b){
+ const p=paymentState(b),deposit=Number.isSafeInteger(b.requestedDepositAmount)?b.requestedDepositAmount:null;
+ const lines=['총 예약금액: '+money(b.amount)];
+ if(deposit!==null){
+  lines.push('예약금: '+money(deposit),'잔금 (예약금 입금 후): '+money(Number.isSafeInteger(b.amount)?b.amount-deposit:null));
+  if(p.received!==null)lines.push('입금 확인액: '+money(p.received),'현재 남은 금액: '+money(p.balance));
+ }else if(p.received>0){
+  lines.push('예약금·입금 확인액: '+money(p.received),'남은 잔금: '+money(p.balance));
+ }else lines.push('예약금: 담당자와 협의 후 안내','잔금: 예약금 확정 후 안내');
+ return lines;
+}
 function fullPaymentError(b){return !Number.isSafeInteger(b.amount)||b.amount<0||b.amount>100000000?'총 예약금액을 먼저 입력해 주세요.':A?.problem(b)||'';}
 function applyFullPayment(b){const problem=fullPaymentError(b);if(problem)return problem;b.receivedAmount=b.amount;b.paymentConfirmed=true;return '';}
 function paymentFields(b,prefix,locked=false){
@@ -152,9 +176,9 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
- const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])]].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
+ const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
- if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
+ if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,depositNotice,(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
  if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
  if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
  if(stage==='thanks'){
@@ -175,5 +199,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,depositFields,receiptMoney,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();

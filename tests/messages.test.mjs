@@ -38,7 +38,7 @@ test('message layout groups schedule, purchases and money while preserving saved
   assert.ok(body.indexOf('장소:')<body.indexOf('상품:'));
   assert.ok(body.indexOf('추가 구매:')<body.indexOf('총 예약금액:'));
   assert.match(body,/상세 주소 101호\n\n상품:/);
-  assert.match(body,/꽃다발 추가 · 2다발 · 60,000원\n\n총 예약금액: 450,000원\n입금 확인액: 90,000원\n남은 잔금: 360,000원/);
+  assert.ok(body.includes('꽃다발 추가 · 2다발 · 60,000원\n\n총 예약금액: 450,000원\n'+(stage==='receipt'?'예약금·입금 확인액: ':'입금 확인액: ')+'90,000원\n남은 잔금: 360,000원'));
   assert.ok(body.includes(b.extra));assert.equal(M.prepareDrafts(r,{[stage]:body})[stage],body);
   for(const ua of ['Android','iPhone'])assert.equal(decodeURIComponent(M.smsURI(r.phone,body,ua).split('body=')[1]),body);
  }
