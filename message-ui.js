@@ -43,7 +43,7 @@ function reset(){item=null;booking={};drafts={};paymentDeadline='';prepared=fals
 function regenerate(){drafts=Object.fromEntries(Object.keys(M.stages).map(s=>[s,M.templateOnly(s)&&drafts[s]!==undefined?drafts[s]:M.generate(record(),s,booking,paymentDeadline)]));}
 function init(r,request,onUpdate,settings={}){
  api=request;updated=onUpdate;productSettings=settings;
- if(item?.id!==r.id){reset();item=r;resetSelection();booking=M.defaults(r,settings);paymentDeadline=r.communication?.paymentDeadline||M.paymentDeadlineFrom();stage='receipt';regenerate();if(['date','time','amount','place'].every(k=>r.communication?.booking?.[k]===booking[k]))drafts=M.prepareDrafts(r,{...drafts,...r.communication?.drafts},paymentDeadline);for(const key of ['intent','payment_reminder']){if(r.communication?.drafts?.[key]!==undefined&&(key!=='payment_reminder'||r.communication.paymentReminderFor===r.awaiting_payment_at))drafts[key]=r.communication.drafts[key];}}
+ if(item?.id!==r.id){reset();item=r;resetSelection();booking=M.defaults(r,settings);paymentDeadline=r.communication?.paymentDeadline||M.paymentDeadlineFrom();stage='receipt';regenerate();if(['date','time','amount','place'].every(k=>r.communication?.booking?.[k]===booking[k]))drafts=M.prepareDrafts(r,{...drafts,...r.communication?.drafts},paymentDeadline,booking);for(const key of ['intent','payment_reminder']){if(r.communication?.drafts?.[key]!==undefined&&(key!=='payment_reminder'||r.communication.paymentReminderFor===r.awaiting_payment_at))drafts[key]=r.communication.drafts[key];}}
  else item=r;
  if(canChangeProduct()&&(r.product_id||r.snapshot?.product?.id)&&!catalog&&!catalogError&&!catalogLoading)void loadProducts();
  if(O.eligible(r)){booking.opsPax??=2;O.load(api).then(()=>{if(item?.id===r.id){const el=document.getElementById("messageOpsFields");if(el)el.innerHTML=O.fields(record(),booking,"msg",pending);const extras=document.getElementById('messageAddOns');if(extras&&!changed)extras.innerHTML=A?.html(booking,'msg_addon',pending||!!item.integration&&!editableAddOns())||'';}}); }
@@ -130,6 +130,7 @@ document.addEventListener('input',ev=>{
  }
  const key=ev.target.dataset.messageField;if(!key)return;
  booking[key]=ev.target.type==='checkbox'?ev.target.checked:['amount','receivedAmount','requestedDepositAmount','opsPax'].includes(key)?(ev.target.value===''?null:Number(ev.target.value)):ev.target.value;
+ if(key==='useDeposit'){if(!booking.useDeposit)booking.requestedDepositAmount=null;M.paintDeposit(root(),booking);}
  if(key==='amount'){booking.amountMode='manual';booking.baseAmount=booking.amount;A.recalculate(booking);}
  if(key==='date'&&item.integration)booking.amountMode='manual';
  if(key==='date'&&booking.amountMode==='auto'){
