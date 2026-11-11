@@ -15,8 +15,14 @@ export async function readOpsConsultationStatuses(request,db,env){
  if(!timingSafeEqual(expected,Buffer.from(sig,'hex')))fail(401,'OPS_AUTH_REQUIRED','연동 인증을 확인해 주세요.');
  let value;try{value=JSON.parse(raw);}catch{fail(400,'JSON','요청을 확인해 주세요.');}
  const {bookingIds}=parse(z.object({bookingIds:z.array(z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/)).min(1).max(100)}).strict(),value);
- const rows=(await db.query(`SELECT j.external_id AS id,c.status,c.updated_at AS "updatedAt",j.state AS "syncState"
+ const rows=(await db.query(`SELECT j.external_id AS id,c.status,c.communication,c.updated_at AS "updatedAt",j.state AS "syncState"
   FROM moment_link.consultations c JOIN moment_link.integration_jobs j ON j.consultation_id=c.id
   WHERE j.target='boatn' AND j.external_id=ANY($1::text[]) AND c.deleted_at IS NULL AND c.expires_at>now()`,[[...new Set(bookingIds)]])).rows;
- return {items:rows,checkedAt:new Date().toISOString()};
+ const items=rows.map(({communication,...item})=>{
+  if(item.syncState!=='succeeded'||item.status!=='confirmed')return item;
+  const b=communication?.booking,key=[b?.date||'',b?.time||''].join('T');
+  const notice=communication?.boardingNotice;
+  return notice?.bookingKey===key&&notice.bookingId===item.id&&/^[a-f0-9]{64}$/.test(notice.context)&&Number.isFinite(Date.parse(notice.at))&&typeof notice.by==='string'?{...item,boardingNotice:{status:'manual_confirmed',at:notice.at,by:notice.by.slice(0,120),context:notice.context}}:item;
+ });
+ return {items,checkedAt:new Date().toISOString()};
 }

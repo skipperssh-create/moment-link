@@ -290,14 +290,17 @@ test('private guidance persists with version checks, accurate manual logs, expir
   assert.match(prepared.drafts.receipt,/고객별 추가 안내/);assert.doesNotMatch(prepared.drafts.receipt,/2시간 이내|행사/);
   assert.ok(prepared.drafts.receipt.includes(M.paymentDeadlineLabel(deadline)));
   assert.deepEqual((await req('admin/consultations/'+r.id,'GET',undefined,auth)).data.item.communication,prepared);
-  out=await req(path,'PUT',{version,booking,drafts:prepared.drafts,prepareStage:'confirmed'},auth);assert.equal(out.status,200);version=out.data.item.version;
+  // A yacht confirmation now requires the confirmed, linked OPS invitation.
+  // The other private stages retain their existing no-dispatch behavior.
+  assert.equal((await req(path,'PUT',{version,booking,drafts:prepared.drafts,prepareStage:'confirmed'},auth)).status,409);
+  out=await req(path,'PUT',{version,booking,drafts:{...prepared.drafts,reminder:M.generate(r,'reminder',booking)},prepareStage:'reminder'},auth);assert.equal(out.status,200);version=out.data.item.version;
   assert.equal(out.data.item.communication.paymentDeadline,deadline);
   assert.equal(out.data.item.communication.drafts.receipt,prepared.drafts.receipt);
-  const event={version,stage:'confirmed',kind:'composer_requested',eventId:randomUUID()};
+  const event={version,stage:'reminder',kind:'composer_requested',eventId:randomUUID()};
   out=await req(path,'POST',event,auth);assert.equal(out.status,200);version=out.data.item.version;
   assert.deepEqual(out.data.item.communication.events.map(e=>e.kind),['composer_requested']);
   assert.equal((await req(path,'POST',event,auth)).data.item.communication.events.length,1);
-  out=await req(path,'POST',{version,stage:'confirmed',kind:'manual_sent',eventId:randomUUID()},auth);assert.equal(out.status,200);version=out.data.item.version;
+  out=await req(path,'POST',{version,stage:'reminder',kind:'manual_sent',eventId:randomUUID()},auth);assert.equal(out.status,200);version=out.data.item.version;
   assert.equal(out.data.item.communication.events.at(-1).kind,'manual_sent');assert.equal(out.data.item.status,'new');
   out=await req(path,'PUT',{version,booking:{...booking,paymentConfirmed:false},drafts},auth);version=out.data.item.version;
   assert.equal((await req(path,'POST',{version,stage:'confirmed',kind:'composer_requested',eventId:randomUUID()},auth)).status,400);
