@@ -17,7 +17,16 @@ const remainingPaymentNotice='남은 금액을 입금해 주시면 담당자의 
 const paidNotice='전액 입금이 확인되었습니다. 담당자의 일정 확인 후 예약 확정 안내를 드립니다.';
 const depositNotice='예약금만 입금하셔도 담당자의 입금·일정 확인 후 예약이 확정됩니다. 잔금은 안내받은 일정에 맞춰 입금해 주세요.';
 const eventWording=value=>value.replace(/행사장/g,'이벤트 장소').replace(/행사/g,'이벤트');
-const videoSubmissionNotice='자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.';
+const videoSubmissionNotice='자료는 이벤트 7일 전까지 보내 주세요.';
+const videoShortNotice='이벤트까지 7일 이내인 예약은 자료를 보내기 전에 담당자와 자료 전달 일정 및 제작 가능 여부를 반드시 협의해 주세요.';
+const videoRevisionNotice='영상편지 수정은 오타에 한해 가능합니다. 보내기 전에 사진과 편지 내용을 꼼꼼히 확인해 주세요.';
+function videoTiming(b,now=Date.now()){
+ const today=new Date(Number(new Date(now))+9*3600000).toISOString().slice(0,10);
+ const days=dateOK(b?.date)?(Date.parse(b.date)-Date.parse(today))/86400000:null;
+ if(days!==null&&days<=7)return [videoShortNotice,videoRevisionNotice].join('\n');
+ const deadline=days!==null?new Date(Date.parse(b.date)-7*86400000).toISOString().slice(0,10):'';
+ return [deadline?'제출 기한: '+deadline+' (이벤트 7일 전까지)':videoSubmissionNotice,videoShortNotice,videoRevisionNotice].join('\n');
+}
 function paymentDeadlineFrom(now=Date.now()){return new Date(Number(new Date(now))+2*60*60*1000).toISOString();}
 function paymentDeadlineLabel(value){
  const ms=Date.parse(value);if(!Number.isFinite(ms))return '';
@@ -36,7 +45,7 @@ function arrangeReservationSummary(text){
   return [[values['이벤트 일정'],values['장소']],[values['상품'],values['추가 선택'],values['추가 구매']],[values['금액'].replace(/^금액:/,'총 예약금액:'),values['입금 확인액'],values['남은 잔금']]].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  }).join('\n\n');
 }
-function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking){
+function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Date.now()){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
   let text=eventWording(body).replace(/\r\n/g,'\n').replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
   const phone=String(r.phone||'').replace(/[\s-]/g,'');
@@ -64,7 +73,14 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking){
    text=text.split(/\n\n/).filter(block=>!notices.includes(block)).join('\n\n');
    if(text.includes('입금 안내\n'+bank))text=text.replace('입금 안내\n'+bank,'입금 안내\n'+bank+'\n\n'+receiptNotice(basis||{}));
   }
-  if(r.category==='yacht')text=text.replace(' (이벤트 7일 전까지)',' (이벤트 7일 이전까지)').replace('기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.',videoSubmissionNotice);
+  if(['receipt','confirmed'].includes(stage)&&hasVideo(r)&&booking){
+   // Refresh only the known generated video policy; preserve custom notes and sent history.
+   text=text.split('\n\n').map(block=>{
+    if(!block.startsWith('영상편지 준비\n')||!block.includes('메일 제목: 이벤트 날짜 / 시간 / 성함'))return block;
+    const oldLines=new Set([videoSubmissionNotice,videoShortNotice,videoRevisionNotice,'자료 전달·제작 일정은 담당자와 확인해 주세요.','자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.','기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.']);
+    return block.split('\n').filter(line=>!oldLines.has(line)&&!/^제출 기한: (?:\d{4}-\d{2}-\d{2}|이벤트 7일 이전) \(이벤트 7일 (?:전|이전)까지\)$/.test(line)).join('\n').replace('메일 제목: 이벤트 날짜 / 시간 / 성함','메일 제목: 이벤트 날짜 / 시간 / 성함\n'+videoTiming(booking,now));
+   }).join('\n\n');
+  }
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
    text=old.test(text)?text.replace(old,paymentLine(deadline)):text+'\n\n'+paymentLine(deadline);
@@ -173,15 +189,14 @@ function validate(stage,b,r){
  return '';
 }
 function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\s*편지/.test(x))||(r.snapshot?.options||[]).some(x=>['video-letter','video-letter-usb'].includes(x.id));}
-function videoGuide(r,b){
+function videoGuide(r,b,now){
  if(!hasVideo(r))return '';
- const deadline=dateOK(b.date)?new Date(Date.parse(b.date)-7*86400000).toISOString().slice(0,10):'';
- return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 '+receivingEmail+'으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+(r.category==='yacht'?'제출 기한: '+(deadline||'이벤트 7일 이전')+' (이벤트 7일 이전까지)\n'+videoSubmissionNotice:'자료 전달·제작 일정은 담당자와 확인해 주세요.');
+ return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 '+receivingEmail+'으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+videoTiming(b,now);
 }
-function preparation(r,b,short=false){
+function preparation(r,b,short=false,now){
  switch(r.category){
- case 'yacht':return [b.place.includes('한국해양대학교')?'오시는 길\n'+P.yachtRoute:'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.','비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.',short?'':videoGuide(r,b)].filter(Boolean).join('\n\n');
- case 'visit':return ['장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·이벤트 장소의 설치 허용 여부도 미리 확인 부탁드립니다.',short?'':videoGuide(r,b)].filter(Boolean).join('\n\n');
+ case 'yacht':return [b.place.includes('한국해양대학교')?'오시는 길\n'+P.yachtRoute:'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.','비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.',short?'':videoGuide(r,b,now)].filter(Boolean).join('\n\n');
+ case 'visit':return ['장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·이벤트 장소의 설치 허용 여부도 미리 확인 부탁드립니다.',short?'':videoGuide(r,b,now)].filter(Boolean).join('\n\n');
  case 'trunk':{
   const visit=/부산|출장/.test(r.snapshot?.package?.name||'');
   return [visit?'부산 출장 진행입니다. 차량 종류, 정확한 주차 위치와 현장 출입 방법을 담당자에게 알려 주세요. 트렁크의 짐은 미리 비워 주세요.':'해운대 사무실 방문 진행입니다. 안내받은 주소로 차량과 함께 방문해 주세요. 차량 종류를 미리 알려 주시고 트렁크의 짐은 비워 주세요.',
@@ -192,7 +207,7 @@ function preparation(r,b,short=false){
  default:return '';
  }
 }
-function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
+function generate(r,stage,b,deadline=r.communication?.paymentDeadline,now=Date.now()){
  if(stage==='intent')return reservationIntent();
  if(stage==='payment_reminder')return paymentReminder(r);
  const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
@@ -200,14 +215,14 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline){
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
  const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
- if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b)];
- if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
- if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
+ if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b,false,now)];
+ if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b,false,now),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
+ if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true,now),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
  if(stage==='thanks'){
   const question={yacht:'요트에서의 시간과 진행은 어떠셨나요?',visit:'준비해 드린 장식과 이벤트 진행은 어떠셨나요?',trunk:'트렁크 이벤트와 장식은 어떠셨나요?',heli:'헬기에서의 특별한 순간과 진행은 어떠셨나요?'}[r.category]||'이벤트 진행은 어떠셨나요?';
   parts=[`[모먼트링크 · 감사 인사]\n${r.person}님, ${b.date} 소중한 순간을 함께할 수 있어 감사했습니다.`,question+'\n좋았던 점이나 아쉬웠던 점을 편하게 회신해 주세요. 불편한 점이 있었다면 담당자가 확인하고 연락드리겠습니다.', '촬영 결과물 전달 일정은 선택하신 구성에 따라 담당자에게 문의해 주세요. 두 분의 행복한 앞날을 응원합니다.'];
  }
- return prepareDrafts(r,{[stage]:[...parts,b.extra,contact].filter(Boolean).join('\n\n')},deadline,b)[stage];
+ return prepareDrafts(r,{[stage]:[...parts,b.extra,contact].filter(Boolean).join('\n\n')},deadline,b,now)[stage];
 }
 function reservationIntent(){
  return '안녕하세요, 모먼트링크입니다.\n안내드린 문자 확인 부탁드립니다.\n\n예약을 원하지 않으시면 답장으로 알려 주세요. 회신해 주시면 이후 예약 관련 리마인드 문자가 발송되지 않도록 처리하겠습니다.\n\n감사합니다.';

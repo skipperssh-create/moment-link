@@ -17,6 +17,7 @@ import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf,SESSION_SECONDS} from './security.mjs';
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration,dispatchIntegrations,opsAdapter} from './jobs.mjs';
+import {pushDeviceStatus,testDevicePush} from './push-device.mjs';
 import {changeTrash,emptyTrash} from './trash.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
@@ -295,13 +296,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(prior.role==='admin'&&(!d.active||d.role!=='admin')){const n=await tx.query("SELECT count(*)::int AS n FROM moment_link.admin_users WHERE active=true AND role='admin'");if(n.rows[0].n<=1)fail(409,'LAST_ADMIN','최소 한 명의 관리자가 필요합니다.');}
     await tx.query('UPDATE moment_link.admin_users SET role=$1,active=$2 WHERE id=$3',[d.role,d.active,id]);await tx.query('DELETE FROM moment_link.sessions WHERE user_id=$1',[id]);await audit(tx,user.id,'user.updated',id,d);return {ok:true};}));
   }
+  if(path==='/api/admin/push'&&method==='GET'){authorize(user,true);return json(await pushDeviceStatus(db,user,env,url.searchParams.get('endpointHash')));}
+  if(path==='/api/admin/push/test'&&method==='POST'){authorize(user,true);const d=parse(z.object({endpointHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),await body(request));return json(await testDevicePush(db,user,env,d.endpointHash,adapters));}
   if(path==='/api/admin/push'&&method==='POST'){
    authorize(user,true);
    const d=parse(z.object({endpoint:z.string().url().max(2000),expirationTime:z.number().nullable().optional(),keys:z.object({p256dh:z.string().max(150),auth:z.string().max(100)}).strict()}).strict(),await body(request));
    const host=new URL(d.endpoint).hostname;if(!['fcm.googleapis.com','updates.push.services.mozilla.com','web.push.apple.com'].some(h=>host===h||host.endsWith('.'+h))||new URL(d.endpoint).protocol!=='https:')fail(400,'PUSH_ENDPOINT','지원하지 않는 푸시 주소입니다.');
    await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);return json({ok:true});
   }
-  if(path==='/api/admin/push'&&method==='DELETE'){await db.query('UPDATE moment_link.push_subscriptions SET active=false WHERE user_id=$1',[user.id]);return json({ok:true});}
+  if(path==='/api/admin/push'&&method==='DELETE'){authorize(user,true);const d=parse(z.object({endpointHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),await body(request));await db.query('UPDATE moment_link.push_subscriptions SET active=false WHERE user_id=$1 AND endpoint_hash=$2',[user.id,d.endpointHash]);return json({ok:true});}
   if(path==='/api/admin/jobs'&&method==='GET'){authorize(user,true);return json({notifications:(await db.query('SELECT id,channel,state,attempts,error_code,created_at FROM moment_link.outbox ORDER BY created_at DESC LIMIT 50')).rows,integrations:(await db.query("SELECT id,consultation_id,target,state,attempts,external_id,error_code,created_at,booking->>'operation' AS operation FROM moment_link.integration_jobs ORDER BY created_at DESC LIMIT 50")).rows});}
   if(path==='/api/admin/jobs/run'&&method==='POST'){authorize(user,true);await rateLimit(db,'jobs:'+user.id,10,60);const d=parse(z.object({kind:z.enum(['notification','integration']),id:z.string().uuid()}).strict(),await body(request));return json(await (d.kind==='notification'?processOutbox(db,d.id,env,adapters):processIntegration(db,d.id,env,adapters)));}
   fail(404,'NOT_FOUND','요청한 기능을 찾을 수 없습니다.');

@@ -66,3 +66,10 @@ test('notifications use brand assets and generic content; clicks reopen the corr
   await w.dispatch('push',{data:{json:()=>{throw Error('Malformed payload');}}});
   assert.equal(w.notifications[2].options.data.url,'/#admin');
 });
+
+
+test('background notification requests sound and vibration and identifies device-only tests',async()=>{
+ const w=worker();await w.dispatch('push',{data:{json:()=>({type:'device-test',url:'/#admin'})}});
+ assert.equal(w.notifications[0].title,'모먼트링크 테스트 알림');assert.equal(w.notifications[0].options.silent,false);
+ assert.deepEqual(Array.from(w.notifications[0].options.vibrate),[200,100,200]);assert.equal(w.notifications[0].options.data.url,'/#admin');
+});

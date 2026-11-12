@@ -93,7 +93,7 @@ test('all four stages cover every category and preserve quoted facts',()=>{
 test('video instructions depend on included content or selected video option',()=>{
  assert.match(M.generate(sample(),'confirmed',booking),/2099-10-25/);
  assert.doesNotMatch(M.generate(sample('visit'),'confirmed',booking),/사진 약 30장/);
- assert.match(M.generate(sample('visit','all'),'confirmed',booking),/자료 전달·제작 일정/);
+ assert.match(M.generate(sample('visit','all'),'confirmed',booking),/담당자와 자료 전달 일정 및 제작 가능 여부/);
  assert.match(M.generate(sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}]),'confirmed',booking),/영상편지 준비/);
  assert.doesNotMatch(M.generate(sample('docked'),'confirmed',booking),/사진 약 30장/);
 });
@@ -319,4 +319,24 @@ test('private guidance persists with version checks, accurate manual logs, expir
   assert.equal((await req(path,'PUT',{version,booking,drafts},auth)).status,404);await purgeExpired(db);
   assert.equal((await db.query('SELECT count(*)::int AS n FROM moment_link.consultations WHERE id=$1',[r.id])).rows[0].n,0);
  }finally{await pg.close();}
+});
+
+
+test('video material deadlines use Korean dates, include seven-day reservations and preserve staff notes',()=>{
+ const now=Date.parse('2026-11-12T15:00:00Z'); // November 13 in Korea.
+ for(const r of [sample(),sample('visit','all'),sample('visit','light',[{id:'video-letter',name:'영상편지',amount:30000}])]){
+  for(const stage of ['receipt','confirmed']){
+   const far=M.generate(r,stage,{...booking,date:'2026-11-21'},undefined,now);
+   assert.match(far,/제출 기한: 2026-11-14/);assert.match(far,/수정은 오타에 한해 가능합니다/);
+   for(const date of ['2026-11-20','2026-11-19','2026-11-13']){
+    const near=M.generate(r,stage,{...booking,date},undefined,now);
+    assert.match(near,/이벤트까지 7일 이내인 예약은.*반드시 협의/);assert.doesNotMatch(near,/제출 기한:/);
+   }
+  }
+ }
+ const r=sample('visit','all'),b={...booking,date:'2026-11-14'},legacy={confirmed:'영상편지 준비\n사진 약 30장과 편지글 약 300자를 seolvidmoa@gmail.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n자료 전달·제작 일정은 담당자와 확인해 주세요.\n담당자 협의 메모 유지'};
+ const updated=M.prepareDrafts(r,legacy,undefined,b,now);
+ assert.match(updated.confirmed,/수정은 오타에 한해 가능합니다/);assert.match(updated.confirmed,/담당자 협의 메모 유지/);assert.doesNotMatch(updated.confirmed,/제출 기한:/);
+ assert.deepEqual(M.prepareDrafts(r,updated,undefined,b,now),updated);assert.doesNotMatch(legacy.confirmed,/수정은 오타/);
+ assert.doesNotMatch(M.generate(sample('visit','light'),'confirmed',b,undefined,now),/영상편지 준비|오타에 한해/);
 });
