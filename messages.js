@@ -17,15 +17,15 @@ const remainingPaymentNotice='남은 금액을 입금해 주시면 담당자의 
 const paidNotice='전액 입금이 확인되었습니다. 담당자의 일정 확인 후 예약 확정 안내를 드립니다.';
 const depositNotice='예약금만 입금하셔도 담당자의 입금·일정 확인 후 예약이 확정됩니다. 잔금은 안내받은 일정에 맞춰 입금해 주세요.';
 const eventWording=value=>value.replace(/행사장/g,'이벤트 장소').replace(/행사/g,'이벤트');
-const videoSubmissionNotice='자료는 이벤트 7일 전까지 보내 주세요.';
+const videoSubmissionNotice='기한: 7일 전까지 (오타에 한해 수정 가능합니다)';
 const videoShortNotice='이벤트까지 7일 이내인 예약은 자료를 보내기 전에 담당자와 자료 전달 일정 및 제작 가능 여부를 반드시 협의해 주세요.';
 const videoRevisionNotice='영상편지 수정은 오타에 한해 가능합니다. 보내기 전에 사진과 편지 내용을 꼼꼼히 확인해 주세요.';
 function videoTiming(b,now=Date.now()){
  const today=new Date(Number(new Date(now))+9*3600000).toISOString().slice(0,10);
  const days=dateOK(b?.date)?(Date.parse(b.date)-Date.parse(today))/86400000:null;
- if(days!==null&&days<=7)return [videoShortNotice,videoRevisionNotice].join('\n');
+ if(days!==null&&days<=7)return ['기한: 담당자와 협의 (이벤트까지 7일 이내)',videoShortNotice,videoRevisionNotice].join('\n');
  const deadline=days!==null?new Date(Date.parse(b.date)-7*86400000).toISOString().slice(0,10):'';
- return [deadline?'제출 기한: '+deadline+' (이벤트 7일 전까지)':videoSubmissionNotice,videoShortNotice,videoRevisionNotice].join('\n');
+ return [videoSubmissionNotice,deadline?'제출 기한: '+deadline+' (이벤트 7일 전까지)':'',videoShortNotice].filter(Boolean).join('\n');
 }
 function paymentDeadlineFrom(now=Date.now()){return new Date(Number(new Date(now))+2*60*60*1000).toISOString();}
 function paymentDeadlineLabel(value){
@@ -47,7 +47,7 @@ function arrangeReservationSummary(text){
 }
 function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Date.now()){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
-  let text=eventWording(body).replace(/\r\n/g,'\n').replace(/(?<![a-z0-9._%+-])boatn@naver\.com(?![a-z0-9.-])/gi,receivingEmail);
+  let text=eventWording(body).replace(/\r\n/g,'\n');
   const phone=String(r.phone||'').replace(/[\s-]/g,'');
   if(['receipt','confirmed','reminder'].includes(stage)&&/^01[016789]\d{7,8}$/.test(phone)){
    const line='고객 연락처: '+phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/,'$1-$2-$3');
@@ -76,9 +76,12 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
   if(['receipt','confirmed'].includes(stage)&&hasVideo(r)&&booking){
    // Refresh only the known generated video policy; preserve custom notes and sent history.
    text=text.split('\n\n').map(block=>{
-    if(!block.startsWith('영상편지 준비\n')||!block.includes('메일 제목: 이벤트 날짜 / 시간 / 성함'))return block;
-    const oldLines=new Set([videoSubmissionNotice,videoShortNotice,videoRevisionNotice,'자료 전달·제작 일정은 담당자와 확인해 주세요.','자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.','기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.']);
-    return block.split('\n').filter(line=>!oldLines.has(line)&&!/^제출 기한: (?:\d{4}-\d{2}-\d{2}|이벤트 7일 이전) \(이벤트 7일 (?:전|이전)까지\)$/.test(line)).join('\n').replace('메일 제목: 이벤트 날짜 / 시간 / 성함','메일 제목: 이벤트 날짜 / 시간 / 성함\n'+videoTiming(booking,now));
+    const legacy=block.startsWith('영상편지 준비\n')&&block.includes('메일 제목: 이벤트 날짜 / 시간 / 성함');
+    const current=block.startsWith(videoHeading+'\n')&&block.includes(videoFileName);
+    if(!legacy&&!current)return block;
+    const oldLines=new Set([videoSubmissionNotice,videoShortNotice,videoRevisionNotice,videoHeading,videoFileName,...videoFields,'보내실 곳: boatn@naver.com','보내실 곳: seolvidmoa@gmail.com','영상편지 준비','메일 제목: 이벤트 날짜 / 시간 / 성함','자료는 이벤트 7일 전까지 보내 주세요.','기한: 담당자와 협의 (이벤트까지 7일 이내)','자료 전달·제작 일정은 담당자와 확인해 주세요.','자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.','기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.']);
+    const notes=block.split('\n').filter(line=>!oldLines.has(line)&&!/^사진 약 30장과 편지글 약 300자를 (?:seolvidmoa@gmail\.com|boatn@naver\.com)으로 보내 주세요\.$/i.test(line)&&!/^제출 기한: (?:\d{4}-\d{2}-\d{2}|이벤트 7일 이전) \(이벤트 7일 (?:전|이전)까지\)$/.test(line));
+    return [videoGuide(r,booking,now),...notes].join('\n');
    }).join('\n\n');
   }
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
@@ -189,9 +192,12 @@ function validate(stage,b,r){
  return '';
 }
 function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\s*편지/.test(x))||(r.snapshot?.options||[]).some(x=>['video-letter','video-letter-usb'].includes(x.id));}
+const videoHeading='⭐️⭐️고객님 준비사항 ⭐️⭐️';
+const videoFileName='파일명 & 메일 제목: 날짜(26-00-00)_장소_성함';
+const videoFields=['1. 영상편지용 사진과 편지',videoFileName,'사진: 25~30장','사진 순서: 1.jpg, 2.jpg… (번호가 없으면 순서는 랜덤입니다)','편지: A4 용지 1/3 분량 (약 300자가 가장 적당합니다)','보내실 곳: '+receivingEmail];
 function videoGuide(r,b,now){
  if(!hasVideo(r))return '';
- return '영상편지 준비\n사진 약 30장과 편지글 약 300자를 '+receivingEmail+'으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n'+videoTiming(b,now);
+ return [videoHeading,...videoFields,videoTiming(b,now)].join('\n');
 }
 function preparation(r,b,short=false,now){
  switch(r.category){
