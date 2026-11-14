@@ -2,7 +2,7 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 
 const titles={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
-export const GUIDE_VARIANTS=Object.keys(titles).flatMap(category=>(category==='trunk'?['office','visit']:['office']).flatMap(mode=>[false,true].map(video=>({category,mode,video,file:`guide/${category}${category==='trunk'&&mode==='visit'?'-visit':''}${video?'-video':''}-v1.html`}))));
+export const GUIDE_VARIANTS=Object.keys(titles).flatMap(category=>(category==='yacht'?[false,true]:[false]).flatMap(docked=>(category==='trunk'?['office','visit']:['office']).flatMap(mode=>[false,true].map(video=>({category,docked,mode,video,file:`guide/${category}${docked?'-docked':''}${category==='trunk'&&mode==='visit'?'-visit':''}${video?'-video':''}-v1.html`})))));
 
 // The controlled v1 template has no nested sections or nested data-mode divs.
 // Remove unrelated markup at build time, so no script, preview or loading state can show it.
@@ -21,8 +21,10 @@ export async function customerGuidePages(){
   let html=filterBlocks(template,'data-for',value=>value.split(' ').includes(v.category));
   html=filterBlocks(html,'data-video',()=>v.video);
   html=filterBlocks(html,'data-mode',value=>v.category==='trunk'&&value===v.mode);
-  const title=titles[v.category]+(v.category==='trunk'?(v.mode==='visit'?' · 출장':' · 사무실 방문'):'');
-  html=html.replaceAll('{{title}}',title);
+  html=filterBlocks(html,'data-sailing',()=>v.category==='yacht'&&!v.docked);
+  html=filterBlocks(html,'data-docked',()=>v.docked);
+  const title=titles[v.category]+(v.docked?' · 미출항':v.category==='trunk'?(v.mode==='visit'?' · 출장':' · 사무실 방문'):'');
+  html=html.replaceAll('{{title}}',title).replaceAll('{{yachtPreparation}}',v.docked?'정박 이용 준비':'승선 전 준비');
   return [v.file,html];
  }));
 }

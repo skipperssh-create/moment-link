@@ -57,17 +57,22 @@ test('v1 template retains supplied refund, directions, pickup and video policies
 
 test('each published page contains only its booking category and selected preparation, even without JavaScript',()=>{
  const labels={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
- assert.equal(Object.keys(pages).length,10);
+ assert.equal(Object.keys(pages).length,12);
  for(const v of GUIDE_VARIANTS){
   const body=pages[v.file],r=row(v.category,v.video);
+  if(v.docked)r.snapshot.product.id='docked';
   if(v.category==='trunk'&&v.mode==='visit')r.snapshot.package.name='부산 출장';
   assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file);
   assert.match(body,new RegExp('<h1>'+labels[v.category]));
-  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video/);
+  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|\{\{/);
   for(const category of Object.keys(labels))assert.equal(body.includes('id="'+category+'"'),category===v.category);
   for(const [category,label] of Object.entries(labels))if(category!==v.category)assert.ok(!body.includes(label),v.file+' has '+label);
   assert.equal(body.includes('id="refund"'),['yacht','visit'].includes(v.category));
   assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video);
+  if(v.category==='yacht'){
+   assert.equal(body.includes('출항 없이 정박된 요트'),v.docked);
+   for(const text of ['기상·운항 안내','승선신고·보딩패스','한국해양대학교에서 출항하는 경우'])assert.equal(body.includes(text),!v.docked);
+  }
   if(v.category==='trunk'){
    assert.equal(body.includes('해운대 사무실'),v.mode==='office');
    assert.equal(body.includes('부산 출장'),v.mode==='visit');
@@ -83,7 +88,7 @@ function redirect(query){
  return destinations;
 }
 test('previously sent v1 links open exactly the matching static page without a whole-catalog fallback',()=>{
- for(const v of GUIDE_VARIANTS){
+ for(const v of GUIDE_VARIANTS.filter(v=>!v.docked)){
   const query='?v=1&t='+v.category+(v.video?'&video=1':'')+(v.mode==='visit'?'&mode=visit':'');
   assert.deepEqual(redirect(query),['/'+v.file]);
  }
@@ -100,4 +105,7 @@ test('saved generated guide links upgrade to the booking selection without chang
  }
  const draft={confirmed:'https://link.teamboatn.com/guide.html?v=2&t=yacht\nhttps://external.example/guide.html?v=1&t=visit'};
  assert.deepEqual(M.prepareDrafts(row(),draft,undefined,b),draft);
+ const docked={...row(),product_id:'docked'},old={confirmed:'담당자 메모\nhttps://link.teamboatn.com/guide/yacht-video-v1.html'};
+ const corrected=M.prepareDrafts(docked,old,undefined,b);
+ assert.equal(corrected.confirmed,'담당자 메모\nhttps://link.teamboatn.com/guide/yacht-docked-video-v1.html');assert.deepEqual(M.prepareDrafts(docked,corrected,undefined,b),corrected);
 });
