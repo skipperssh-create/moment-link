@@ -48,6 +48,7 @@ function arrangeReservationSummary(text){
 function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Date.now()){
  return Object.fromEntries(Object.entries(drafts).map(([stage,body])=>{
   let text=eventWording(body).replace(/\r\n/g,'\n');
+  let detailsMoved=false;
   const phone=String(r.phone||'').replace(/[\s-]/g,'');
   if(['receipt','confirmed','reminder'].includes(stage)&&/^01[016789]\d{7,8}$/.test(phone)){
    const line='고객 연락처: '+phone.replace(/^(\d{3})(\d{3,4})(\d{4})$/,'$1-$2-$3');
@@ -81,12 +82,23 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
     if(!legacy&&!current)return block;
     const oldLines=new Set([videoSubmissionNotice,videoShortNotice,videoRevisionNotice,videoHeading,videoFileName,...videoFields,'보내실 곳: boatn@naver.com','보내실 곳: seolvidmoa@gmail.com','영상편지 준비','메일 제목: 이벤트 날짜 / 시간 / 성함','자료는 이벤트 7일 전까지 보내 주세요.','기한: 담당자와 협의 (이벤트까지 7일 이내)','자료 전달·제작 일정은 담당자와 확인해 주세요.','자료는 이벤트 7일 이전까지 보내 주세요. 제출 기한이 지난 경우 영상 제작 가능 여부를 먼저 확인해 주세요.','기한 내 자료가 도착하지 않으면 영상 제작이 어렵습니다. 이벤트까지 7일 미만이면 제작 가능 여부를 먼저 확인해 주세요.']);
     const notes=block.split('\n').filter(line=>!oldLines.has(line)&&!/^사진 약 30장과 편지글 약 300자를 (?:seolvidmoa@gmail\.com|boatn@naver\.com)으로 보내 주세요\.$/i.test(line)&&!/^제출 기한: (?:\d{4}-\d{2}-\d{2}|이벤트 7일 이전) \(이벤트 7일 (?:전|이전)까지\)$/.test(line));
-    return [videoGuide(r,booking,now),...notes].join('\n');
+    detailsMoved=true;
+    return [videoBrief(booking,now),...notes].join('\n');
    }).join('\n\n');
   }
   if((r.category==='yacht'||r.status==='awaiting_payment')&&stage==='receipt'){
    const old=/이 안내를 받은 후 2시간 이내 입금 부탁드립니다\.|입금 기한: [^\n]*?(?:까지 입금 부탁드립니다\.|문자 준비 시 2시간 뒤로 계산됩니다\.)/;
    text=old.test(text)?text.replace(old,paymentLine(deadline)):text+'\n\n'+paymentLine(deadline);
+  }
+  if(['receipt','confirmed','reminder'].includes(stage)){
+   // Match complete generated paragraphs only. Staff additions and boarding-pass blocks stay intact.
+   const known=[refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''),'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.',...(booking?legacyPreparation(r,booking).split('\n\n'):[])].filter(Boolean);
+   text=text.split('\n\n').map(block=>{
+    for(const detail of known)if(block===detail||block.startsWith(detail+'\n')){detailsMoved=true;return block.slice(detail.length).trimStart();}
+    return block;
+   }).filter(Boolean).join('\n\n');
+   if(hasVideo(r)&&booking)text=text.replace(/^영상자료: (?:제출 기한 \d{4}-\d{2}-\d{2} \(7일 전\)|7일 전까지 제출|7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의)\.$/gm,videoBrief(booking,now));
+   if(detailsMoved&&!text.includes('https://link.teamboatn.com/guide.html?'))text+='\n\n'+guideBlock(r,stage);
   }
   return [stage,text];
  }));
@@ -195,14 +207,21 @@ function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\
 const videoHeading='⭐️⭐️고객님 준비사항 ⭐️⭐️';
 const videoFileName='파일명 & 메일 제목: 날짜(26-00-00)_장소_성함';
 const videoFields=['1. 영상편지용 사진과 편지',videoFileName,'사진: 25~30장','사진 순서: 1.jpg, 2.jpg… (번호가 없으면 순서는 랜덤입니다)','편지: A4 용지 1/3 분량 (약 300자가 가장 적당합니다)','보내실 곳: '+receivingEmail];
-function videoGuide(r,b,now){
- if(!hasVideo(r))return '';
- return [videoHeading,...videoFields,videoTiming(b,now)].join('\n');
+function guideURL(r){
+ const category=['yacht','visit','trunk','heli'].includes(r.category)?r.category:'all';
+ return 'https://link.teamboatn.com/guide.html?v=1&t='+category+(hasVideo(r)?'&video=1':'')+(category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'&mode=visit':'');
 }
-function preparation(r,b,short=false,now){
+function guideBlock(r,stage){
+ return [stage==='receipt'&&['yacht','visit'].includes(r.category)?'입금 전 취소·환불 규정을 확인해 주세요.':'','상세 안내 · '+(['yacht','visit'].includes(r.category)?'환불·':'')+'준비사항',guideURL(r)].filter(Boolean).join('\n');
+}
+function videoBrief(b,now=Date.now()){
+ const timing=videoTiming(b,now),deadline=/제출 기한: (\d{4}-\d{2}-\d{2})/.exec(timing)?.[1];
+ return '영상자료: '+(timing.startsWith('기한: 담당자와 협의')?'7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의':deadline?'제출 기한 '+deadline+' (7일 전)':'7일 전까지 제출')+'.';
+}
+function legacyPreparation(r,b){
  switch(r.category){
- case 'yacht':return [b.place.includes('한국해양대학교')?'오시는 길\n'+P.yachtRoute:'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.','비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.',short?'':videoGuide(r,b,now)].filter(Boolean).join('\n\n');
- case 'visit':return ['장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·이벤트 장소의 설치 허용 여부도 미리 확인 부탁드립니다.',short?'':videoGuide(r,b,now)].filter(Boolean).join('\n\n');
+ case 'yacht':return [String(b.place||'').includes('한국해양대학교')?'오시는 길\n'+P.yachtRoute:'승선 장소와 주차 안내는 확정된 주소를 확인해 주세요.','비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.'].join('\n\n');
+ case 'visit':return '장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·이벤트 장소의 설치 허용 여부도 미리 확인 부탁드립니다.';
  case 'trunk':{
   const visit=/부산|출장/.test(r.snapshot?.package?.name||'');
   return [visit?'부산 출장 진행입니다. 차량 종류, 정확한 주차 위치와 현장 출입 방법을 담당자에게 알려 주세요. 트렁크의 짐은 미리 비워 주세요.':'해운대 사무실 방문 진행입니다. 안내받은 주소로 차량과 함께 방문해 주세요. 차량 종류를 미리 알려 주시고 트렁크의 짐은 비워 주세요.',
@@ -221,9 +240,10 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline,now=Date.n
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
  const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
- if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline)+' 입금 후 회신해 주시면 담당자가 입금·일정을 확인하고 예약 확정 안내를 드립니다.':'입금 후 회신 부탁드립니다. 담당자가 입금·일정을 확인한 후 예약 확정 안내를 드립니다.',['yacht','visit'].includes(r.category)?'100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.\n\n'+refunds+(r.category==='yacht'?'\n날짜 변경은 1회 가능합니다.':''):'',preparation(r,b,false,now)];
- if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,preparation(r,b,false,now),'변경 사항이나 요청이 있으시면 이 번호로 회신해 주세요.'];
- if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,preparation(r,b,true,now),'도착 또는 일정 변경이 필요하시면 담당자에게 연락해 주세요. 소중한 순간을 위해 정성껏 준비하겠습니다.'];
+ const details=[hasVideo(r)?videoBrief(b,now):'',guideBlock(r,stage)].filter(Boolean).join('\n\n');
+ if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline):'','입금 후 회신 부탁드립니다.',details];
+ if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,details];
+ if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,details,'도착 또는 일정 변경 시 담당자에게 연락해 주세요.'];
  if(stage==='thanks'){
   const question={yacht:'요트에서의 시간과 진행은 어떠셨나요?',visit:'준비해 드린 장식과 이벤트 진행은 어떠셨나요?',trunk:'트렁크 이벤트와 장식은 어떠셨나요?',heli:'헬기에서의 특별한 순간과 진행은 어떠셨나요?'}[r.category]||'이벤트 진행은 어떠셨나요?';
   parts=[`[모먼트링크 · 감사 인사]\n${r.person}님, ${b.date} 소중한 순간을 함께할 수 있어 감사했습니다.`,question+'\n좋았던 점이나 아쉬웠던 점을 편하게 회신해 주세요. 불편한 점이 있었다면 담당자가 확인하고 연락드리겠습니다.', '촬영 결과물 전달 일정은 선택하신 구성에 따라 담당자에게 문의해 주세요. 두 분의 행복한 앞날을 응원합니다.'];
@@ -242,5 +262,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,depositFields,paintDeposit,depositEnabled,receiptMoney,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,depositFields,paintDeposit,depositEnabled,receiptMoney,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,guideURL,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();

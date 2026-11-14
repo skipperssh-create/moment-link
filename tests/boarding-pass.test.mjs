@@ -23,6 +23,12 @@ test('combined confirmation uses current OPS invitation; manual acknowledgement 
   reply=await prepare();assert.equal(reply.status,200,JSON.stringify(reply.body));item=reply.body.item;
   assert.match(item.communication.drafts.confirmed,/기존 예약 확정 문구/);assert.match(item.communication.drafts.confirmed,/승선신고·보딩패스/);assert.ok(item.communication.drafts.confirmed.includes(invitation.url));
   reply=await prepare();assert.equal(reply.status,200);item=reply.body.item;assert.equal(item.communication.drafts.confirmed.split(invitation.url).length,2);
+  const originalBooking=structuredClone(item.communication.booking);
+  reply=await call('PUT',{version:item.version,booking:b,drafts:{confirmed:MomentLinkMessages.generate(item,'confirmed',b)},prepareStage:'confirmed'});
+  assert.equal(reply.status,200,JSON.stringify(reply.body));item=reply.body.item;
+  assert.match(item.communication.drafts.confirmed,/guide\.html\?v=1&t=yacht/);assert.ok(item.communication.drafts.confirmed.includes(invitation.url));
+  for(const text of ['440,000원','90,000원','350,000원','2099-11-21 20:00'])assert.ok(item.communication.drafts.confirmed.includes(text));
+  assert.ok(item.communication.drafts.confirmed.length<700);assert.deepEqual(item.communication.booking,originalBooking);assert.equal(await jobSnapshot(),before);
   reply=await call('POST',event('composer_requested'));assert.equal(reply.status,200);item=reply.body.item;assert.equal(item.communication.events.at(-1).boardingNotice,undefined);
   async function status(){const p='/api/integrations/boatn/consultation-statuses',raw=JSON.stringify({bookingIds:['synthetic-boarding']}),at=String(Date.now()),sig=createHmac('sha256',hash(env.OPS_BOATN_TOKEN)).update(['boatn-to-moment-v1',at,'POST',p,raw].join('\n')).digest('hex');return (await (await app(new Request(env.APP_ORIGIN+p,{method:'POST',headers:{'X-BOATN-Timestamp':at,'X-BOATN-Signature':sig},body:raw}))).json()).items[0];}
   assert.equal((await status()).boardingNotice,undefined);
