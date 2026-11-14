@@ -85,16 +85,16 @@ test('all four stages cover every category and preserve quoted facts',()=>{
  }
  assert.equal(M.defaults(sample()).time,'');assert.equal(M.defaults({...sample(),preferences:[{date:'2026-11-03',time:'오후'}]}).amount,390000);
  assert.equal(M.defaults(sample('trunk')).amount,219000);
- assert.match(M.generate(sample('trunk'),'reminder',booking),/guide\.html\?v=1&t=trunk/);
- assert.match(M.generate(sample('trunk','busan'),'reminder',booking),/&mode=visit/);
- assert.match(M.generate(sample('heli'),'reminder',booking),/guide\.html\?v=1&t=heli/);
+ assert.match(M.generate(sample('trunk'),'reminder',booking),/guide\/trunk-v1\.html/);
+ assert.match(M.generate(sample('trunk','busan'),'reminder',booking),/trunk-visit-v1\.html/);
+ assert.match(M.generate(sample('heli'),'reminder',booking),/guide\/heli-v1\.html/);
  assert.doesNotMatch(M.generate(sample('heli'),'confirmed',booking),/사진: 25~30장|영상편지용 사진과 편지/);
 });
 test('video instructions depend on included content or selected video option',()=>{
  assert.match(M.generate(sample(),'confirmed',booking),/2099-10-25/);
  assert.doesNotMatch(M.generate(sample('visit'),'confirmed',booking),/사진: 25~30장/);
  assert.match(M.generate(sample('visit','all'),'confirmed',booking),/영상자료: 제출 기한/);
- assert.match(M.generate(sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}]),'confirmed',booking),/&video=1/);
+ assert.match(M.generate(sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}]),'confirmed',booking),/-video-v1\.html/);
  assert.doesNotMatch(M.generate(sample('docked'),'confirmed',booking),/사진: 25~30장/);
 });
 test('linked video preparation keeps unrelated addresses, notes and previously saved text intact',()=>{
@@ -102,17 +102,17 @@ test('linked video preparation keeps unrelated addresses, notes and previously s
  for(const r of [sample(),sample('classic','all'),sample('visit','all'),sample('visit','light',[{id:'video-letter-usb',name:'영상편지 USB',amount:40000}])]){
   for(const stage of ['receipt','confirmed']){
    const body=M.generate(r,stage,booking,undefined,now);
-   assert.match(body,/영상자료: 제출 기한 2099-10-25/);assert.match(body,/&video=1/);
+   assert.match(body,/영상자료: 제출 기한 2099-10-25/);assert.match(body,/-video-v1\.html/);
    assert.doesNotMatch(body,/사진 순서|파일명 & 메일 제목|25~30장|boatn@naver/);
   }
  }
  const saved={confirmed:'영상편지 준비\n사진 약 30장과 편지글 약 300자를 seolvidmoa@gmail.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n자료 전달·제작 일정은 담당자와 확인해 주세요.\n담당 메모 유지\n\n다른 업무 주소: seolvidmoa@gmail.com\n고객: customer@example.com',thanks:'다른 주소 xboatn@naver.com / boatn@naver.com.example'};
  const prepared=M.prepareDrafts(sample(),saved,undefined,booking,now);
- assert.match(prepared.confirmed,/guide\.html\?v=1&t=yacht&video=1/);
+ assert.match(prepared.confirmed,/guide\/yacht-video-v1\.html/);
  assert.match(prepared.confirmed,/다른 업무 주소: seolvidmoa@gmail\.com/);assert.match(prepared.confirmed,/담당 메모 유지/);assert.match(prepared.confirmed,/고객: customer@example\.com/);
  assert.equal(prepared.thanks,saved.thanks);assert.match(saved.confirmed,/사진 약 30장/);assert.deepEqual(M.prepareDrafts(sample(),prepared,undefined,booking,now),prepared);
  const near=M.prepareDrafts(sample(),prepared,undefined,{...booking,date:'2026-11-13'},now).confirmed;
- assert.match(near,/7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의/);assert.doesNotMatch(near,/제출 기한:/);assert.equal(near.match(/guide\.html/g).length,1);
+ assert.match(near,/7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의/);assert.doesNotMatch(near,/제출 기한:/);assert.equal(near.match(/\/guide\//g).length,1);
 });
 
 test('unsafe or incomplete preparation cannot open a confirmation composer',()=>{
@@ -331,7 +331,7 @@ test('video material deadlines use Korean dates, include seven-day reservations 
  for(const r of [sample(),sample('visit','all'),sample('visit','light',[{id:'video-letter',name:'영상편지',amount:30000}])]){
   for(const stage of ['receipt','confirmed']){
    const far=M.generate(r,stage,{...booking,date:'2026-11-21'},undefined,now);
-   assert.match(far,/영상자료: 제출 기한 2026-11-14/);assert.match(far,/&video=1/);
+   assert.match(far,/영상자료: 제출 기한 2026-11-14/);assert.match(far,/-video-v1\.html/);
    for(const date of ['2026-11-20','2026-11-19','2026-11-13']){
     const near=M.generate(r,stage,{...booking,date},undefined,now);
     assert.match(near,/7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의/);assert.doesNotMatch(near,/제출 기한:/);
@@ -340,7 +340,7 @@ test('video material deadlines use Korean dates, include seven-day reservations 
  }
  const r=sample('visit','all'),b={...booking,date:'2026-11-14'},legacy={confirmed:'영상편지 준비\n사진 약 30장과 편지글 약 300자를 seolvidmoa@gmail.com으로 보내 주세요.\n메일 제목: 이벤트 날짜 / 시간 / 성함\n자료 전달·제작 일정은 담당자와 확인해 주세요.\n담당자 협의 메모 유지'};
  const updated=M.prepareDrafts(r,legacy,undefined,b,now);
- assert.match(updated.confirmed,/&video=1/);assert.match(updated.confirmed,/담당자 협의 메모 유지/);assert.doesNotMatch(updated.confirmed,/제출 기한:/);
+ assert.match(updated.confirmed,/-video-v1\.html/);assert.match(updated.confirmed,/담당자 협의 메모 유지/);assert.doesNotMatch(updated.confirmed,/제출 기한:/);
  assert.deepEqual(M.prepareDrafts(r,updated,undefined,b,now),updated);assert.doesNotMatch(legacy.confirmed,/수정은 오타/);
  assert.doesNotMatch(M.generate(sample('visit','light'),'confirmed',b,undefined,now),/영상편지용 사진과 편지|오타에 한해/);
 });

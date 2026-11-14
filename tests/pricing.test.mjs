@@ -91,7 +91,7 @@ test('defaults fill amount and yacht address while preserving manual quotes and 
 test('all financial messages keep the calculated amount and address, link directions, and reject stale auto quotes',()=>{
  const r=sample(),b={...M.defaults(r),date:'2026-12-24',amount:470000,receivedAmount:90000,scheduleConfirmed:true,paymentConfirmed:true};
  assert.equal(M.validate('confirmed',b,r),'');
- for(const stage of ['receipt','confirmed','reminder']){const message=M.generate(r,stage,b);assert.match(message,/470,000원/);assert.match(message,/태종로 727/);assert.match(message,/https:\/\/link\.teamboatn\.com\/guide\.html\?v=1&t=yacht/);assert.doesNotMatch(message,/정문 진입 → 해안도로/);}
+ for(const stage of ['receipt','confirmed','reminder']){const message=M.generate(r,stage,b);assert.match(message,/470,000원/);assert.match(message,/태종로 727/);assert.match(message,/https:\/\/link\.teamboatn\.com\/guide\/yacht(?:-video)?-v1\.html/);assert.doesNotMatch(message,/정문 진입 → 해안도로/);}
  assert.match(M.validate('receipt',{...b,amount:420000},r),/자동 금액/);
  assert.equal(M.validate('receipt',{...b,amount:415000,amountMode:'manual'},r),'');
 });

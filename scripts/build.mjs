@@ -4,6 +4,7 @@ import { brotliDecompressSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_ICON_FILES, writeAppIcons } from './app-icons.mjs';
+import { writeCustomerGuides } from './customer-guides.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const allowed = ['index.html','app.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml','guide.html','guide.css','guide.js'];
 const binaryAllowed = ['assets/moment-new-consultation.mp3'];
@@ -31,4 +32,5 @@ for (const name of allowed) {
 }
 await writeAppIcons(path.join(out,'assets'),files['assets/icon.svg']);
 for(const [i,name] of binaryAllowed.entries())await writeFile(path.join(out,name),binaries[i]);
-console.log('Built '+(allowed.length+binaryAllowed.length+APP_ICON_FILES.length)+' public files. Server code, credentials and reports remain outside the static output.');
+const guideCount=await writeCustomerGuides(out);
+console.log('Built '+(allowed.length+binaryAllowed.length+APP_ICON_FILES.length+guideCount)+' public files. Server code, credentials and reports remain outside the static output.');

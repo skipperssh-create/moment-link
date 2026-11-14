@@ -98,7 +98,9 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
     return block;
    }).filter(Boolean).join('\n\n');
    if(hasVideo(r)&&booking)text=text.replace(/^영상자료: (?:제출 기한 \d{4}-\d{2}-\d{2} \(7일 전\)|7일 전까지 제출|7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의)\.$/gm,videoBrief(booking,now));
-   if(detailsMoved&&!text.includes('https://link.teamboatn.com/guide.html?'))text+='\n\n'+guideBlock(r,stage);
+   // Upgrade only generated v1 URLs; preserve custom URLs and immutable future versions.
+   text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\.html\?v=1&t=(?:yacht|visit|trunk|heli|all)(?:&(?:video=1|mode=visit))*(?=\s|$)/g,()=>guideURL(r));
+   if(detailsMoved&&!/https:\/\/link\.teamboatn\.com\/(?:guide\.html(?:\?|\s|$)|guide\/)/.test(text))text+='\n\n'+guideBlock(r,stage);
   }
   return [stage,text];
  }));
@@ -208,8 +210,8 @@ const videoHeading='⭐️⭐️고객님 준비사항 ⭐️⭐️';
 const videoFileName='파일명 & 메일 제목: 날짜(26-00-00)_장소_성함';
 const videoFields=['1. 영상편지용 사진과 편지',videoFileName,'사진: 25~30장','사진 순서: 1.jpg, 2.jpg… (번호가 없으면 순서는 랜덤입니다)','편지: A4 용지 1/3 분량 (약 300자가 가장 적당합니다)','보내실 곳: '+receivingEmail];
 function guideURL(r){
- const category=['yacht','visit','trunk','heli'].includes(r.category)?r.category:'all';
- return 'https://link.teamboatn.com/guide.html?v=1&t='+category+(hasVideo(r)?'&video=1':'')+(category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'&mode=visit':'');
+ if(!['yacht','visit','trunk','heli'].includes(r.category))return 'https://link.teamboatn.com/guide.html';
+ return 'https://link.teamboatn.com/guide/'+r.category+(r.category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'-visit':'')+(hasVideo(r)?'-video':'')+'-v1.html';
 }
 function guideBlock(r,stage){
  return [stage==='receipt'&&['yacht','visit'].includes(r.category)?'입금 전 취소·환불 규정을 확인해 주세요.':'','상세 안내 · '+(['yacht','visit'].includes(r.category)?'환불·':'')+'준비사항',guideURL(r)].filter(Boolean).join('\n');

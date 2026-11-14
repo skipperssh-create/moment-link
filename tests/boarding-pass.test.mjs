@@ -26,7 +26,7 @@ test('combined confirmation uses current OPS invitation; manual acknowledgement 
   const originalBooking=structuredClone(item.communication.booking);
   reply=await call('PUT',{version:item.version,booking:b,drafts:{confirmed:MomentLinkMessages.generate(item,'confirmed',b)},prepareStage:'confirmed'});
   assert.equal(reply.status,200,JSON.stringify(reply.body));item=reply.body.item;
-  assert.match(item.communication.drafts.confirmed,/guide\.html\?v=1&t=yacht/);assert.ok(item.communication.drafts.confirmed.includes(invitation.url));
+  assert.match(item.communication.drafts.confirmed,/guide\/yacht(?:-video)?-v1\.html/);assert.ok(item.communication.drafts.confirmed.includes(invitation.url));
   for(const text of ['440,000원','90,000원','350,000원','2099-11-21 20:00'])assert.ok(item.communication.drafts.confirmed.includes(text));
   assert.ok(item.communication.drafts.confirmed.length<700);assert.deepEqual(item.communication.booking,originalBooking);assert.equal(await jobSnapshot(),before);
   reply=await call('POST',event('composer_requested'));assert.equal(reply.status,200);item=reply.body.item;assert.equal(item.communication.events.at(-1).boardingNotice,undefined);

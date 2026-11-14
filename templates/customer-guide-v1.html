@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#f7f8fa">
+  <title>{{title}} 예약 안내 | MOMENT LINK</title>
+  <meta name="description" content="{{title}} 예약 고객을 위한 이용 준비사항과 예약 안내">
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/guide.css">
+</head>
+<body>
+  <header class="site-header"><a href="/" aria-label="모먼트링크 홈">MOMENT LINK</a><a class="contact-link" href="tel:01080098047">담당자 문의 ↗</a></header>
+  <main>
+    <div class="intro"><p class="eyebrow">고객 안내</p><h1>{{title}}<br>예약 안내</h1><p>일정·장소·상품·결제 금액은 받으신 문자에서 확인해 주세요.</p></div>
+    <div id="guideContent">
+      <nav aria-label="상세 안내 바로가기"><a href="#refund" data-for="yacht visit">취소·환불</a><a href="#yacht" data-for="yacht">승선 준비</a><a href="#visit" data-for="visit">설치 준비</a><a href="#trunk" data-for="trunk">세팅·수거</a><a href="#heli" data-for="heli">탑승 준비</a><a href="#video" data-video>영상편지</a></nav>
+      <section class="card" id="refund" data-for="yacht visit">
+        <p class="eyebrow">입금 전 확인</p><h2>취소·환불 규정</h2>
+        <p>100% 예약제로 운영하며, 예약 확정 시 해당 시간대의 다른 예약이 제한됩니다. 신중한 결정 부탁드립니다.</p>
+        <table><caption>이벤트 예정일 기준</caption><thead><tr><th scope="col">취소 시점</th><th scope="col">환불 비율</th></tr></thead><tbody><tr><th scope="row">45~31일 전</th><td>90%</td></tr><tr><th scope="row">30~16일 전</th><td>80%</td></tr><tr><th scope="row">15~11일 전</th><td>70%</td></tr><tr><th scope="row">10~7일 전</th><td>60%</td></tr><tr><th scope="row">6~2일 전</th><td>50%</td></tr><tr><th scope="row">1일 전·당일</th><td>환불 불가</td></tr></tbody></table>
+        <p data-for="yacht"><strong>요트 날짜 변경은 1회 가능합니다.</strong></p>
+        <p class="muted">변경 또는 취소가 필요하면 담당자에게 연락해 주세요.</p>
+      </section>
+      <section class="card" id="yacht" data-for="yacht">
+        <p class="eyebrow">요트 프로포즈</p><h2>승선 전 준비</h2>
+        <p>승선 장소와 주차 안내는 문자에 적힌 확정 주소를 확인해 주세요.</p>
+        <h3>한국해양대학교에서 출항하는 경우</h3><p>정문 진입 → 해안도로 → 요트면허시험장 앞 주차장. 도착 후 대기해 주세요.</p>
+        <p class="muted">다른 승선 장소로 안내받으셨다면 문자에 적힌 장소로 방문해 주세요.</p>
+        <h3>기상·운항 안내</h3><p>비만 오는 경우 정상 운항할 수 있으나, 기상·해상 상황에 따라 운항 여부와 일정이 달라질 수 있습니다. 변경 시 담당자가 연락드립니다.</p>
+        <h3>승선신고·보딩패스</h3><p>예약 확정 문자에서 승선신고·보딩패스 링크를 안내받으셨다면, 해당 개별 링크에서 탑승자 정보를 작성해 주세요. 필수 안내 확인과 승선신고 작성 후 보딩패스를 확인할 수 있습니다.</p>
+      </section>
+      <section class="card" id="visit" data-for="visit">
+        <p class="eyebrow">출장 프로포즈</p><h2>설치 전 준비</h2>
+        <p>장식 설치 시간과 장소 출입 방법을 담당자와 확인해 주세요. 숙소·이벤트 장소의 설치 허용 여부도 미리 확인 부탁드립니다.</p>
+      </section>
+      <section class="card" id="trunk" data-for="trunk">
+        <p class="eyebrow">트렁크 프로포즈</p><h2>차량 준비·수거 안내</h2>
+        <div data-mode="office"><h3>해운대 사무실 방문</h3><p>안내받은 주소로 차량과 함께 방문해 주세요. 차량 종류를 미리 알려 주시고 트렁크의 짐은 비워 주세요.</p></div>
+        <div data-mode="visit"><h3>부산 출장</h3><p>차량 종류, 정확한 주차 위치와 현장 출입 방법을 담당자에게 알려 주세요. 트렁크의 짐은 미리 비워 주세요.</p></div>
+        <h3>수거·반납</h3><ul><li><strong>당일 수거:</strong> 세팅 완료 후 2시간 대기한 뒤 수거합니다.</li><li data-mode="office"><strong>다음 날 반납:</strong> 오전 11시 이전까지 해운대 사무실로 차량과 함께 방문하시면 수거합니다.</li><li data-mode="visit"><strong>다음 날 수거:</strong> 오전 11시 이전 고객님이 원하시는 출장 위치로 다시 방문해 수거합니다.</li></ul>
+        <p>수거 방법과 시간은 예약 시 담당자와 정해 주세요.</p><p class="callout">약속한 수거·반납 시간을 초과하면 <strong>1시간당 30,000원</strong>의 추가 요금이 발생합니다.</p><p class="muted">취소·변경 조건은 담당자에게 확인해 주세요.</p>
+      </section>
+      <section class="card" id="heli" data-for="heli">
+        <p class="eyebrow">헬기 프로포즈</p><h2>탑승 전 준비</h2><p>헬기는 주간에만 운항하며 기상 상황에 따라 시간·장소가 변경될 수 있습니다. 최종 탑승 장소와 시간을 담당자에게 확인해 주세요. 편지 낭독 준비와 촬영 구성은 선택하신 패키지에 맞춰 안내드립니다.</p><p class="muted">취소·변경 조건은 담당자에게 확인해 주세요.</p>
+      </section>
+      <section class="card" id="video" data-video>
+        <p class="eyebrow">고객님 준비사항</p><h2>영상편지용 사진과 편지</h2><p class="muted">영상편지가 포함된 상품 또는 영상편지를 추가 선택하신 경우에 해당합니다.</p>
+        <dl><div><dt>파일명 &amp; 메일 제목</dt><dd>날짜(26-00-00)_장소_성함</dd></div><div><dt>사진</dt><dd>25~30장</dd></div><div><dt>사진 순서</dt><dd>1.jpg, 2.jpg…<br><span class="muted">번호가 없으면 순서는 랜덤입니다.</span></dd></div><div><dt>편지</dt><dd>A4 용지 1/3 분량<br><span class="muted">약 300자가 가장 적당합니다.</span></dd></div><div><dt>보내실 곳</dt><dd><a href="mailto:seolvidmoa@gmail.com">seolvidmoa@gmail.com</a></dd></div><div><dt>기한</dt><dd><strong>이벤트 7일 전까지</strong><br><span class="muted">문자에 안내된 제출 기한을 확인해 주세요.</span></dd></div></dl>
+        <p class="callout"><strong>이벤트까지 7일 이내인 예약</strong><br>자료를 보내기 전에 담당자와 자료 전달 일정 및 제작 가능 여부를 반드시 협의해 주세요.</p>
+        <p><strong>영상편지 수정은 오타에 한해 가능합니다.</strong> 보내기 전에 사진과 편지 내용을 꼼꼼히 확인해 주세요.</p>
+        <a class="button" href="mailto:seolvidmoa@gmail.com">영상자료 이메일 보내기 ↗</a>
+      </section>
+      <p class="version">안내 버전 1 · 2026.11.14</p>
+    </div>
+    <footer><p>변경 사항이나 요청은 담당자에게 연락해 주세요.</p><div class="contact-actions"><a class="button primary" href="tel:01080098047">담당자 010-8009-8047</a><a class="button" href="tel:18338047">문의 1833-8047</a></div></footer>
+  </main>
+</body>
+</html>

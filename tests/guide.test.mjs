@@ -7,7 +7,10 @@ import '../booking-addons.js';
 import '../messages.js';
 import {attachBoardingMessage} from '../server/boarding-pass.mjs';
 const M=globalThis.MomentLinkMessages;
-const html=await readFile(new URL('../guide.html',import.meta.url),'utf8');
+import {GUIDE_VARIANTS,customerGuidePages} from '../scripts/customer-guides.mjs';
+const html=await readFile(new URL('../templates/customer-guide-v1.html',import.meta.url),'utf8');
+const pages=await customerGuidePages();
+const entry=await readFile(new URL('../guide.html',import.meta.url),'utf8');
 const script=await readFile(new URL('../guide.js',import.meta.url),'utf8');
 const b={date:'2099-11-21',time:'20:00',amount:540000,receivedAmount:90000,place:'부산광역시 합성 주소',extra:''};
 const row=(category='yacht',video=true)=>({person:'합성 고객',phone:'01000000000',category,status:'consulting',snapshot:{product:{name:'합성 상품'},package:{name:'올인원',features:video?['영상편지']:[]},options:[]}});
@@ -19,12 +22,12 @@ test('short messages preserve schedule, payment, address and phone while linking
   assert.doesNotMatch(body,/45~31일|A4 용지|사진 순서|정문 진입|기상·해상/);
   assert.ok(body.length<700,`${category}/${stage}: ${body.length}`);
   if(stage==='receipt')assert.equal(body.includes('예약금만 입금'),useDeposit);
-  const url=new URL(body.match(/https:\/\/link\.teamboatn\.com\/guide\.html\?\S+/)[0]);
-  assert.equal(url.origin,'https://link.teamboatn.com');assert.deepEqual([...url.searchParams.keys()],['v','t','video']);
-  assert.equal(url.searchParams.get('t'),category);assert.equal(url.searchParams.get('v'),'1');
+  const url=new URL(body.match(/https:\/\/link\.teamboatn\.com\/guide\/\S+/)[0]);
+  assert.equal(url.origin,'https://link.teamboatn.com');assert.equal(url.search,'');
+  assert.equal(url.pathname,'/guide/'+category+'-video-v1.html');assert.ok(pages[url.pathname.slice(1)]);
   assert.equal(decodeURIComponent(M.smsURI(r.phone,body,'Android').split('body=')[1]),body);
  }
- assert.equal(new URL(M.guideURL({...row('unknown'),person:'<script>'})).searchParams.get('t'),'all');
+ assert.equal(new URL(M.guideURL({...row('unknown'),person:'<script>'})).pathname,'/guide.html');
 });
 
 test('existing generated paragraphs migrate without discarding custom notes, edited terms, quotes or boarding links',()=>{
@@ -37,7 +40,7 @@ test('existing generated paragraphs migrate without discarding custom notes, edi
  assert.deepEqual(saved,before);assert.equal(drafts.confirmed,saved.body);
  for(const text of ['540,000원','직접 정한 상품','특약 문구 유지','제작자 메모 유지','고객이 직접 정한 일정 유지',saved.invitation.block])assert.ok(result.confirmed.includes(text),text);
  assert.doesNotMatch(result.confirmed,/45~31일|25~30장|boatn@naver/);
- assert.equal(result.confirmed.match(/guide\.html/g).length,1);assert.deepEqual(M.prepareDrafts(r,result,undefined,b),result);
+ assert.equal(result.confirmed.match(/\/guide\//g).length,1);assert.deepEqual(M.prepareDrafts(r,result,undefined,b),result);
  const rebuilt=attachBoardingMessage(result.confirmed,info,saved.invitation);
  assert.equal(rebuilt.body.match(/boarding\/synthetic-token/g).length,1);
  assert.notEqual(rebuilt.invitation.digest,saved.invitation.digest);
@@ -45,30 +48,56 @@ test('existing generated paragraphs migrate without discarding custom notes, edi
  assert.match(M.prepareDrafts(row('visit'),custom,undefined,b).receipt,/별도 합의/);
 });
 
-test('public page retains supplied refund, directions, pickup and video policies, including the corrected email',()=>{
+test('v1 template retains supplied refund, directions, pickup and video policies, including the corrected email',()=>{
  for(const text of ['45~31일 전','90%','30~16일 전','80%','15~11일 전','70%','10~7일 전','60%','6~2일 전','50%','1일 전·당일','환불 불가','날짜 변경은 1회','정문 진입 → 해안도로 → 요트면허시험장 앞 주차장','세팅 완료 후 2시간','오전 11시 이전','1시간당 30,000원','25~30장','1.jpg, 2.jpg…','A4 용지 1/3 분량','약 300자','날짜(26-00-00)_장소_성함','이벤트 7일 전까지','이벤트까지 7일 이내','자료 전달 일정 및 제작 가능 여부','수정은 오타에 한해','mailto:seolvidmoa@gmail.com'])assert.ok(html.includes(text),text);
  assert.doesNotMatch(html,/boatn@naver|01000000000|합성 고객|synthetic-token/);
  assert.doesNotMatch(script,/fetch\(|localStorage|sessionStorage|innerHTML|document\.write/);
  assert.match(html,/name="viewport"/);assert.match(html,/noindex, nofollow/);
 });
 
-function page(query){
- const elements=[...html.matchAll(/<(?:section|p|a|div|li)\b[^>]*data-(for|video|mode)(?:="([^"]*)")?[^>]*>/g)].map(m=>({source:m[0],hidden:false,dataset:{[m[1]]:m[2]||''}}));
- const ids={guideContent:{hidden:false},guideUnavailable:{hidden:true},guideCategory:{value:'all',addEventListener(type,fn){this.change=fn;}}};
- const document={getElementById:id=>ids[id],querySelectorAll:selector=>elements.filter(e=>Object.hasOwn(e.dataset,selector.slice(6,-1)))};
- vm.runInNewContext(script,{URLSearchParams,location:{search:query},document});
- return {ids,elements};
+test('each published page contains only its booking category and selected preparation, even without JavaScript',()=>{
+ const labels={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
+ assert.equal(Object.keys(pages).length,10);
+ for(const v of GUIDE_VARIANTS){
+  const body=pages[v.file],r=row(v.category,v.video);
+  if(v.category==='trunk'&&v.mode==='visit')r.snapshot.package.name='부산 출장';
+  assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file);
+  assert.match(body,new RegExp('<h1>'+labels[v.category]));
+  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video/);
+  for(const category of Object.keys(labels))assert.equal(body.includes('id="'+category+'"'),category===v.category);
+  for(const [category,label] of Object.entries(labels))if(category!==v.category)assert.ok(!body.includes(label),v.file+' has '+label);
+  assert.equal(body.includes('id="refund"'),['yacht','visit'].includes(v.category));
+  assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video);
+  if(v.category==='trunk'){
+   assert.equal(body.includes('해운대 사무실'),v.mode==='office');
+   assert.equal(body.includes('부산 출장'),v.mode==='visit');
+  }
+  for(const match of body.matchAll(/href="#([^"]+)"/g))assert.ok(body.includes('id="'+match[1]+'"'),v.file+' broken section link');
+ }
+ assert.doesNotMatch(entry,/<select|id="refund"|id="yacht"|id="visit"|id="trunk"|id="heli"|id="video"/);
+});
+
+function redirect(query){
+ const destinations=[];
+ vm.runInNewContext(script,{URLSearchParams,location:{search:query,replace:path=>destinations.push(path)}});
+ return destinations;
 }
-test('guide filtering accepts only known categories, hides unrelated policies and fails clearly for unknown versions',()=>{
- const yacht=page('?v=1&t=yacht&video=1');
- assert.equal(yacht.elements.find(e=>e.source.includes('id="refund"')).hidden,false);
- assert.equal(yacht.elements.find(e=>e.source.includes('id="visit"')).hidden,true);
- assert.equal(yacht.elements.find(e=>e.source.includes('id="video"')).hidden,false);
- const visit=page('?v=1&t=visit');assert.equal(visit.elements.find(e=>e.source.includes('id="video"')).hidden,true);
- const trunk=page('?v=1&t=trunk&mode=visit');
- assert.equal(trunk.elements.find(e=>e.source.includes('id="refund"')).hidden,true);
- for(const e of trunk.elements.filter(e=>e.dataset.mode))assert.equal(e.hidden,e.dataset.mode!=='visit');
- trunk.ids.guideCategory.value='all';trunk.ids.guideCategory.change();assert.ok(trunk.elements.every(e=>!e.hidden));
- const invalid=page('?v=500&t=yacht');assert.equal(invalid.ids.guideContent.hidden,true);assert.equal(invalid.ids.guideUnavailable.hidden,false);
- assert.equal(page('?t=%3Cscript%3E&phone=01000000000').ids.guideCategory.value,'all');
+test('previously sent v1 links open exactly the matching static page without a whole-catalog fallback',()=>{
+ for(const v of GUIDE_VARIANTS){
+  const query='?v=1&t='+v.category+(v.video?'&video=1':'')+(v.mode==='visit'?'&mode=visit':'');
+  assert.deepEqual(redirect(query),['/'+v.file]);
+ }
+ for(const query of ['', '?v=1', '?t=all', '?t=unknown', '?t=%3Cscript%3E', '?v=2&t=yacht', '?v=1&t=yacht&t=visit', '?t=yacht&video=1&video=0'])assert.deepEqual(redirect(query),[]);
+ assert.deepEqual(redirect('?t=visit&phone=01000000000&person=PRIVATE'),['/guide/visit-v1.html']);
+});
+
+test('saved generated guide links upgrade to the booking selection without changing notes or unrelated versions',()=>{
+ for(const category of ['yacht','visit','trunk','heli']){
+  const r=row(category,false),original={confirmed:'고객별 메모 유지\nhttps://link.teamboatn.com/guide.html?v=1&t=all\n별도 안내 유지'};
+  const updated=M.prepareDrafts(r,original,undefined,b);
+  assert.equal(updated.confirmed,'고객별 메모 유지\n'+M.guideURL(r)+'\n별도 안내 유지');
+  assert.deepEqual(M.prepareDrafts(r,updated,undefined,b),updated);assert.match(original.confirmed,/t=all/);
+ }
+ const draft={confirmed:'https://link.teamboatn.com/guide.html?v=2&t=yacht\nhttps://external.example/guide.html?v=1&t=visit'};
+ assert.deepEqual(M.prepareDrafts(row(),draft,undefined,b),draft);
 });
