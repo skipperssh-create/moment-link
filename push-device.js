@@ -15,7 +15,7 @@ window.MomentLinkPush=(api,onChange=()=>{})=>{
   notify({busy:true});
   try{const {sub,endpointHash}=await current(),server=await api('admin/push'+(endpointHash?'?endpointHash='+endpointHash:''));if(version!==revision)return;
    const ready=server.enabled&&server.configured&&server.registered&&!!sub&&Notification.permission==='granted';
-   const message=!server.enabled?'서버 새 상담 푸시가 꺼져 있습니다. 문자·알림 설정을 확인해 주세요.':!server.configured?'서버 푸시 연결을 확인해 주세요.':Notification.permission==='denied'?'휴대폰에서 알림이 차단되어 있습니다. 앱·브라우저 설정에서 알림을 허용한 뒤 다시 연결해 주세요.':ready?'백그라운드 알림 연결됨 · 테스트 알림으로 이 기기의 수신을 확인해 주세요.':'이 기기 알림 연결이 필요합니다. 알림 연결을 눌러 허용해 주세요.';
+   const message=!server.enabled?'서버 새 상담 푸시가 꺼져 있습니다. 문자·알림 설정을 확인해 주세요.':!server.configured?'서버 푸시 연결을 확인해 주세요.':Notification.permission==='denied'?'휴대폰에서 알림이 차단되어 있습니다. 앱·브라우저 설정에서 알림을 허용한 뒤 다시 연결해 주세요.':ready?(server.deliveryProblem?'알림 전송이 2회 실패했습니다. 알림 연결을 다시 눌러 주세요.':server.repeatRunning===false?'푸시 연결됨 · 반복 알림 서버 확인 중':'백그라운드 알림 연결됨 · 새 상담 확인 전까지 2분마다 반복'):'이 기기 알림 연결이 필요합니다. 알림 연결을 눌러 허용해 주세요.';
    notify({ready,message});
   }catch{if(version===revision)notify({ready:false,message:'알림 연결 상태를 확인하지 못했습니다. 다시 연결해 주세요.'});}
   finally{if(version===revision)notify({busy:false});}

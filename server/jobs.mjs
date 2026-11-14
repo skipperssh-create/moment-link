@@ -1,4 +1,5 @@
 import {processCollection} from './collections.mjs';
+import {dispatchConsultationAlerts} from './consultation-alerts.mjs';
 import {processAddOnChange} from './ops-addons.mjs';
 import {createHmac,randomBytes} from 'node:crypto';
 import webpush from 'web-push';
@@ -36,6 +37,13 @@ export async function processOutbox(db,id,env,adapters={}){
   const s=await settings(db),r=(await db.query('SELECT receipt,phone FROM moment_link.consultations WHERE id=$1',[job.consultation_id])).rows[0];
   if(!enabled(s,job,env)){await db.query("UPDATE moment_link.outbox SET state='blocked' WHERE id=$1",[id]);return {state:'blocked'};}
   if(job.channel==='push'){
+   const alert=(await db.query('SELECT consultation_id FROM moment_link.consultation_alerts WHERE consultation_id=$1',[job.consultation_id])).rows[0];
+   if(alert){
+    const result=await dispatchConsultationAlerts(db,env,adapters,job.consultation_id);
+    const state=result.failed?'failed':result.sent?'sent':'blocked';
+    await db.query("UPDATE moment_link.outbox SET state=$1,error_code=$2,updated_at=now() WHERE id=$3",[state,result.failed?'PUSH_DELIVERY_FAILED':result.sent?null:'PUSH_NO_PENDING_DELIVERY',id]);
+    return {state,meaning:result.sent?'provider_accepted':'not_sent'};
+   }
    if(!env.VAPID_PUBLIC_KEY||!env.VAPID_PRIVATE_KEY)throw Object.assign(new Error('unconfigured'),{code:'PUSH_UNCONFIGURED',safe:true});
    webpush.setVapidDetails(env.VAPID_SUBJECT||'mailto:admin@teamboatn.com',env.VAPID_PUBLIC_KEY,env.VAPID_PRIVATE_KEY);
    const subs=(await db.query(`SELECT s.* FROM moment_link.push_subscriptions s JOIN moment_link.admin_users u ON u.id=s.user_id WHERE s.active=true AND u.active=true AND u.role='admin'`)).rows;

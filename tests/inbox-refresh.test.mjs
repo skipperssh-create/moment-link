@@ -26,7 +26,7 @@ test('live counts require authentication, include unassigned work and ignore exp
   await add({expired:true,assigned:staffId});await add({trashed:true,assigned:staffId});
   const path=endpoint+'?since='+encodeURIComponent(baseline.data.checkedAt);
   const all=await req(path,auth);assert.equal(all.data.pending,55);assert.equal(all.data.arrivals,55);assert.ok(all.data.latestAt>baseline.data.checkedAt);assert.match(all.headers.get('cache-control'),/no-store/);
-  assert.deepEqual(Object.keys(all.data).sort(),['arrivals','checkedAt','latestAt','pending']);
+  assert.deepEqual(Object.keys(all.data).sort(),['alertLatestAt','alertPending','arrivals','checkedAt','latestAt','pending']);
   const scoped=await req(path,staff);assert.equal(scoped.data.pending,55);assert.equal(scoped.data.arrivals,55);
   assert.equal((await req(endpoint+'?since='+encodeURIComponent(all.data.checkedAt),auth)).data.arrivals,0);
   assert.equal((await req(endpoint+'?since=not-a-date',auth)).status,400);
@@ -42,7 +42,7 @@ async function browserHarness(){
  const context=vm.createContext({window:{MomentLinkSound:()=>({state:()=>({}),start(){sounds.push('start');},reset(){sounds.push('reset');},stop(){sounds.push('stop');},notify(){sounds.push('new');}}),MomentLinkComposer:composer,MomentLinkDirectBooking:()=>({close(){},isOpen:()=>false}),addEventListener:(n,fn)=>{listeners[n]=fn;},scrollTo(){},scrollBy(){}},document,location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,confirm:()=>false,
   setTimeout:(fn,delay)=>{const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),fetch:(url,options)=>new Promise((resolve,reject)=>{options.signal?.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')));requests.push({url,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data}),reject});})});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
- vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,startSound,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:(value={id:'synthetic',role:'admin'})=>user=value,getDetail:()=>detail};render=()=>{};`),context);
+ vm.runInContext(source.replace('window.MomentLinkAdmin={mount,clear};',`window.MomentLinkAdmin={mount,clear};window.test={live,acknowledgeOpenAlert,startSound,refreshLive,suspendLive,scheduleLive,showNewInquiries,clear,setDetail:x=>detail=x,setBusy:x=>busy=x,setDirty:x=>dirty=x,setFilters:()=>{search='합성';requestStatus='closed';offset=50;},setUser:(value={id:'synthetic',role:'admin'})=>user=value,getDetail:()=>detail};render=()=>{};`),context);
  const api=context.window.test;api.setUser();return {api,document,context,listeners,timers,requests,elements,sounds,composer};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -118,4 +118,22 @@ test('admin sound starts once after authentication and starts again after a fres
  h.api.setUser({id:'synthetic',role:'admin',mustChangePassword:true});h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,0);
  h.api.setUser();h.api.startSound();h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,1);
  h.api.clear();h.api.setUser();h.api.startSound();assert.equal(h.sounds.filter(x=>x==='start').length,2);
+});
+
+test('unread alerts repeat in foreground after two minutes and stop when the server reports acknowledgment',async()=>{
+ const h=await browserHarness();
+ const update=async pending=>{const running=h.api.refreshLive();h.requests.at(-1).resolve({checkedAt:new Date().toISOString(),pending,arrivals:0,alertPending:pending});await running;};
+ await update(1);assert.deepEqual(h.sounds,['new']);await update(1);assert.deepEqual(h.sounds,['new']);
+ h.api.live.lastSoundAt=Date.now()-120001;await update(1);assert.deepEqual(h.sounds,['new','new']);
+ h.api.live.lastSoundAt=Date.now()-120001;await update(0);assert.deepEqual(h.sounds,['new','new']);
+});
+
+test('only an authenticated visible detail acknowledges, without booking data, and failures stop after two attempts',async()=>{
+ const h=await browserHarness();await h.api.acknowledgeOpenAlert();assert.equal(h.requests.length,0);
+ h.api.setDetail({item:{id:'11111111-1111-4111-a111-111111111111'}});h.document.hidden=true;await h.api.acknowledgeOpenAlert();assert.equal(h.requests.length,0);
+ h.document.hidden=false;let running=h.api.acknowledgeOpenAlert();assert.match(h.requests[0].url,/acknowledge-alert$/);h.requests[0].resolve({ok:true});await running;
+ await h.api.acknowledgeOpenAlert();assert.equal(h.requests.length,1);
+ h.api.setDetail({item:{id:'22222222-2222-4222-a222-222222222222'}});
+ for(let i=0;i<2;i++){running=h.api.acknowledgeOpenAlert();h.requests.at(-1).resolve({message:'synthetic'},500);await running;}
+ await h.api.acknowledgeOpenAlert();assert.equal(h.requests.length,3);
 });

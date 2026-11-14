@@ -28,7 +28,7 @@ window.MomentLinkSound=(onChange=()=>{})=>{
   timer=setTimeout(()=>failCurrent('소리 재생이 지연되었습니다. 미리 듣기로 다시 확인해 주세요.'),8000);
   onChange();
   try{
-   player.currentTime=0;
+   player.currentTime=0;player.muted=false;player.volume=1;
    const attempt=player.play();
    attempt?.catch(err=>{if(id!==playId)return;if(err?.name==='NotAllowedError'||err?.message==='NotAllowedError'){
     stop();awaitingInteraction=true;unlocked=false;pendingNotice=enabled&&isNotice;error='소리 재생이 차단되었습니다. 화면을 한 번 누르면 다시 활성화합니다.';onChange();

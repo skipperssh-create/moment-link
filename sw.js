@@ -1,5 +1,5 @@
 /* Public shell only. No API, private pages, or remote photos are cached. */
-const CACHE='moment-link-shell-v124';
+const CACHE='moment-link-shell-v125';
 const FILES=['index.html','app.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','pwa.js','styles.css','guide.html','guide.css','guide.js','manifest.webmanifest','assets/moment-new-consultation.mp3','assets/icon.svg','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png','assets/apple-touch-icon.png','assets/notification-badge.png','assets/favicon-32.png'];
 const urls=FILES.map(p=>new URL(p,self.registration.scope).href);
 const rootURL=new URL('./',self.registration.scope).href;
@@ -10,5 +10,7 @@ self.addEventListener('fetch',e=>{
  const key=e.request.url===rootURL?new URL('index.html',self.registration.scope).href:e.request.url;
  e.respondWith(fetch(e.request).then(r=>{if(r.ok){const clone=r.clone();e.waitUntil(caches.open(CACHE).then(c=>c.put(key,clone)))}return r}).catch(()=>caches.match(key).then(r=>r||Response.error())));
 });
-self.addEventListener('push',event=>{let data={};try{data=event.data?.json()||{};}catch{}event.waitUntil(self.registration.showNotification(data.type==='device-test'?'모먼트링크 테스트 알림':'모먼트링크 새 상담',{body:data.type==='device-test'?'이 기기의 알림이 표시되었습니다. 소리·진동은 휴대폰 알림 설정을 따릅니다.':'접수함에서 신청 내용을 확인해 주세요.',silent:false,vibrate:[200,100,200],requireInteraction:true,tag:typeof data.tag==='string'?data.tag:'new-consultation',icon:'/assets/icon-192.png',badge:'/assets/notification-badge.png',data:{url:/^\/#admin\/request\/[a-f0-9-]{36}$/.test(data.url)?data.url:'/#admin'}}));});
+self.addEventListener('push',event=>{let data={};try{data=event.data?.json()||{};}catch{}event.waitUntil(self.registration.showNotification(data.type==='device-test'?'모먼트링크 테스트 알림':'모먼트링크 새 상담',{body:data.type==='device-test'?'이 기기의 알림이 표시되었습니다. 소리·진동은 휴대폰 알림 설정을 따릅니다.':(data.repeat?'아직 확인하지 않은 새 상담이 있습니다. 상담 상세를 열면 반복 알림이 멈춥니다.':'새 상담이 도착했습니다. 확인할 때까지 2분마다 다시 알려드립니다.'),renotify:true,silent:false,vibrate:[200,100,200],requireInteraction:true,tag:typeof data.tag==='string'?data.tag:'new-consultation',icon:'/assets/icon-192.png',badge:'/assets/notification-badge.png',data:{url:/^\/#admin\/request\/[a-f0-9-]{36}$/.test(data.url)?data.url:'/#admin'}}));});
 self.addEventListener('notificationclick',event=>{const target=event.notification.data?.url||'/#admin';event.notification.close();event.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const win=windows.find(w=>new URL(w.url).origin===self.location.origin);if(win){await win.navigate(target);return win.focus();}return clients.openWindow(target);}));});
+
+self.addEventListener('message',event=>{const d=event.data;if(d?.type!=='consultation-alert-acknowledged'||!/^[a-f0-9-]{36}$/.test(d.id))return;event.waitUntil(self.registration.getNotifications({tag:'consultation:'+d.id}).then(notifications=>notifications.forEach(n=>n.close())));});

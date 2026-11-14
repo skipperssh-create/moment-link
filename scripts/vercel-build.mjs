@@ -10,7 +10,7 @@ if(process.env.RUN_DB_MIGRATIONS==='true'){
 if(process.env.VERCEL_ENV==='production'){
  if(process.env.MOMENT_LINK_DATABASE!=='true')throw Error('Contact status migration requires the dedicated MOMENT LINK database');
  const {database,closeDatabase}=await import('../server/database.mjs');
- try{const db=database(),sql=await readFile(new URL('../db/008_contact_status.sql',import.meta.url),'utf8');await db.transaction(tx=>tx.query(sql));console.log('Contact workflow schema ready. Existing consultation data preserved.');}
+ try{const db=database();for(const file of ['008_contact_status.sql','010_consultation_alerts.sql']){const sql=await readFile(new URL('../db/'+file,import.meta.url),'utf8');await db.transaction(tx=>tx.query(sql));}console.log('Contact and notification schemas ready. Existing consultation data preserved.');}
  finally{await closeDatabase();}
 }
 await import('./build.mjs');

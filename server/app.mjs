@@ -18,6 +18,7 @@ import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,c
 import {text,parse,catalogSchema,consultationSchema,validatePreferences,validateConsultationTimes,validDate,passwordSchema} from './validation.mjs';
 import {processOutbox,processIntegration,dispatchIntegrations,opsAdapter} from './jobs.mjs';
 import {pushDeviceStatus,testDevicePush} from './push-device.mjs';
+import {createConsultationAlert,acknowledgeConsultationAlert,consultationAlertSummary,dispatchConsultationAlerts} from './consultation-alerts.mjs';
 import {changeTrash,emptyTrash} from './trash.mjs';
 import {authorizedCron,purgeExpired} from './retention.mjs';
 const writeMethods=['POST','PUT','PATCH','DELETE'];
@@ -41,6 +42,12 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   const method=request.method;
   if(path==='/api/health')return json({status:'ok',version:'4.1.0',smsLive:env.SMS_LIVE_ENABLED==='true',opsLive:env.OPS_WRITES_ENABLED==='true'});
   const db=givenDb||database();
+  if(path==='/api/cron/consultation-alerts'&&method==='POST'){
+   if(!authorizedCron(request,env.PUSH_REPEAT_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
+   const result=await dispatchConsultationAlerts(db,env,adapters);
+   await db.query("INSERT INTO moment_link.config(id,data) VALUES('push-repeat-worker',$1) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=now()",[JSON.stringify({lastRun:new Date().toISOString(),...result})]);
+   return json(result);
+  }
   if(path==='/api/integrations/boatn/consultation-statuses')return json(await readOpsConsultationStatuses(request,db,env));
   if(path==='/api/integrations/boatn/events'||path.startsWith('/api/integrations/boatn/events/'))return json(await receiveOpsEvent(request,db,env));
   const dispatch=async(id,wait=false)=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=dispatchIntegrations(db,env,adapters,id).catch(()=>{});if(schedule&&!wait)schedule(work);else await work;};
@@ -81,6 +88,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     const snapshot={catalogVersion:c.version,product:{...p,packages:undefined},package:pk,options,price:{weekday:pk.weekday===null?null:pk.weekday+optionAmount,weekend:pk.weekend===null?null:pk.weekend+optionAmount,optionAmount,dateOverrides:data.preferences.map(x=>({date:x.date,override:(()=>{const rule=(pk.datePrices||[]).find(rule=>rule.date===x.date);return rule?{...rule,amount:rule.amount===null?null:rule.amount+optionAmount}:null;})()}))},timezone:'Asia/Seoul'};
     await tx.query(`INSERT INTO moment_link.consultations(id,receipt,idempotency_hash,payload_hash,person,phone,category,product_id,package_id,snapshot,preferences,place,notes,consent,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,now()+make_interval(days=>$15))`,[id,receipt,idemHash,payloadHash,data.person,data.phone,data.category,p.id,pk.id,JSON.stringify(snapshot),JSON.stringify(data.preferences),data.place,data.notes,JSON.stringify({version:s.consentVersion,text:s.privacyText,controller:s.privacyController,retentionDays:s.retentionDays,acceptedAt:new Date().toISOString()}),s.retentionDays]);
     const outbox=[];
+    if(s.push&&env.PUSH_LIVE_ENABLED==='true')await createConsultationAlert(tx,id);
     for(const [channel,on] of [['sms_customer',s.solapi&&s.customerAuto&&env.SMS_LIVE_ENABLED==='true'],['sms_admin',s.solapi&&s.adminAuto&&env.SMS_LIVE_ENABLED==='true'],['push',s.push&&env.PUSH_LIVE_ENABLED==='true']])if(on){const jobId=randomUUID();await tx.query('INSERT INTO moment_link.outbox(id,event_key,consultation_id,channel) VALUES($1,$2,$3,$4)',[jobId,`${id}:${channel}`,id,channel]);outbox.push(jobId);}
     await audit(tx,null,'consultation.created',id,{catalogVersion:c.version});
     return {receipt,replayed:false,outbox};
@@ -144,7 +152,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     FROM moment_link.consultations
     WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2 OR assignee IS NULL)
     AND COALESCE(communication->'entry'->>'source','')<>'admin_direct'`,[user.role,user.id,since]);
-   const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals,latestAt:row.latest_at?new Date(row.latest_at).toISOString():null});
+   const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals,latestAt:row.latest_at?new Date(row.latest_at).toISOString():null,...await consultationAlertSummary(db,user)});
   }
   if(path==='/api/admin/consultations'&&method==='GET'){
    const search=(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
@@ -165,6 +173,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await attachStatusTimelines(db,r.rows);
    return json({items:r.rows.map(present),counts,trashBefore,serverTime:new Date().toISOString()});
   }
+  const alertMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/acknowledge-alert$/);
+  if(alertMatch&&method==='POST')return json(await acknowledgeConsultationAlert(db,user,alertMatch[1]));
   const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
   if(retryMatch&&method==='POST'){
    const row=(await db.query("SELECT j.id FROM moment_link.integration_jobs j JOIN moment_link.consultations c ON c.id=j.consultation_id WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3)",[retryMatch[1],user.role,user.id])).rows[0];
@@ -302,7 +312,9 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    authorize(user,true);
    const d=parse(z.object({endpoint:z.string().url().max(2000),expirationTime:z.number().nullable().optional(),keys:z.object({p256dh:z.string().max(150),auth:z.string().max(100)}).strict()}).strict(),await body(request));
    const host=new URL(d.endpoint).hostname;if(!['fcm.googleapis.com','updates.push.services.mozilla.com','web.push.apple.com'].some(h=>host===h||host.endsWith('.'+h))||new URL(d.endpoint).protocol!=='https:')fail(400,'PUSH_ENDPOINT','지원하지 않는 푸시 주소입니다.');
-   await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);return json({ok:true});
+   await db.query(`INSERT INTO moment_link.push_subscriptions(id,user_id,endpoint_hash,subscription) VALUES($1,$2,$3,$4) ON CONFLICT(endpoint_hash) DO UPDATE SET user_id=$2,subscription=$4,active=true`,[randomUUID(),user.id,hash(d.endpoint),JSON.stringify(d)]);
+   await db.query(`UPDATE moment_link.push_alert_deliveries d SET failures=0,error_code=NULL,next_at=now() FROM moment_link.push_subscriptions s WHERE d.subscription_id=s.id AND s.user_id=$1 AND s.endpoint_hash=$2 AND d.failures>=2`,[user.id,hash(d.endpoint)]);
+   return json({ok:true});
   }
   if(path==='/api/admin/push'&&method==='DELETE'){authorize(user,true);const d=parse(z.object({endpointHash:z.string().regex(/^[a-f0-9]{64}$/)}).strict(),await body(request));await db.query('UPDATE moment_link.push_subscriptions SET active=false WHERE user_id=$1 AND endpoint_hash=$2',[user.id,d.endpointHash]);return json({ok:true});}
   if(path==='/api/admin/jobs'&&method==='GET'){authorize(user,true);return json({notifications:(await db.query('SELECT id,channel,state,attempts,error_code,created_at FROM moment_link.outbox ORDER BY created_at DESC LIMIT 50')).rows,integrations:(await db.query("SELECT id,consultation_id,target,state,attempts,external_id,error_code,created_at,booking->>'operation' AS operation FROM moment_link.integration_jobs ORDER BY created_at DESC LIMIT 50")).rows});}
