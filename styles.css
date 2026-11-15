@@ -723,8 +723,8 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .list-confirmation .ops-booking-fields{margin:14px 0 0;padding:14px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}.list-confirmation .ops-booking-fields h3{font-size:14px;line-height:1.5;margin:0}.list-confirmation .ops-booking-fields .admin-cols{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:12px}.list-confirmation .ops-booking-fields .admin-cols>div{min-width:0}.list-confirmation .ops-booking-fields .admin-label{margin:0 0 6px;font-size:12px;line-height:1.5}
 .list-confirmation-checks{margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}.list-confirmation .list-confirmation-check{align-items:flex-start;gap:8px;min-height:44px;margin:0;padding:8px 0;font-size:13px;line-height:1.6;font-weight:400}.list-confirmation-check input{margin:1px 0 0}.list-confirmation-check span{min-width:0;word-break:keep-all;overflow-wrap:anywhere}
 .list-confirmation .btnrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px}.list-confirmation .btnrow>button{min-width:0;min-height:48px;padding:10px 8px;font-size:14px;white-space:nowrap;border-radius:10px}
-@container(min-width:260px){.list-confirmation-money{grid-template-columns:repeat(2,minmax(0,1fr))}.list-confirmation .ops-booking-fields .admin-cols{grid-template-columns:100px minmax(0,1fr)}}
-@container(min-width:480px){.list-confirmation-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container(min-width:260px){.list-confirmation .ops-booking-fields .admin-cols{grid-template-columns:100px minmax(0,1fr)}}
+@container(min-width:480px){.list-confirmation-fields,.list-confirmation-money{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.list-confirmation{padding:12px}.list-confirmation .booking-payment-summary{padding:10px}}
 .inbox-results>.inbox-item:has(.list-confirmation){grid-column:1/-1}
 /* Detail and direct entry share the compact, readable booking form. */

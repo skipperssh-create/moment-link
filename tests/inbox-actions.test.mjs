@@ -5,21 +5,65 @@ import {randomUUID} from 'node:crypto';
 import vm from 'node:vm';
 
 async function harness(){
- const requests=[],elements={},el=()=>({value:'',checked:false,dataset:{},textContent:'',innerHTML:'',disabled:false,focus(){},setAttribute(){},querySelector(){return null;}});
+ const requests=[],alerts=[],elements={},el=()=>({value:'',checked:false,dataset:{},textContent:'',innerHTML:'',disabled:false,focus(){this.focused=true;},setAttribute(){},querySelector(){return null;}});
  for(const id of ['inboxListing','listStatusFeedback','requestNote','requestNoteFeedback','requestNotes','requestStatus','requestAssignee','requestContacted'])elements['#'+id]=el();
  const save=el();elements['#requestNoteEditor']={...el(),querySelector:()=>save};
  const listFields={};for(const id of ['synthetic','other']){const field=el(),summary=el(),feedback=el(),button=el(),root={...el(),querySelector:s=>({'[data-list-note]':field,'[data-list-note-summary]':summary,'[data-ml=saveListNote]':button}[s]||null)};listFields[id]={field,summary,feedback,button,root};elements['[data-list-note-editor="'+id+'"]']=root;elements['[data-list-note-editor="'+id+'"] [data-list-note-feedback]']=feedback;}
  elements['#requestNote'].value='고객 요청\n합성 메모';elements['#requestStatus'].value='hold';elements['#requestAssignee'].value='unsaved-assignee';elements['#requestContacted'].checked=true;
  const context=vm.createContext({crypto:{randomUUID},window:{MomentLinkComposer:{isBusy:()=>false,isDirty:()=>true,clear(){}},MomentLinkSound:()=>({reset(){},stop(){}}),MomentLinkDirectBooking:()=>({close(){}}),addEventListener(){}},document:{title:'test',hidden:false,querySelector:s=>elements[s]||null,querySelectorAll:()=>[],getElementById:id=>elements['#'+id],addEventListener(){}},location:{hash:'#admin'},navigator:{onLine:true},AbortController,Date,console,setTimeout:()=>1,clearTimeout(){},fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,reject,resolve:(data,status=200)=>resolve({ok:status<400,status,json:async()=>data})}))});
  const source=await readFile(new URL('../admin.js',import.meta.url),'utf8');
+ context.window.alert=text=>alerts.push(text);
+ context.window.MomentLinkOps={eligible:()=>false,validate:()=>''};
+ context.FormData=class {constructor(form){this.fields=form.elements;}get(key){return this.fields[key]?.value??null;}has(key){return !!this.fields[key]?.checked;}};
+ vm.runInContext(await readFile(new URL('../pricing.js',import.meta.url),'utf8'),context);
+ vm.runInContext(await readFile(new URL('../booking-addons.js',import.meta.url),'utf8'),context);
  vm.runInContext(await readFile(new URL('../messages.js',import.meta.url),'utf8'),context);
  vm.runInContext(await readFile(new URL('../ownership.js',import.meta.url),'utf8'),context);context.window.MomentLinkOwnership=context.MomentLinkOwnership;
  context.window.intentTest={};
- const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={listCardActions,openInboxCard,cardDates,statusTrail,paymentWindow,paintPaymentWindows,setSelection:value=>window.getSelection=()=>value,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
+ const exposed=source.replace('window.MomentLinkAdmin={mount,clear};','window.intentTest={listCardActions,openInboxCard,cardDates,statusTrail,paymentWindow,paintPaymentWindows,fillListFullPayment,submitListConfirmation,setSelection:value=>window.getSelection=()=>value,setUser:value=>user=value};window.MomentLinkAdmin={mount,clear};');
  vm.runInContext(exposed.replace('window.MomentLinkAdmin={mount,clear};',`window.test={saveListStatus,saveNote,saveListNote,listNoteEditor,listNoteEditing,statusOrder:()=>Object.keys(statuses),draft:(id,text)=>listNoteDrafts.set(id,text),get:()=>({items,counts,detail,dirty,busy}),set:item=>{items=[item,{...item,id:'other'}];detail={item,notes:[],history:[]};counts={all:2,new:2};}};user={id:'synthetic',role:'admin'};inboxListing=()=>'';render=()=>{};`),context);
  const item={id:'synthetic',person:'합성 고객',version:3,status:'new',assignee:null,contacted:false,communication:{}};context.window.test.set(item);
- return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,document:context.document,item,elements,requests,save,listFields};
+ const confirmationForm=(values={})=>{const fields={};for(const [key,value] of Object.entries({date:'2099-11-25',time:'19:00',amount:'390000',receivedAmount:'',place:'합성 검수 장소',...values}))fields[key]={...el(),value};fields.scheduleConfirmed={...el(),checked:true};fields.paymentConfirmed={...el(),checked:true};const summary=el(),feedback=el();elements['[data-list-confirmation-feedback]']=feedback;return {dataset:{listConfirmation:item.id},elements:fields,summary,feedback,querySelector:s=>s==='[data-payment-summary]'?summary:null};};
+ return {api:context.window.test,intent:context.window.intentTest,navigator:context.navigator,document:context.document,item,elements,requests,save,listFields,alerts,confirmationForm};
 }
+
+function confirmationItem(h){return {...h.item,status:'consulting',phone:'01000000000',category:'visit',snapshot:{product:{name:'합성 상품'},package:{name:'라이트'}},communication:{booking:{amount:390000,amountMode:'manual',addOns:[]}}};}
+
+test('inline confirmation shows a popup beside the form for a blank receipt and makes no write',async()=>{
+ const h=await harness();h.api.set(confirmationItem(h));const form=h.confirmationForm();
+ await h.intent.submitListConfirmation(form);
+ assert.equal(h.requests.length,0);assert.equal(h.alerts.length,1);assert.match(h.alerts[0],/실제 입금된/);assert.match(form.feedback.textContent,/입력/);assert.equal(form.elements.receivedAmount.focused,true);assert.equal(form.elements.amount.value,'390000');
+});
+
+test('inline full payment fills the edited total without saving, then confirms once with zero balance',async()=>{
+ const h=await harness();h.api.set(confirmationItem(h));const form=h.confirmationForm({amount:'420000'});form.elements.paymentConfirmed.checked=false;
+ h.intent.fillListFullPayment(form);
+ assert.equal(form.elements.receivedAmount.value,'420000');assert.equal(form.elements.paymentConfirmed.checked,true);assert.equal(form.elements.scheduleConfirmed.checked,true);assert.match(form.summary.innerHTML,/남은 잔금 <strong>0원/);assert.equal(h.requests.length,0);
+ const saving=h.intent.submitListConfirmation(form);await h.intent.submitListConfirmation(form);
+ assert.equal(h.requests.length,1);const body=JSON.parse(h.requests[0].options.body);
+ assert.equal(body.confirmation.booking.amount,420000);assert.equal(body.confirmation.booking.receivedAmount,420000);assert.equal(body.status,'confirmed');
+ h.requests[0].resolve({item:{...confirmationItem(h),status:'confirmed',version:4}});await new Promise(r=>setImmediate(r));h.requests[1].resolve({items:[],counts:{all:1,confirmed:1}});await saving;assert.equal(h.alerts.length,0);
+});
+
+test('invalid totals and native invalid fields surface a popup without changing the receipt or writing',async()=>{
+ const h=await harness();h.api.set(confirmationItem(h));const form=h.confirmationForm({amount:'',receivedAmount:'90000'});
+ h.intent.fillListFullPayment(form);assert.equal(form.elements.receivedAmount.value,'90000');assert.match(h.alerts[0],/총 예약금액/);
+ const invalid={validationMessage:'날짜를 입력해 주세요.',closest:()=>({textContent:'이벤트 날짜'}),focus(){this.focused=true;}};form.querySelector=s=>s===':invalid'?invalid:null;
+ await h.intent.submitListConfirmation(form);assert.match(h.alerts[1],/이벤트 날짜/);assert.equal(invalid.focused,true);assert.equal(h.requests.length,0);
+});
+
+test('partial receipt stays partial and API conflict preserves the inputs with a popup',async()=>{
+ const h=await harness();h.api.set(confirmationItem(h));const form=h.confirmationForm({receivedAmount:'90000'});
+ const saving=h.intent.submitListConfirmation(form);assert.equal(JSON.parse(h.requests[0].options.body).confirmation.booking.receivedAmount,90000);
+ h.requests[0].resolve({message:'다른 상담사가 수정했습니다. 새로고침 후 확인해 주세요.'},409);await saving;
+ assert.match(h.alerts[0],/다른 상담사/);assert.equal(form.elements.receivedAmount.value,'90000');assert.equal(h.api.get().items[0].status,'consulting');assert.equal(h.requests.length,1);
+});
+
+test('unknown confirmation response shows an outcome warning and does not automatically retry',async()=>{
+ const h=await harness();h.api.set(confirmationItem(h));const form=h.confirmationForm({receivedAmount:'390000'});
+ const saving=h.intent.submitListConfirmation(form);h.requests[0].reject(Error('offline'));await saving;
+ assert.match(h.alerts[0],/저장 결과를 확인하지 못했습니다/);assert.match(form.feedback.textContent,/새로고침/);assert.equal(form.elements.receivedAmount.value,'390000');assert.equal(h.requests.length,1);assert.equal(h.api.get().busy,false);
+});
 test('list status persists once, refreshes counts, and blocks concurrent clicks',async()=>{
  const h=await harness(),saving=h.api.saveListStatus(h.item.id,'consulting');
  await h.api.saveListStatus(h.item.id,'hold');assert.equal(h.requests.length,1);

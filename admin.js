@@ -90,11 +90,12 @@ function listQuickStatus(r){
  const entries=requestStatusEntries(r),open=listStatusState.id===r.id;
  return `<div class="quick-status list-quick-status" data-status="${e(r.status)}"><button type="button" class="quick-status-trigger" data-list-status-toggle="${e(r.id)}" aria-label="${e(r.person)} 상담 상태 변경: ${e(statusLabel(r))}" aria-haspopup="menu" aria-expanded="${open}" ${listStatusState.saving?'disabled':''}><span>${e(statusLabel(r))}</span>${icon('chevron')}</button><div class="quick-status-menu" role="menu" aria-label="상담 상태 변경" ${open?'':'hidden'}>${entries.map(([id,label])=>`<button type="button" role="menuitemradio" aria-checked="${id===r.status}" tabindex="-1" data-list-status-id="${e(r.id)}" data-list-status="${id}" data-status="${id}">${iconLabel(statusIcon[id],label)}${id===r.status?icon('check'):''}</button>`).join('')}<p class="micro">선택하면 바로 저장됩니다.</p></div></div>`;
 }
-function listStatusFeedback(state,text){const el=document.getElementById('listStatusFeedback');if(el){el.dataset.state=state;el.textContent=text;}}
+function listStatusFeedback(state,text){for(const el of [document.getElementById('listStatusFeedback'),document.querySelector('[data-list-confirmation-feedback]')])if(el){el.dataset.state=state;el.textContent=text;}}
+function listConfirmationError(text,field){listStatusFeedback('error',text);window.alert('예약을 확정하지 못했습니다.\n\n'+text);field?.focus();}
 function closeListStatus(focus=false){const previous=listStatusState.id;if(focus)document.querySelector(`[data-list-status-toggle="${previous}"]`)?.focus({preventScroll:true});listStatusState.id='';document.querySelectorAll('[data-list-status-toggle]').forEach(el=>el.setAttribute('aria-expanded','false'));document.querySelectorAll('.list-quick-status .quick-status-menu').forEach(hidePopup);}
 function listConfirmation(r){
  const b=MomentLinkMessages.defaults(r,settings);
- return `<form class="list-confirmation" data-list-confirmation="${e(r.id)}">
+ return `<form class="list-confirmation" data-list-confirmation="${e(r.id)}" novalidate>
  <header class="list-confirmation-heading"><h3>예약 확정</h3><p class="micro">일정·장소와 받은 예약금을 확인해 주세요.</p></header>
  <div class="list-confirmation-fields">
  <label class="list-confirmation-field">이벤트 날짜<input class="admin-input" name="date" type="date" value="${e(b.date)}" required></label>
@@ -104,13 +105,21 @@ function listConfirmation(r){
  <section class="list-confirmation-payment" aria-label="예약금·잔금">
  <div class="list-confirmation-money">
  <label class="list-confirmation-field">총 예약금액 (원)<input class="admin-input" name="amount" type="number" inputmode="numeric" min="0" max="100000000" step="1" value="${e(b.amount??'')}" required></label>
- <label class="list-confirmation-field">실제 입금액 (원)<input class="admin-input" name="receivedAmount" type="number" inputmode="numeric" min="0" max="100000000" step="1" placeholder="입금액 입력" value="${e(b.receivedAmount??'')}"></label>
+ <div class="list-confirmation-field"><label for="listConfirm_receivedAmount">실제 입금액 (원)</label><div class="booking-payment-input"><input id="listConfirm_receivedAmount" class="admin-input" name="receivedAmount" type="number" inputmode="numeric" min="0" max="100000000" step="1" placeholder="입금액 입력" value="${e(b.receivedAmount??'')}"><button type="button" class="admin-icon-button icon-primary" data-list-full-payment aria-label="완납 · 총액 자동 입력" title="전액 받았다면 총액을 입금액에 입력">${detailIconContent('check','완납')}</button></div></div>
  </div>
- <div class="booking-payment-summary" data-payment-summary>${MomentLinkMessages.paymentSummary(b)}</div><p class="micro">예약금만 입금되어도 확정할 수 있습니다.</p>
+ <div class="booking-payment-summary" data-payment-summary aria-live="polite">${MomentLinkMessages.paymentSummary(b)}</div><p class="micro">전액 받았다면 완납을 누른 뒤 예약을 확정해 주세요. 예약금만 받았다면 실제 입금액을 입력해 주세요.</p>
  </section>
  ${window.MomentLinkOps.fields(r,b,'listConfirm')}
  <div class="list-confirmation-checks"><label class="list-confirmation-check"><input name="scheduleConfirmed" type="checkbox" ${b.scheduleConfirmed?'checked':''} required><span>일정·장소를 고객과 확정했습니다</span></label><label class="list-confirmation-check"><input name="paymentConfirmed" type="checkbox" ${b.paymentConfirmed?'checked':''} required><span>예약금 또는 완납 입금을 확인했습니다</span></label></div>
- <div class="btnrow"><button type="submit" class="primary">예약 확정</button><button type="button" class="secondary" data-list-confirmation-cancel>닫기</button></div></form>`;
+ <p class="quick-status-feedback micro" data-list-confirmation-feedback role="status" aria-live="polite" aria-atomic="true"></p><div class="btnrow"><button type="submit" class="primary">예약 확정</button><button type="button" class="secondary" data-list-confirmation-cancel>닫기</button></div></form>`;
+}
+function fillListFullPayment(form){
+ const booking={amount:form.elements.amount.value===''?null:Number(form.elements.amount.value)};
+ const problem=MomentLinkMessages.applyFullPayment(booking);
+ if(problem){listConfirmationError(problem,form.elements.amount);return;}
+ form.elements.receivedAmount.value=String(booking.receivedAmount);form.elements.paymentConfirmed.checked=true;
+ MomentLinkMessages.paintPayment(form,booking);
+ listStatusFeedback('','전액 입금액을 입력했습니다. 일정·장소를 확인한 뒤 예약 확정을 눌러 저장해 주세요.');
 }
 function fitConfirmationAddress(){
  globalThis.MomentLinkMessages?.fitAddresses?.(document);
@@ -172,7 +181,7 @@ async function saveListStatus(id,status,confirmation){
    if(!user||!document.getElementById('inboxListing'))return;
    listStatusState.confirmationId=id;document.getElementById('inboxListing').innerHTML=inboxListing();
    fitConfirmationAddress();document.querySelector('[data-list-confirmation] input')?.focus();listStatusFeedback('','');
-  }finally{busy=false;scheduleLive();}return;
+  }catch(err){listConfirmationError(err.message||'예약 확정 정보를 불러오지 못했습니다. 다시 시도해 주세요.');}finally{busy=false;scheduleLive();}return;
  }
  const root=document.getElementById('inboxListing'),path=listPath(),current=()=>!!user&&document.getElementById('inboxListing')===root&&path===listPath();
  suspendLive();listStatusState.saving=true;busy=true;paintLive();
@@ -191,12 +200,13 @@ async function saveListStatus(id,status,confirmation){
   catch{if(current())listStatusFeedback('success',item.person+' · '+(cancellationMessage(updated)||statusLabel(updated)+' 상태로 저장했습니다.')+' 목록 갱신은 새로고침을 눌러 주세요.');}
   if(current()){root.innerHTML=inboxListing();(root.querySelector('[data-list-status-toggle="'+id+'"]')||document.getElementById('requestSearch'))?.focus({preventScroll:true});}
  }catch(err){
-  if(!user){notice='로그인이 만료되었습니다. 다시 로그인해 주세요.';render();}
-  else if(current())listStatusFeedback('error',!err.status?'저장 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.':err.message);
+  if(!user){notice='로그인이 만료되었습니다. 다시 로그인해 주세요.';if(confirmation)listConfirmationError(notice);render();}
+  else if(current()){const message=!err.status?'저장 결과를 확인하지 못했습니다. 새로고침으로 상태를 확인해 주세요.':err.message;if(confirmation)listConfirmationError(message);else listStatusFeedback('error',message);}
  }finally{clearTimeout(timeout);listStatusState.saving=false;busy=false;if(current())document.querySelectorAll('[data-list-status-toggle],.list-confirmation button,.list-confirmation input,.list-confirmation select,.list-confirmation textarea').forEach(el=>{el.disabled=false;});paintLive();scheduleLive();}
 }
 document.addEventListener('click',ev=>{
  if(!location.hash.startsWith('#admin')||busy||composer.isBusy())return;
+ const fullPayment=ev.target.closest('[data-list-full-payment]');if(fullPayment){fillListFullPayment(fullPayment.closest('[data-list-confirmation]'));return;}
  const root=ev.target.closest('.list-quick-status');
  if(!root)closeListStatus();
  else if(ev.target.closest('[data-list-status-toggle]')){if(root.querySelector('[data-list-status-toggle]').getAttribute('aria-expanded')==='true')closeListStatus(true);else openListStatus(root);}
@@ -214,16 +224,21 @@ document.addEventListener('keydown',ev=>{
  options[ev.key==='Home'?0:ev.key==='End'?options.length-1:Math.max(0,Math.min(options.length-1,i+(ev.key==='ArrowDown'?1:-1)))]?.focus();
 });
 document.addEventListener('input',ev=>{const form=ev.target.closest('.list-confirmation');if(form&&['date','time','amount','receivedAmount','place'].includes(ev.target.name)){if(ev.target.name==='place')fitConfirmationAddress();form.elements.scheduleConfirmed.checked=false;form.elements.paymentConfirmed.checked=false;MomentLinkMessages.paintPayment(form,{amount:Number(form.elements.amount.value),receivedAmount:form.elements.receivedAmount.value===''?null:Number(form.elements.receivedAmount.value)});}});
-document.addEventListener('submit',ev=>{
- const form=ev.target;if(!form.matches('[data-list-confirmation]'))return;ev.preventDefault();if(busy)return;
+async function submitListConfirmation(form){
+ if(busy||listStatusState.saving||composer.isBusy())return;
+ try{
  const r=items.find(x=>x.id===form.dataset.listConfirmation);if(!r)return;
+ const invalid=form.querySelector(':invalid');
+ if(invalid){listConfirmationError((invalid.closest('label')?.textContent.trim()||invalid.getAttribute('aria-label')||'입력 항목')+' · '+invalid.validationMessage,invalid);return;}
  const data=new FormData(form),booking={...MomentLinkMessages.defaults(r,settings),date:data.get('date'),time:data.get('time'),amount:Number(data.get('amount')),baseAmount:Number(data.get('amount'))-MomentLinkAddOns.total(r.communication?.booking?.addOns),receivedAmount:data.get('receivedAmount')===''?null:Number(data.get('receivedAmount')),amountMode:'manual',place:String(data.get('place')).trim(),scheduleConfirmed:data.has('scheduleConfirmed'),paymentConfirmed:data.has('paymentConfirmed')};
  if(window.MomentLinkOps.eligible(r)){booking.opsPax=Number(val('listConfirm_opsPax'));booking.opsPaymentMethod=val('listConfirm_opsPaymentMethod');}
  const problem=MomentLinkMessages.validate('confirmed',booking,r)||window.MomentLinkOps.validate(r,booking);
- if(problem){listStatusFeedback('error',problem);return;}
+ if(problem){listConfirmationError(problem,booking.receivedAmount===null?form.elements.receivedAmount:undefined);return;}
  const drafts={...r.communication?.drafts,confirmed:MomentLinkMessages.generate(r,'confirmed',booking)};
- void saveListStatus(r.id,'confirmed',{booking,drafts,approved:true});
-});
+ await saveListStatus(r.id,'confirmed',{booking,drafts,approved:true});
+ }catch(err){listConfirmationError(err.message||'입력 내용을 확인하지 못했습니다. 다시 시도해 주세요.');}
+}
+document.addEventListener('submit',ev=>{if(!ev.target.matches('[data-list-confirmation]'))return;ev.preventDefault();void submitListConfirmation(ev.target);});
 const cancellationPending=r=>r.integration?.operation==='cancel'&&r.integration.state!=='succeeded';
 const cancellationMessage=r=>r.integration?.operation==='cancel'?(r.status==='cancelled'?'예약을 취소했습니다. 연결된 OPS에도 반영되었습니다. 환불은 별도로 확인해 주세요.':r.integration.state==='conflict'?'OPS 취소를 완료하지 못했습니다. 기존 예약은 유지됩니다. 상세 화면의 OPS 상태를 확인해 주세요.':'OPS 취소 결과를 확인 중입니다. 완료 전까지 기존 예약 상태가 유지됩니다.') : '';
 const approveCancellation=r=>confirm(r.person+' · '+(r.communication?.booking?.date||'')+' '+(r.communication?.booking?.time||'')+' 예약을 취소할까요?'+(r.integration?'\n연결된 OPS 예약도 함께 취소합니다. 환불은 별도로 확인해 주세요.':''));
