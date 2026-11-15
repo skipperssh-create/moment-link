@@ -154,9 +154,9 @@ function heliPlace(){return `<section class="info"><strong>헬기 탑승 장소 
 function footer(buttonText,action,disabled=false,note=''){return `<div class="action-bar">${state.formError?`<p class="form-error" role="alert">${escapeHTML(state.formError)}</p>`:''}${note?`<div class="micro" style="margin-bottom:9px">${escapeHTML(note)}</div>`:''}<button class="primary" type="button" data-next="${action}" ${disabled?'disabled':''}>${buttonText}</button></div>`}
 function scheduleFields(n){
  const d=n===1?state.firstDate:state.secondDate,t=n===1?state.firstTime:state.secondTime;
- const id=n===1?'firstDate':'secondDate';
- const heli=state.category==='heli',times=heli?['오전','오후','시간 무관']:['오전','오후','저녁','시간 무관'];
- return `<div class="sectionlabel">${n}순위 희망 날짜 ${n===1?'· 필수':'· 선택'}</div><input aria-label="${n}순위 희망 날짜" id="${id}" class="field" type="date" min="${localToday()}" value="${escapeHTML(d)}"/><div class="times">${times.map(x=>`<button type="button" class="time ${t===x?'active':''}" data-time="${n}:${x}" aria-pressed="${t===x}">${heli&&x==='시간 무관'?'주간 시간 무관':x}</button>`).join('')}</div>${heli?'<p class="micro">헬기는 주간에만 운항합니다. 정확한 출발 시간은 상담 후 안내합니다.</p>':`<details class="exact-time" ${/^\d{2}:\d{2}$/.test(t)?'open':''}><summary>정확한 시간을 정하고 싶어요</summary><label class="micro" for="exactTime${n}">희망 시간 ${n===1?'(선택)':'(2순위)'}</label><input type="time" class="field" id="exactTime${n}" value="${/^\d{2}:\d{2}$/.test(t)?t:''}"></details>`}`;
+ const id=n===1?'firstDate':'secondDate',heli=state.category==='heli',anyTime=t==='시간 무관';
+ const time=heli?`<select id="exactTime${n}" class="field" aria-label="${n}순위 희망 시간" required><option value="">시간대 선택</option>${['오전','오후'].map(value=>`<option value="${value}" ${t===value?'selected':''}>${value}</option>`).join('')}</select>`:MomentLinkTime.html(`exactTime${n}`,`${n}순위 희망 시간`,anyTime?'':t,'required');
+ return `<section class="schedule-preference" aria-labelledby="preferenceTitle${n}"><h2 id="preferenceTitle${n}" class="schedule-preference-title">${n}순위 희망 일정 <span>${n===1?'필수':'선택'}</span></h2><div class="schedule-preference-fields"><div><label for="${id}" class="sectionlabel">희망 날짜</label><input aria-label="${n}순위 희망 날짜" id="${id}" class="field" type="date" min="${localToday()}" value="${escapeHTML(d)}" ${n===1?'required':''}/></div><fieldset id="preferenceTime${n}" class="schedule-time" ${anyTime?'disabled':''}><legend class="sectionlabel">희망 시간${heli?'대':''}</legend>${time}</fieldset></div><label class="inline-check schedule-any-time"><input type="checkbox" id="anyTime${n}" data-any-time="${n}" ${anyTime?'checked':''} aria-controls="preferenceTime${n}"/><span>${heli?'주간에는 아무 시간대나 괜찮아요':'아무 시간대나 괜찮아요'}</span></label>${heli?'<p class="micro">헬기는 주간에만 운항합니다. 정확한 출발 시간은 상담 후 안내합니다.</p>':''}</section>`;
 }
 function customer(){let s=`<main class="layout"><div class="page">${progress()}`;
 if(state.step==='welcome')s+=`<section class="hero-card"><div class="eyebrow">PROPOSE CONSULTING</div><h1 class="page-title">특별한 순간을<br>간편하게 준비하세요.</h1><p class="muted">원하시는 상품과 희망 날짜를 선택해 주세요.<br>담당자가 내용을 확인한 후 상담을 도와드립니다.</p><div class="info"><strong>모먼트링크 프로포즈 상담 안내</strong><div class="muted">회원가입 없이 상품·가격을 비교하고 신청할 수 있습니다.</div></div>${footer('간편 상담 시작하기','start')}</section>`;
@@ -173,7 +173,7 @@ s+=(settings.locations||[]).filter(l=>l.category===state.category).map(l=>`<sect
 s+=`<button class="secondary recommendation" data-action="recommend" aria-pressed="${state.selection?.id==='recommend'}">${state.selection?.id==='recommend'?'상담 후 추천 선택됨':'아직 고민 중이에요 · 상담 후 추천'}</button>`;
 const current=getPack();if(current?.options?.length)s+=`<section class="info"><strong>추가 선택사항 · 선택</strong>${optionChoices(current)}</section>`;s+=footer('선택 완료 · 희망 일정으로','products',!current,current?`${choiceName()} / ${displayChosenPrice()}`:'원하시는 상품을 먼저 선택해 주세요.');
 }
-if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위만 선택해도 신청할 수 있습니다.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted" id="chosenDatePrice" aria-live="polite">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'다른 희망 일정도 추가하기 (선택)'}</button>${state.secondEnabled?`<div class="divider"></div>${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}${footer('다음','schedule')}`;
+if(state.step==='schedule')s+=`<button class="back" data-back="products">← 상품 비교로</button><h1 class="page-title">언제가 좋으세요?</h1><p class="muted">1순위 날짜와 시간을 선택해 주세요. 2순위는 선택사항입니다.<br>원하는 시간이 없으면 ‘아무 시간대나 괜찮아요’를 체크해 주세요.</p><div class="info"><strong>${escapeHTML(choiceName())}</strong><div class="muted" id="chosenDatePrice" aria-live="polite">${escapeHTML(displayChosenPrice())}</div></div>${scheduleFields(1)}<button class="secondary optional-toggle" data-action="toggleSecond" aria-expanded="${state.secondEnabled}">${state.secondEnabled?'2순위 일정 닫기':'2순위 희망 일정 추가 (선택)'}</button>${state.secondEnabled?`${scheduleFields(2)}<button class="back" data-action="clearSecond">2순위 선택 취소</button>`:''}<p class="micro">희망 일정으로 접수되며, 실제 예약 가능 여부는 상담 후 안내드립니다.</p>${footer('다음','schedule')}`;
 if(state.step==='contact'){
 s+=`<button class="back" data-back="schedule">← 일정 선택으로</button><h1 class="page-title">연락받으실 정보를 알려주세요.</h1><p class="muted">필요한 항목만 간단히 입력합니다.</p>`;
 if(state.category==='yacht')s+=yachtPlace();if(state.category==='heli')s+=heliPlace();
@@ -233,10 +233,22 @@ function initializeNavigation(){
  else rememberStep();
 }
 function validDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v+'T12:00:00Z').toISOString().slice(0,10)===v}
+function validPreferredTime(value){return value==='시간 무관'||(state.category==='heli'?['오전','오후'].includes(value):/^([01]\d|2[0-3]):[0-5]\d$/.test(value));}
+function scheduleError(){
+ if(!state.firstDate)return '1순위 희망 날짜를 선택해 주세요.';
+ if(!validDate(state.firstDate)||state.firstDate<localToday())return '오늘 이후의 올바른 날짜를 선택해 주세요.';
+ if(!validPreferredTime(state.firstTime))return '1순위 시간을 선택하거나 ‘아무 시간대나 괜찮아요’를 체크해 주세요.';
+ if(!state.secondDate&&!state.secondTime)return '';
+ if(!validDate(state.secondDate)||state.secondDate<localToday())return '2순위 날짜를 선택하거나 2순위 선택을 취소해 주세요.';
+ if(!validPreferredTime(state.secondTime))return '2순위 시간을 선택하거나 ‘아무 시간대나 괜찮아요’를 체크해 주세요.';
+ if(state.secondDate===state.firstDate&&state.secondTime===state.firstTime)return '2순위는 다른 날짜 또는 시간으로 선택해 주세요.';
+ return '';
+}
 function formError(message){state.formError=message;render();document.querySelector('[role=alert]')?.scrollIntoView({block:'nearest'});return false}
 async function refreshCatalog(){try{const r=await fetch('/api/catalog',{cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();catalog=data.products;catalogVersion=data.version;settings={...settingDefaults,...data.settings};apiReady=true;}catch{apiReady=false;settings.accepting=false;}render();}
 async function submit(){
  if(submitting||state.complete)return;
+ const invalidSchedule=scheduleError();if(invalidSchedule)return formError(invalidSchedule);
  if(!navigator.onLine)return formError('오프라인입니다. 신청이 저장되지 않았습니다. 연결 후 다시 시도해 주세요.');
  if(!apiReady||!settings.accepting)return formError('상담 접수 준비 중입니다. 대표번호로 문의해 주세요.');
  requestKey ||= crypto.randomUUID();submitting=true;render();
@@ -251,14 +263,13 @@ async function submit(){
 document.addEventListener('click',async ev=>{
  if(location.hash.startsWith('#admin'))return;
  const btn=ev.target.closest('button');if(!btn||submitting)return;
- if(btn.dataset.category){state.category=btn.dataset.category;if(state.category==='heli')for(const key of ['firstTime','secondTime'])if(!['오전','오후','시간 무관'].includes(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
+ if(btn.dataset.category){state.category=btn.dataset.category;for(const key of ['firstTime','secondTime'])if(!validPreferredTime(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
  if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;state.optionIds=[];rememberStep();render();return;}
  if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;rememberStep();render();return;}
- if(btn.dataset.time){capture();const[i,t]=btn.dataset.time.split(':');if(i==='1')state.firstTime=t;else state.secondTime=t;render();return;}
  if(btn.dataset.back){previousStep(btn.dataset.back);return;}
  if(btn.dataset.next){const a=btn.dataset.next;
   if(a==='start')return setStep('category');if(a==='products'){if(state.selection)return setStep('schedule');return;}
-  if(a==='schedule'){capture();if(!state.firstDate||!state.firstTime)return formError('1순위 날짜와 시간대를 선택해 주세요.');if(!validDate(state.firstDate)||state.firstDate<localToday())return formError('오늘 이후의 올바른 날짜를 선택해 주세요.');if(state.secondDate&&(!validDate(state.secondDate)||state.secondDate<localToday()))return formError('2순위 날짜를 확인해 주세요.');if(state.secondDate===state.firstDate&&state.secondTime===state.firstTime)return formError('2순위는 다른 날짜 또는 시간으로 선택해 주세요.');if(state.secondDate&&!state.secondTime)return formError('2순위 시간을 선택하거나 일정을 비워 주세요.');return setStep('contact');}
+  if(a==='schedule'){capture();const error=scheduleError();if(error)return formError(error);return setStep('contact');}
   if(a==='contact'){capture();if(!getPack()||!getProduct()?.visible||getProduct()?.salePaused)return formError('상품을 다시 선택해 주세요.');state.phone=state.phone.replace(/[\s-]/g,'');if(!state.name.trim())return formError('성함을 입력해 주세요.');if(!/^01[016789]\d{7,8}$/.test(state.phone))return formError('휴대전화 번호를 확인해 주세요.');if(['visit','trunk'].includes(state.category)&&!state.place.trim())return formError('희망 장소나 지역을 입력해 주세요.');if(!state.consent)return formError('개인정보 수집·이용 안내를 확인해 주세요.');return submit();}
   if(a==='done'&&state.complete)return setStep('sms');
  }
@@ -279,7 +290,15 @@ document.addEventListener('change',ev=>{const el=ev.target;if(el.dataset.option|
  rememberStep();render();
  [...document.querySelectorAll('[data-option],[data-option-none]')].find(input=>selected?input.dataset.option===selected.id:input.dataset.optionNone===group)?.focus({preventScroll:true});
  return;
-}if(el.id==='exactTime1'||el.id==='exactTime2'){capture();if(el.id==='exactTime1')state.firstTime=el.value;else state.secondTime=el.value;render();}if(el.id==='secondDate'){state.secondDate=el.value;if(!el.value)state.secondTime='';render();}});
+}if(el.dataset.anyTime){
+ const n=el.dataset.anyTime,key=n==='1'?'firstTime':'secondTime';
+ document.getElementById('preferenceTime'+n).disabled=el.checked;
+ state[key]=el.checked?'시간 무관':document.getElementById('exactTime'+n).value;
+ return;
+}if(el.id==='exactTime1'||el.id==='exactTime2'){
+ const n=el.id==='exactTime1'?'1':'2';
+ if(!document.getElementById('anyTime'+n)?.checked)state[n==='1'?'firstTime':'secondTime']=el.value;
+}});
 window.addEventListener('beforeunload',e=>{if(state.step!=='category'&&!state.complete&&(state.name||state.phone)){e.preventDefault();e.returnValue='';}});
 function route(){document.querySelector('meta[name=robots]').content=location.hash.startsWith('#admin')?'noindex,nofollow':'index,follow';if(location.hash.startsWith('#admin'))window.MomentLinkAdmin.mount();else{window.MomentLinkAdmin.clear();if(!history.state?.momentLink){navigationFlow=crypto.randomUUID();navigationDepth=0;showStep('category');rememberStep();}refreshCatalog();render();}}
 window.addEventListener('hashchange',route);
