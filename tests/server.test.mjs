@@ -116,7 +116,12 @@ test('invalid images are rejected and disabling staff revokes active sessions',a
 test('catalog validates photo metadata, date exceptions, and paused sales',async()=>{
  const current=(await request('admin/catalog',{auth:true})).data.draft;
  const products=structuredClone(current.data);products[0].salePaused=true;products[0].media=[{url:'https://example.invalid/synthetic.webp',alt:'합성 검수 사진'}];products[0].packages[0].datePrices=[{date:'2099-11-01',amount:450000}];
+ const heli=products.find(p=>p.id==='heli');heli.media=Array.from({length:16},(_,i)=>({url:'https://example.invalid/heli-'+i+'.webp',alt:'합성 헬기 사진 '+i}));heli.photo=heli.media[0].url;
  const saved=await request('admin/catalog',{auth:true,method:'PUT',data:{version:current.version,products,publish:true}});assert.equal(saved.status,200);
+ assert.deepEqual((await request('catalog')).data.products.find(p=>p.id==='heli'),heli);
+ const oversized=structuredClone(products);oversized.find(p=>p.id==='heli').media.push(...heli.media.slice(0,5));
+ assert.equal((await request('admin/catalog',{auth:true,method:'PUT',data:{version:saved.data.version,products:oversized,publish:true}})).status,400);
+ assert.deepEqual((await request('catalog')).data.products.find(p=>p.id==='heli'),heli);
  assert.equal((await request('consultations',{method:'POST',data:{...payload(),catalogVersion:saved.data.publishedVersion},headers:{'Idempotency-Key':randomUUID()}})).status,400);
  products[0].packages[0].datePrices.push({date:'2099-11-01',amount:1});
  assert.equal((await request('admin/catalog',{auth:true,method:'PUT',data:{version:saved.data.version,products,publish:false}})).status,400);
