@@ -1,4 +1,5 @@
 import {queueCollection,balanceDueSql} from './collections.mjs';
+import {dispatchEventCalendars,calendarStatus} from './event-calendar.mjs';
 import {attachStatusTimelines} from './consultation-timeline.mjs';
 import {changeConsultationProduct} from './consultation-product.mjs';
 import {queueAddOnChange} from './ops-addons.mjs';
@@ -45,12 +46,14 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/cron/consultation-alerts'&&method==='POST'){
    if(!authorizedCron(request,env.PUSH_REPEAT_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
    const result=await dispatchConsultationAlerts(db,env,adapters);
+   const calendar=await dispatchEventCalendars(db,env,adapters);
    await db.query("INSERT INTO moment_link.config(id,data) VALUES('push-repeat-worker',$1) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=now()",[JSON.stringify({lastRun:new Date().toISOString(),...result})]);
-   return json(result);
+   return json({...result,calendar});
   }
   if(path==='/api/integrations/boatn/consultation-statuses')return json(await readOpsConsultationStatuses(request,db,env));
   if(path==='/api/integrations/boatn/events'||path.startsWith('/api/integrations/boatn/events/'))return json(await receiveOpsEvent(request,db,env));
   const dispatch=async(id,wait=false)=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=dispatchIntegrations(db,env,adapters,id).catch(()=>{});if(schedule&&!wait)schedule(work);else await work;};
+  const dispatchCalendar=async id=>{const work=dispatchEventCalendars(db,env,adapters,id).catch(()=>{});if(schedule)schedule(work);else await work;};
   if(path==='/api/cron/retention'&&method==='GET'){
    if(!authorizedCron(request,env.CRON_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
    const result=await purgeExpired(db);await dispatch();return json(result);
@@ -129,6 +132,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   authorize(user);if(writeMethods.includes(method))csrf(request,user);
   if(path==='/api/admin/staff'&&method==='GET')return json({items:(await db.query(staffQuery)).rows});
+  if(path==='/api/admin/calendar-jobs'&&method==='GET'){
+   authorize(user,true);
+   return json({enabled:env.EVENT_CALENDAR_ENABLED==='true',items:(await db.query('SELECT c.receipt,j.state,j.revision,j.synced_revision,j.attempts,j.error_code,j.synced_at FROM moment_link.event_calendar_jobs j JOIN moment_link.consultations c ON c.id=j.consultation_id ORDER BY j.updated_at DESC')).rows});
+  }
   if(path==='/api/admin/ops/boatn'&&method==='GET'){
    if(env.OPS_WRITES_ENABLED!=='true')return json({enabled:false,paymentMethods:[]});
    const metadata=await (adapters.ops?.boatn||opsAdapter('boatn',env)).metadata();
@@ -138,6 +145,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    authorize(user,true);
    const result=await createDirectBooking(db,user,await body(request));
    await dispatch(result.item.id);
+   await dispatchCalendar(result.item.id);
    const item=visibleRequest(result.item);item.integration=(await db.query('SELECT id,state,error_code,external_id,updated_at FROM moment_link.integration_jobs WHERE consultation_id=$1',[item.id])).rows[0]||null;return json({...result,item},result.replayed?200:201);
   }
   if(path==='/api/admin/trash/empty'&&method==='POST'){authorize(user,true);return json(await emptyTrash(db,user,await body(request)));}
@@ -254,7 +262,9 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    if(result.collectionRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='payment' AND booking->>'changeId'=$2",[id,result.collectionRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    if(!result.collectionRequest&&!result.messageOnly&&action!=='product'&&(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id))await dispatch(id,result.cancellationQueued||result.restorationQueued||['reservation','addons','payments'].includes(action)&&method==='POST');
    if(result.item){
+    if(method!=='GET')await dispatchCalendar(id);
     if(result.cancellationQueued||result.restorationQueued||['reservation','addons','payments'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
+    result.item.calendar=await calendarStatus(db,id);
     result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
     await attachStatusTimelines(db,[result.item]);
     result.item=present(result.item);
