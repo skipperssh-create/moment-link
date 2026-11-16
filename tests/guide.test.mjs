@@ -24,7 +24,7 @@ test('short messages preserve schedule, payment, address and phone while linking
   if(stage==='receipt')assert.equal(body.includes('예약금만 입금'),useDeposit);
   const url=new URL(body.match(/https:\/\/link\.teamboatn\.com\/guide\/\S+/)[0]);
   assert.equal(url.origin,'https://link.teamboatn.com');assert.equal(url.search,'');
-  assert.equal(url.pathname,'/guide/'+category+(category==='visit'?'-busan':'')+'-video-v1.html');assert.ok(pages[url.pathname.slice(1)]);
+  assert.equal(url.pathname,'/guide/'+category+'-video-v1.html');assert.ok(pages[url.pathname.slice(1)]);
   assert.equal(decodeURIComponent(M.smsURI(r.phone,body,'Android').split('body=')[1]),body);
  }
  assert.equal(new URL(M.guideURL({...row('unknown'),person:'<script>'})).pathname,'/guide.html');
@@ -63,14 +63,14 @@ test('each published page contains only its booking category and selected prepar
   if(v.docked)r.snapshot.product.id='docked';
   if(v.category==='trunk'&&v.mode==='visit')r.snapshot.package.name='부산 출장';
   if(v.region==='busan')r.place='부산광역시 합성 주소';
-  assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file);
+  assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file.replace('-busan',''));
   assert.match(body,new RegExp('<h1>'+labels[v.category]));
   assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|data-region|\{\{/);
   for(const category of Object.keys(labels))assert.equal(body.includes('id="'+category+'"'),category===v.category);
   for(const [category,label] of Object.entries(labels))if(category!==v.category)assert.ok(!body.includes(label),v.file+' has '+label);
   assert.equal(body.includes('id="refund"'),['yacht','visit'].includes(v.category));
   assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video);
-  assert.equal(body.includes('id="visit-pickup"'),v.category==='visit'&&v.region==='busan');
+  assert.equal(body.includes('id="visit-pickup"'),v.category==='visit');
   if(v.category==='yacht'){
    assert.equal(body.includes('출항 없이 정박된 요트'),v.docked);
    for(const text of ['기상·운항 안내','승선신고·보딩패스','한국해양대학교에서 출항하는 경우'])assert.equal(body.includes(text),!v.docked);
@@ -112,46 +112,46 @@ test('saved generated guide links upgrade to the booking selection without chang
  assert.equal(corrected.confirmed,'담당자 메모\nhttps://link.teamboatn.com/guide/yacht-docked-video-v1.html');assert.deepEqual(M.prepareDrafts(docked,corrected,undefined,b),corrected);
 });
 
-test('Busan pickup terms are restricted to visit bookings with an explicit Busan address',()=>{
+test('all visit guides show clearly separated regional pickup terms, including previously shared Busan paths',()=>{
  for(const video of [false,true]){
   const r=row('visit',video),suffix=video?'-video':'';
-  for(const place of ['부산광역시 해운대구 합성로 1','부산 해운대 합성호텔','부산시 해운대구','부산진구 합성로 2','합성호텔 (부산광역시 해운대구)']){
-   const url=M.guideURL(r,{...b,place});
-   assert.equal(new URL(url).pathname,`/guide/visit-busan${suffix}-v1.html`);
-   const page=pages[new URL(url).pathname.slice(1)];
-   for(const text of ['부산 지역 한정','최대 1일 기준','시간당 30,000원','생화·케이크·웰컴드링크를 제외한 나머지 용품','직접 방문 수거','제공해 드린 백에 용품을 넣어 문 앞에','세팅 후 2시간 이내','오전 11시 이내'])assert.ok(page.includes(text),text);
-   assert.equal((page.match(/택 1/g)||[]).length,2);
-   assert.doesNotMatch(page,/24시간|2시간 대기|오전 11시 이전/);
-  }
-  for(const place of ['서울특별시 합성로 1','경상남도 창원시','합성호텔','','부산물 보관 장소','경기도 오산시 부산동']){
-   const url=M.guideURL(r,{...b,place});
+  for(const place of ['부산광역시 해운대구 합성로 1','부산진구 합성로 2','서울특별시 합성로 1','경상남도 창원시','합성호텔','']){
+   const url=M.guideURL({...r,place,communication:{booking:{...b,place}}});
    assert.equal(new URL(url).pathname,`/guide/visit${suffix}-v1.html`);
-   assert.doesNotMatch(pages[new URL(url).pathname.slice(1)],/용품 수거|부산 지역 한정|생화·케이크·웰컴드링크/);
+   const page=pages[new URL(url).pathname.slice(1)];
+   for(const text of ['부산 지역 한정','최대 1일 기준','시간당 30,000원','생화·케이크·웰컴드링크를 제외한 나머지 용품','직접 방문 수거','제공해 드린 백에 용품을 넣어 문 앞에','세팅 후 2시간 이내','오전 11시 이내','타지역 수거 안내','당일 수거 무료','세팅 후 2시간 대기한 뒤 당일 수거','해당 지역 출장비가 1회 추가 청구','타지역 출장비는 예약 시 안내드립니다.'])assert.ok(page.includes(text),text);
+   assert.match(page,/<strong>중요 · 출장비 안내<\/strong>/);
+   assert.match(page,/<strong>부산 일부 지역도 출장비가 발생할 수 있습니다\.<\/strong>/);
+   const regions=[...page.matchAll(/<div class="pickup-region">([\s\S]*?)<\/div>/g)].map(x=>x[1]);
+   assert.equal(regions.length,2);
+   assert.match(regions[0],/부산 지역 한정/);assert.match(regions[0],/시간당 30,000원/);
+   assert.match(regions[1],/타지역 수거 안내/);assert.doesNotMatch(regions[1],/시간당 30,000원|오전 11시|2시간 이내/);
+   assert.equal((page.match(/택 1/g)||[]).length,2);
+   assert.equal(pages[`guide/visit-busan${suffix}-v1.html`],page);
   }
  }
- for(const category of ['yacht','trunk','heli'])assert.doesNotMatch(M.guideURL(row(category),b),/busan/);
+ for(const category of ['yacht','trunk','heli'])for(const video of [false,true]){
+  const page=pages[new URL(M.guideURL(row(category,video))).pathname.slice(1)];
+  assert.doesNotMatch(page,/부산 일부 지역|타지역 수거 안내|출장 프로포즈 용품 수거/);
+ }
 });
 
-test('current booking location controls new messages and prepared links without changing stored booking data',()=>{
+test('visit messages no longer require a city and migrate Busan links without changing notes or booking data',()=>{
  const r={...row('visit'),place:'부산 해운대',communication:{booking:{...b},messages:{sent:[{body:'보낸 내용 유지'}]}}};
  const before=structuredClone(r),busan='/guide/visit-busan-video-v1.html',other='/guide/visit-video-v1.html';
- assert.ok(M.guideURL(r).endsWith(busan));
- assert.ok(M.guideURL({...row('visit'),place:'부산광역시'}).endsWith(busan));
- for(const place of ['', '서울특별시 합성로 1']){
+ assert.ok(M.guideURL(r).endsWith(other));
+ for(const place of ['', '합성호텔', '부산광역시 합성로 1', '서울특별시 합성로 1']){
   assert.ok(M.guideURL(r,{...b,place}).endsWith(other));
   for(const stage of ['receipt','confirmed','reminder']){
    const draft=M.generate(r,stage,{...b,place},undefined,'2099-11-01T03:00:00Z');
-   assert.ok(draft.includes(other));assert.doesNotMatch(draft,/busan|용품 수거/);
+   assert.ok(draft.includes(other));assert.match(draft,/준비사항·용품 수거/);assert.ok(draft.length<700);
   }
  }
- for(const stage of ['receipt','confirmed','reminder']){
-  const draft=M.generate(r,stage,b,undefined,'2099-11-01T03:00:00Z');
-  assert.ok(draft.includes(busan));assert.match(draft,/준비사항·용품 수거/);assert.ok(draft.length<700);
- }
- const saved={confirmed:'개별 수거 메모 유지\nhttps://link.teamboatn.com'+other+'\nhttps://external.example/guide/visit-v1.html\nhttps://link.teamboatn.com/guide/visit-v2.html\nhttps://link.teamboatn.com/guide/visit-v1.html?custom=1'};
+ const saved={confirmed:'개별 수거 메모 유지\nhttps://link.teamboatn.com'+busan+'\nhttps://external.example/guide/visit-v1.html\nhttps://link.teamboatn.com/guide/visit-v2.html\nhttps://link.teamboatn.com/guide/visit-v1.html?custom=1'};
  const updated=M.prepareDrafts(r,saved,undefined,b);
- assert.equal(updated.confirmed,saved.confirmed.replace(other,busan));
+ assert.equal(updated.confirmed,saved.confirmed.replace(busan,other));
  assert.deepEqual(M.prepareDrafts(r,updated,undefined,b),updated);
- assert.deepEqual(M.prepareDrafts(r,updated,undefined,{...b,place:'서울특별시 합성로 1'}),saved);
+ assert.deepEqual(M.prepareDrafts(r,updated,undefined,{...b,place:'서울특별시 합성로 1'}),updated);
+ assert.match(saved.confirmed,/visit-busan/);
  assert.deepEqual(r,before);
 });
