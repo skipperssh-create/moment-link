@@ -2,7 +2,18 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 
 const titles={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
-export const GUIDE_VARIANTS=Object.keys(titles).flatMap(category=>(category==='yacht'?[false,true]:[false]).flatMap(docked=>(category==='trunk'?['office','visit']:['office']).flatMap(mode=>[false,true].map(video=>({category,docked,mode,video,file:`guide/${category}${docked?'-docked':''}${category==='trunk'&&mode==='visit'?'-visit':''}${video?'-video':''}-v1.html`})))));
+export const GUIDE_VARIANTS=Object.keys(titles).flatMap(category=>
+ (category==='yacht'?[false,true]:[false]).flatMap(docked=>
+  (category==='trunk'?['office','visit']:['office']).flatMap(mode=>
+   (category==='visit'?['','busan']:['']).flatMap(region=>
+    [false,true].map(video=>({
+     category,docked,mode,region,video,
+     file:`guide/${category}${docked?'-docked':''}${category==='trunk'&&mode==='visit'?'-visit':''}${region?'-'+region:''}${video?'-video':''}-v1.html`
+    }))
+   )
+  )
+ )
+);
 
 // The controlled v1 template has no nested sections or nested data-mode divs.
 // Remove unrelated markup at build time, so no script, preview or loading state can show it.
@@ -23,7 +34,8 @@ export async function customerGuidePages(){
   html=filterBlocks(html,'data-mode',value=>v.category==='trunk'&&value===v.mode);
   html=filterBlocks(html,'data-sailing',()=>v.category==='yacht'&&!v.docked);
   html=filterBlocks(html,'data-docked',()=>v.docked);
-  const title=titles[v.category]+(v.docked?' · 미출항':v.category==='trunk'?(v.mode==='visit'?' · 출장':' · 사무실 방문'):'');
+  html=filterBlocks(html,'data-region',value=>v.category==='visit'&&value===v.region);
+  const title=titles[v.category]+(v.docked?' · 미출항':v.region==='busan'?' · 부산':v.category==='trunk'?(v.mode==='visit'?' · 출장':' · 사무실 방문'):'');
   html=html.replaceAll('{{title}}',title).replaceAll('{{yachtPreparation}}',v.docked?'정박 이용 준비':'승선 전 준비');
   return [v.file,html];
  }));
