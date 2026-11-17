@@ -28,7 +28,15 @@ function validate(r,b){
 const states={pending:'등록 대기',checking:'등록 확인 중',succeeded:'등록 완료',failed:'연결 실패',uncertain:'등록 결과 확인 중',blocked:'연결 확인 필요',conflict:'담당자 확인 필요'};
 const reasons={OPS_PARTIAL_PAYMENT_UNAVAILABLE:'OPS 예약금 연결을 확인해 주세요. 예약금과 잔금은 보존되어 있습니다.',OPS_ADDONS_UNAVAILABLE:'OPS 추가 구매 연결을 확인해 주세요. 선택한 옵션과 금액은 보존되어 있습니다.',OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 운항이 제한되어 있습니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS에서 운항 가능 일정과 탑승 인원을 확인해 주세요.',OPS_DUPLICATE_REVIEW_REQUIRED:'같은 고객·시간의 예약이 있습니다. OPS 기존 예약을 확인해 주세요.',OPS_PAYMENT_METHOD_CHANGED:'OPS 결제수단 설정이 변경되었습니다.',CONSULTATION_CLOSED:'취소·완료된 예약은 신규 등록하지 않습니다.',OPS_PAYLOAD_CHANGED:'이미 등록된 예약 정보와 다릅니다. OPS에서 확인해 주세요.',OPS_INPUT_INVALID:'예약 날짜·시간·인원·금액을 OPS에서 확인해 주세요.'};
 const retryReasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 다시 확인해야 합니다.',OPS_REVIEW_REQUIRED:'OPS에서 등록 확인을 완료하지 못했습니다.',OPS_HTTP_429:'OPS 요청이 잠시 많아 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
+function seollemPanel(r){
+ const j=r.seollem;if(!j)return '';
+ const synced=j.state==='synced'&&j.revision===j.synced_revision,stopped=j.state==='conflict'||j.state==='failed'&&j.attempts>=2;
+ const title=synced?'반영 완료':stopped?'확인 필요':'반영 중';
+ const calendar=r.calendar?.state==='synced'?'반영 완료':r.calendar?.state==='conflict'||r.calendar?.state==='failed'?'확인 필요':'반영 중';
+ return '<section class="info" id="boatnOpsStatus" data-record="'+esc(r.id)+'" aria-live="polite"><h3>설렘 OPS · '+title+'</h3><p class="micro">확정 일정·입금액·취소 자동 반영 · 구글 캘린더 '+calendar+'</p>'+(stopped?'<p role="alert">자동 반영을 멈췄습니다. 기존 예약을 보존한 상태로 연결 정보를 확인해 주세요.</p>':'')+(j.error_code?'<p class="micro">확인 코드: '+esc(j.error_code)+'</p>':'')+'<button class="secondary" type="button" data-seollem-refresh>상태 확인</button> <a class="secondary" href="https://ops.seollempropose.com" target="_blank" rel="noopener">설렘 OPS 열기</a></section>';
+}
 function panel(r){
+ if(r.seollem)return seollemPanel(r);
  if(!r.integration)return '';
  if(r.integration.operation==='inbound')return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${r.integration.state==='succeeded'?'변경 반영 완료':'변경 확인 필요'}</h3><p class="micro">${r.integration.state==='succeeded'?'OPS에서 변경한 예약시간·취소·복원 상태가 반영되었습니다. 금액·입금·메모는 그대로 유지됩니다.':'양쪽 예약 정보가 달라 자동 반영을 멈췄습니다. 기존 예약 내용을 확인해 주세요.'}</p><a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
  if(r.integration.operation==='payment')return paymentPanel(r);
@@ -75,10 +83,16 @@ function addOnsPanel(r){
  const messages={OPS_ADDONS_REFUND_REQUIRED:'변경 금액이 이미 받은 금액보다 작습니다. OPS에서 환불 내역을 먼저 확인해 주세요.',OPS_ADDONS_CHANGED:'OPS의 일정·금액·옵션이 달라 자동 덮어쓰지 않았습니다.',OPS_ADDONS_REVIEW_REQUIRED:'OPS의 기존 변경·충돌 상태를 먼저 확인해 주세요.',OPS_ADDONS_FINANCE_REVIEW:'OPS의 기존 수납·금액 기록을 먼저 확인해 주세요.'};
  return `<section class="info" id="boatnOpsStatus" data-record="${esc(r.id)}" aria-live="polite"><h3>BOATN OPS · ${done?'옵션 반영 완료':conflict?'옵션 변경 확인 필요':'옵션 반영 확인 중'}</h3><p class="micro">${esc(done?'옵션과 총액·잔액이 OPS에 반영되었습니다. 추가 입금은 확정 예약 목록의 입금 확인에서 기록해 주세요.':messages[j.error_code]||(limited?'자동 시도 2회를 마쳤습니다. 결과 조회만 가능합니다.':'OPS 확인 후 옵션과 추가금을 갱신합니다. 기존 예약 금액은 유지합니다.'))}</p>${!done&&j.error_code?`<p class="micro">확인 코드: ${esc(j.error_code)}</p>`:''}${!done&&!conflict?'<button class="secondary" type="button" data-boatn-retry>반영 결과 확인</button>':''}<a class="secondary" href="https://boarding.boatn.co.kr" target="_blank" rel="noopener">BOATN OPS 열기</a></section>`;
 }
-function mount(r,api){
+function mount(r,api,reads=0,failures=0){
  clearTimeout(panelTimer);const generation=++panelGeneration;
  const node=document.getElementById('boatnOpsStatus');if(!node||node.dataset.record!==r?.id)return;
  const current=()=>generation===panelGeneration&&document.getElementById('boatnOpsStatus')===node;
+ if(r.seollem){
+  const refresh=async()=>{try{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api,reads+1,0);}}catch{if(current()&&failures<1)mount(r,api,reads+1,failures+1);}};
+  node.querySelector('[data-seollem-refresh]')?.addEventListener('click',refresh);
+  if(reads<12&&failures<2&&['pending','processing','failed'].includes(r.seollem.state)&&r.seollem.attempts<2)panelTimer=setTimeout(()=>{if(current()&&!document.hidden)void refresh();},5000);
+  return;
+ }
  // Replace only the OPS panel: unsaved status, memo and message edits stay intact.
  const refresh=async()=>{const out=await api('admin/consultations/'+r.id);if(current()){node.outerHTML=panel(out.item);mount(out.item,api);if(['reschedule','cancel','restore','registration_revision','addons'].includes(r.integration.operation)&&out.item.integration?.state==='succeeded')document.dispatchEvent(new CustomEvent(r.integration.operation==='addons'?'ml:ops-addons-synced':r.integration.operation==='restore'?'ml:ops-restoration-synced':r.integration.operation==='cancel'?'ml:ops-cancellation-synced':'ml:ops-schedule-synced',{detail:{item:out.item}}));}};
  node.querySelector('[data-boatn-retry]')?.addEventListener('click',async ev=>{
