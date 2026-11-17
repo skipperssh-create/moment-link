@@ -6,6 +6,7 @@ const templateOnly=stage=>['intent','payment_reminder'].includes(stage);
 const bank='우리은행 1005-703-823528\n예금주: (주)보트앤럭스';
 const contact='문의: 1833-8047\n담당자: 010-8009-8047';
 const receivingEmail='seolvidmoa@gmail.com';
+const yachtDiningNotice='식사(선택·별도 비용): 식사 중 스크래치 복권 당첨은 이벤트 스토리입니다. 식사를 원하시면 식당에 직접 예약·결제하고, 예약 시 “요트 이벤트 예약자”라고 말씀해 주세요. 식당 연락처는 상세 안내에서 확인해 주세요.';
 const refunds='취소·환불 안내 (이벤트 예정일 기준)\n45~31일 전: 90% 환불\n30~16일 전: 80% 환불\n15~11일 전: 70% 환불\n10~7일 전: 60% 환불\n6~2일 전: 50% 환불\n1일 전·당일: 환불 불가';
 const dateOK=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const timeOK=value=>/^([01]\d|2[0-3]):[0-5]\d$/.test(value);
@@ -103,6 +104,10 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
    if(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked'))text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/yacht(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r));
    if(r.category==='visit')text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/visit(?:-busan)?(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r));
    if(detailsMoved&&!/https:\/\/link\.teamboatn\.com\/(?:guide\.html(?:\?|\s|$)|guide\/)/.test(text))text+='\n\n'+guideBlock(r,stage);
+   if(r.category==='yacht'&&/^\[모먼트링크 · (?:예약 접수|예약 확정|이벤트 전 안내)\]/.test(text)&&!text.includes(yachtDiningNotice)){
+    const guideStart=text.indexOf('상세 안내 · ');
+    text=guideStart>=0?text.slice(0,guideStart)+yachtDiningNotice+'\n\n'+text.slice(guideStart):text+'\n\n'+yachtDiningNotice+'\n'+guideURL(r);
+   }
   }
   return [stage,text];
  }));

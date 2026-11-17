@@ -15,6 +15,31 @@ const script=await readFile(new URL('../guide.js',import.meta.url),'utf8');
 const b={date:'2099-11-21',time:'20:00',amount:540000,receivedAmount:90000,place:'부산광역시 합성 주소',extra:''};
 const row=(category='yacht',video=true)=>({person:'합성 고객',phone:'01000000000',category,status:'consulting',snapshot:{product:{name:'합성 상품'},package:{name:'올인원',features:video?['영상편지']:[]},options:[]}});
 
+test('optional dining notice appears only in yacht guidance and survives preparation without duplication',()=>{
+ for(const category of ['yacht','visit','trunk','heli'])for(const stage of ['receipt','confirmed','reminder','thanks']){
+  const r=row(category),before=JSON.stringify({r,b});
+  const body=M.generate(r,stage,b,'2099-11-01T03:00:00Z');
+  const prepared=M.prepareDrafts(r,{[stage]:body},'2099-11-01T03:00:00Z',b)[stage];
+  if(category==='yacht'&&stage!=='thanks'){
+   assert.match(body,/식사 중 스크래치 복권 당첨은 이벤트 스토리/);
+   assert.match(body,/직접 예약·결제/);assert.match(body,/요트 이벤트 예약자/);
+   assert.equal(prepared.split('식사(선택·별도 비용)').length-1,1);
+  }else assert.doesNotMatch(body,/식사\(선택|스크래치|식당/);
+  assert.equal(JSON.stringify({r,b}),before);
+ }
+});
+test('restaurant contacts and separate payment terms are present only in yacht guide variants',()=>{
+ for(const variant of GUIDE_VARIANTS){
+  const page=pages[variant.file];
+  if(variant.category==='yacht'){
+   for(const phone of ['0517495320','0517495000','0519901320','0519901310'])assert.ok(page.includes('tel:'+phone));
+   assert.match(page,/실제 식사나 식사비는 요트 이벤트 예약에 포함되지 않습니다/);
+   assert.match(page,/고객님이 식당에 직접 예약하고, 식사비도 직접 결제/);
+   assert.match(page,/요트 이벤트 예약자/);
+  }else assert.doesNotMatch(page,/yacht-dining|0517495320|스크래치/);
+ }
+});
+
 test('short messages preserve schedule, payment, address and phone while linking details without personal URL data',()=>{
  for(const category of ['yacht','visit','trunk','heli'])for(const stage of ['receipt','confirmed','reminder'])for(const useDeposit of [false,true]){
   const r=row(category),body=M.generate(r,stage,{...b,useDeposit,requestedDepositAmount:useDeposit?90000:null},'2099-11-01T03:00:00Z');
