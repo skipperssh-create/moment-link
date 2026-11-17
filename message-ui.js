@@ -39,7 +39,7 @@ const actionIcon=name=>`<svg class="admin-icon" viewBox="0 0 24 24" fill="none" 
 const actionCaptions={bookingSave:'예약 저장',reserve:'예약 확정',autoAmount:'요금 적용',regenerate:'문구 갱신',save:'문자 준비',copy:'문구 복사',sent:'발송 기록'};
 const actionButton=(action,name,label,primary=false)=>`<button type="button" class="admin-icon-button ${primary?'icon-primary':''}" data-message="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${pending?'disabled':''}>${actionIcon(name)}<span class="admin-action-text">${esc(pending?'처리 중':action==='reserve'&&item?.status==='confirmed'?'수정·확정':actionCaptions[action]||label)}</span></button>`;
 function reveal(){const panel=document.getElementById('detailMessages');if(panel)panel.open=true;}
-function reset(){item=null;booking={};drafts={};paymentDeadline='';prepared=false;pending=false;changed=false;templateDirty={};notice='';catalog=null;catalogError='';catalogLoading=false;selection=null;selectionTouched=false;}
+function reset(){document.getElementById('messageErrorDialog')?.remove?.();item=null;booking={};drafts={};paymentDeadline='';prepared=false;pending=false;changed=false;templateDirty={};notice='';catalog=null;catalogError='';catalogLoading=false;selection=null;selectionTouched=false;}
 function regenerate(){drafts=Object.fromEntries(Object.keys(M.stages).map(s=>[s,M.templateOnly(s)&&drafts[s]!==undefined?drafts[s]:M.generate(record(),s,booking,paymentDeadline)]));}
 function init(r,request,onUpdate,settings={}){
  api=request;updated=onUpdate;productSettings=settings;
@@ -101,6 +101,22 @@ function render(){
  if(restored&&Number.isFinite(top)&&typeof window.scrollBy==='function')window.scrollBy(0,restored.getBoundingClientRect().top-top);
 }
 function feedback(message){notice=message;for(const el of document.querySelectorAll?.('.booking-save-feedback')||[])el.textContent=message;const el=document.getElementById('messageNotice');if(el)el.textContent=message;}
+function actionError(action,err){
+ const title={save:'문자 준비를 완료하지 못했습니다.',reserve:'예약을 확정하지 못했습니다.',bookingSave:'예약사항을 저장하지 못했습니다.'}[action]||'요청을 완료하지 못했습니다.';
+ const message=err?.name==='TypeError'&&!err.status?'서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요. 저장 여부는 상담을 다시 열어 확인한 뒤 진행해 주세요.':err?.message||'처리 결과를 확인하지 못했습니다. 상담을 다시 열어 저장 여부를 확인해 주세요.';
+ prepared=false;pending=false;feedback(message);render();
+ const el=document.getElementById('messageNotice');el?.setAttribute?.('role','alert');el?.classList?.add('form-error');
+ document.getElementById('messageErrorDialog')?.remove?.();
+ const dialog=document.createElement('dialog');dialog.id='messageErrorDialog';dialog.className='message-error-dialog';
+ dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-labelledby','messageErrorTitle');dialog.setAttribute('aria-describedby','messageErrorReason');
+ dialog.innerHTML=`<h2 id="messageErrorTitle">${esc(title)}</h2><p id="messageErrorReason">${esc(message)}</p><div class="btnrow"><button type="button" class="primary" autofocus>확인</button></div>`;
+ const returnTo=document.querySelector(`[data-message="${action}"]`)||el;
+ const close=()=>{dialog.remove();returnTo?.focus?.({preventScroll:true});};
+ dialog.addEventListener('close',close);dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
+ dialog.querySelector('button').addEventListener('click',close);
+ document.body.append(dialog);if(dialog.showModal)dialog.showModal();else dialog.setAttribute('open','');
+ dialog.querySelector('button').focus();
+}
 function invalidate(){prepared=false;changed=true;const summary=document.getElementById('bookingQuoteSummary');if(summary)summary.innerHTML=quoteSummary();const el=document.getElementById('messageSend');if(el)el.innerHTML='<p class="micro">변경 내용을 저장한 뒤 문자 앱을 열어 주세요.</p>';}
 function lengthHint(body=''){return body.length.toLocaleString('ko-KR')+'자 · '+(body.length>700?'내용이 깁니다. 추가 안내를 줄이고, 문자 앱에서 끝부분까지 들어갔는지 확인해 주세요.':'전송 전 문자 앱에서 내용을 확인해 주세요. 문자 요금은 통신사 요금제를 따릅니다.');}
 function length(){const el=document.getElementById('messageLength');if(el)el.textContent=lengthHint(drafts[stage]||'');}
@@ -198,17 +214,19 @@ document.addEventListener('click',async ev=>{
   }catch(err){if(item?.id===target)notice='저장하지 못했습니다. '+err.message;}
   finally{if(item?.id===target){pending=false;render();if(saved)document.dispatchEvent(new CustomEvent('ml:reservation-options-updated',{detail:{item}}));}}return;
  }
- if(selectionTouched&&(!M.templateOnly(stage)||action==='reserve')&&['save','reserve','copy','sent','sms'].includes(action)){feedback('변경한 상품을 먼저 예약사항 저장해 주세요.');focusSection('workflowBooking');return;}
+ if(selectionTouched&&(!M.templateOnly(stage)||action==='reserve')&&['save','reserve','copy','sent','sms'].includes(action)){actionError(action,Error('변경한 상품을 먼저 예약사항 저장해 주세요.'));focusSection('workflowBooking');return;}
  if(action==='bookingSave'){
-  const target=item.id,problem=M.amountError(booking,record());if(problem){feedback(problem);render();return;}
+  const target=item.id,problem=M.amountError(booking,record());if(problem){actionError(action,Error(problem));return;}
+  let failure=null;
   pending=true;notice='예약사항 저장 중…';render();
   try{const out=selectionTouched?await api('admin/consultations/'+target+'/product','POST',{version:item.version,selection:{...selection,catalogVersion:catalog.version},booking}):await api('admin/consultations/'+target+'/communications','PUT',{version:item.version,booking,drafts});
    if(item?.id!==target)return;
    item=out.item;booking=M.defaults(item);drafts={...item.communication.drafts};updated(item);prepared=false;changed=false;resetSelection();notice='예약사항을 저장했습니다. 예약 확정·OPS 등록·문자 발송은 진행하지 않았습니다.';
-  }catch(err){if(item?.id===target){prepared=false;notice='저장하지 못했습니다. '+err.message;}}
-  finally{if(item?.id===target){pending=false;render();}}
+  }catch(err){if(item?.id===target)failure=err;}
+  finally{if(item?.id===target){pending=false;if(failure)actionError(action,failure);else render();}}
   return;
  }
+ const actionTarget=item.id;let failure=null;
  pending=true;render();
  try{
   if(action==='save'||action==='reserve'){
@@ -228,8 +246,8 @@ document.addEventListener('click',async ev=>{
    if(!confirm('휴대폰 문자 앱에서 실제 전송을 완료했나요? 완료한 경우에만 기록해 주세요.'))return;
    await log('manual_sent');notice=stage==='confirmed'&&O.eligible(item)?'발송 확인을 기록했습니다. OPS 예약 목록을 새로고침하면 모먼트링크 승선 안내 발송 확인과 담당자·시각이 표시됩니다.':'담당자의 발송 확인을 기록했습니다.';
   }
- }catch(err){prepared=false;notice=err.message;}
- finally{pending=false;render();}
+ }catch(err){failure=err;}
+ finally{if(item?.id===actionTarget){pending=false;if(failure)actionError(action,failure);else render();}}
 });
 window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed||Object.values(templateDirty).some(Boolean),isBusy:()=>pending,openStage,confirmation,acceptConfirmation,refreshStatus,focusConfirmation(){focusSection('workflowConfirm');},focus(){reveal();focusSection('workflowMessages');}};
 })();

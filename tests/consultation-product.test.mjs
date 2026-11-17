@@ -46,8 +46,8 @@ test('consultation product revisions validate catalog, retain purchases and hist
 
 test('composer exposes purchases, switches yacht/package, blocks premature confirmation and preserves the note node',async()=>{
  const listeners={},elements={},calls=[];let replacedWith;
- const element=()=>({innerHTML:'',outerHTML:'',value:'',contains:()=>true,querySelector:()=>({textContent:''}),replaceWith(node){replacedWith=node;},focus(){},scrollIntoView(){}});
- const document={getElementById:id=>elements[id]??=element(),addEventListener:(name,fn)=>listeners[name]=fn};
+ const element=()=>({innerHTML:'',outerHTML:'',value:'',contains:()=>true,querySelector:()=>({textContent:'',addEventListener(){},focus(){}}),replaceWith(node){replacedWith=node;},focus(){},scrollIntoView(){},setAttribute(){},remove(){},showModal(){},addEventListener(){}});
+ const document={getElementById:id=>elements[id]??=element(),querySelector:()=>element(),createElement:element,body:{append(){}},addEventListener:(name,fn)=>listeners[name]=fn};
  const ctx=vm.createContext({document,navigator:{userAgent:'Android'},window:{},console,Intl,Date,URL});ctx.window=ctx;ctx.globalThis=ctx;
  ctx.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
  for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);

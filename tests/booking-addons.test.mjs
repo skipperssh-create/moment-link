@@ -38,8 +38,8 @@ test('saving unconfirmed booking details persists partial fields and extras with
  }finally{await f.pg.close();}
 });
 async function composer(){
- const listeners={},requests=[],updates=[],elements={},el=()=>({value:'',checked:false,innerHTML:'',outerHTML:'',contains:()=>true,scrollIntoView(){},focus(){},querySelector:()=>({textContent:''})});
- const document={getElementById:id=>elements[id]??=el(),addEventListener:(name,fn)=>listeners[name]=fn};
+ const listeners={},requests=[],updates=[],elements={},el=()=>({value:'',checked:false,innerHTML:'',outerHTML:'',contains:()=>true,scrollIntoView(){},focus(){},remove(){},setAttribute(){},addEventListener(){},querySelector:()=>el(),showModal(){}});
+ const document={getElementById:id=>elements[id]??=el(),querySelector:el,createElement:el,body:{append:node=>elements[node.id]=node},addEventListener:(name,fn)=>listeners[name]=fn};
  const context=vm.createContext({console,Intl,Date,URL,Object,document,navigator:{userAgent:'Android'},window:{},crypto:{randomUUID:()=> '00000000-0000-4000-8000-000000000000'}});
  context.globalThis=context;context.window=context;context.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
  for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),context);
@@ -50,7 +50,7 @@ async function composer(){
 }
 test('booking save is independent of confirmation, blocks double clicks and keeps drafts after a failed write',async()=>{
  const h=await composer();let saving=h.click('bookingSave');await h.click('bookingSave');assert.equal(h.requests.length,1);assert.match(h.requests[0].path,/communications$/);assert.equal(h.requests[0].method,'PUT');assert.equal(h.requests[0].data.prepareStage,undefined);assert.equal(h.requests[0].data.booking.paymentConfirmed,false);
- h.requests[0].reject(Error('합성 연결 실패'));await saving;assert.equal(h.context.MomentLinkComposer.isBusy(),false);assert.match(h.elements.messageComposer.outerHTML,/저장하지 못했습니다/);assert.match(h.elements.messageComposer.outerHTML,/540000/);
+ h.requests[0].reject(Error('합성 연결 실패'));await saving;assert.equal(h.context.MomentLinkComposer.isBusy(),false);assert.match(h.elements.messageErrorDialog.innerHTML,/예약사항을 저장하지 못했습니다/);assert.match(h.elements.messageComposer.outerHTML,/합성 연결 실패/);assert.match(h.elements.messageComposer.outerHTML,/540000/);
  saving=h.click('bookingSave');h.requests[1].resolve({item:{...h.item,version:2,communication:{booking:h.requests[1].data.booking,drafts:h.requests[1].data.drafts}}});await saving;
  assert.equal(h.updates.length,1);assert.match(h.elements.messageComposer.outerHTML,/예약사항을 저장했습니다/);assert.doesNotMatch(h.elements.messageComposer.outerHTML,/data-message="sms"/);
 });

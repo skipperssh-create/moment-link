@@ -822,3 +822,10 @@ textarea.message-place{field-sizing:content;min-height:96px}
 .schedule-any-time>span{min-width:0;word-break:keep-all;overflow-wrap:anywhere}
 .schedule-preference>.micro{margin:8px 0 0}
 @media(min-width:680px){.schedule-preference-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+/* Message preparation failures remain visible without a blocking browser alert. */
+dialog.message-error-dialog{position:fixed;inset:0;width:min(440px,calc(100% - 32px));max-width:calc(100% - 32px);max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);margin:auto;padding:24px;border:1px solid var(--line,#e5e5e9);border-radius:20px;background:#fff;color:#1d1d1f;overflow:auto;box-sizing:border-box;box-shadow:0 16px 60px #0002;z-index:10000}
+dialog.message-error-dialog::backdrop{background:#0005}
+.message-error-dialog h2{font-size:20px;line-height:1.4;margin:0 0 16px;overflow-wrap:anywhere}
+.message-error-dialog p{font-size:15px;line-height:1.7;white-space:pre-line;overflow-wrap:anywhere;margin:0 0 20px}
+.message-error-dialog .btnrow{display:flex;justify-content:flex-end;margin:0}
+.message-error-dialog button{min-width:88px;min-height:44px}
