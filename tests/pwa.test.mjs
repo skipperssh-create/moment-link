@@ -29,8 +29,26 @@ function worker(){
 test('PWA keeps its root identity and provides standalone and maskable icons',async()=>{
   const manifest=JSON.parse(await readFile(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
   assert.equal(manifest.id,'/');assert.equal(manifest.scope,'/');assert.equal(manifest.start_url,'/');assert.equal(manifest.display,'standalone');
+  // `any` can override Android's user rotation lock; an omitted orientation leaves
+  // the choice to the device. Keep the manifest URL and app identity stable.
+  assert.equal(Object.hasOwn(manifest,'orientation'),false);
   assert.ok(manifest.icons.some(i=>i.sizes==='192x192'&&i.type==='image/png'));
   assert.ok(manifest.icons.some(i=>i.sizes==='512x512'&&i.purpose==='maskable'));
+});
+
+test('app update checks never receive a stale orientation manifest from the offline shell',async()=>{
+  const w=worker();await w.dispatch('install');await w.dispatch('activate');
+  const manifestUrl=origin+'/manifest.webmanifest';
+  assert.equal(w.entries.has(manifestUrl),false);
+  // Even if an older worker left this response behind, the new worker must not serve it.
+  w.entries.set(manifestUrl,new Response('{"orientation":"any"}'));
+  for(const offline of [false,true]){
+    w.offline=offline;
+    assert.equal(await w.dispatch('fetch',{request:{url:manifestUrl,method:'GET'}}),undefined);
+  }
+  const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
+  const headers=config.headers.find(rule=>rule.source==='/manifest.webmanifest').headers;
+  assert.match(headers.find(h=>h.key==='Cache-Control').value,/no-store/);
 });
 
 test('public shell works offline while requests, admin data and photos bypass the cache',async()=>{
