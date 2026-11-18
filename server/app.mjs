@@ -1,3 +1,4 @@
+import {publicError,errorDiagnostic} from './errors.mjs';
 import {queueAdjustment} from './adjustments.mjs';
 import {queueCollection,balanceDueSql} from './collections.mjs';
 import {dispatchSeollemBookings,seollemStatus,seollemReadiness} from './seollem-bookings.mjs';
@@ -338,8 +339,9 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/admin/jobs/run'&&method==='POST'){authorize(user,true);await rateLimit(db,'jobs:'+user.id,10,60);const d=parse(z.object({kind:z.enum(['notification','integration']),id:z.string().uuid()}).strict(),await body(request));return json(await (d.kind==='notification'?processOutbox(db,d.id,env,adapters):processIntegration(db,d.id,env,adapters)));}
   fail(404,'NOT_FOUND','요청한 기능을 찾을 수 없습니다.');
  }catch(e){
-  if(!e.status)console.error(JSON.stringify({requestId,code:'INTERNAL_ERROR',type:e.name}));
-  return json({error:e.code||'INTERNAL_ERROR',message:e.status?e.message:'처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',requestId},e.status||500);
+  const failure=publicError(e,requestId);
+  if(!e.status)console.error(JSON.stringify(errorDiagnostic(e,requestId,new URL(request.url).pathname.replace(/\/[0-9a-f-]{36}(?=\/|$)/ig,'/:id'))));
+  return json(failure.body,failure.status);
  }
  };
 }
