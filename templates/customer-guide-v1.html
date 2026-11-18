@@ -77,19 +77,31 @@
       <section class="card" id="heli" data-for="heli">
         <p class="eyebrow">헬기 프로포즈</p><h2>탑승 전 준비</h2><p>헬기는 주간에만 운항하며 기상 상황에 따라 시간·장소가 변경될 수 있습니다. 최종 탑승 장소와 시간을 담당자에게 확인해 주세요. 편지 낭독 준비와 촬영 구성은 선택하신 패키지에 맞춰 안내드립니다.</p><p class="muted">취소·변경 조건은 담당자에게 확인해 주세요.</p>
       </section>
+      <section class="card" id="mail-details" data-mail-context>
+        <p class="eyebrow">자료 보내기</p><h2>메일에 들어갈 예약 정보</h2>
+        <form id="guide-mail-form">
+          <div class="mail-fields">
+            <label>예약 날짜<input name="date" type="date" required aria-label="예약 날짜"></label>
+            <label>예약 시간<input name="time" type="time" step="60" required aria-label="예약 시간"></label>
+            <label>예약자 성함<input name="person" type="text" maxlength="60" autocomplete="name" required aria-label="예약자 성함"></label>
+          </div>
+        </form>
+        <p class="muted" id="guide-mail-status" role="status">받는 주소는 seolvidmoa@gmail.com입니다. 예약 날짜·시간·성함을 메일 제목에 적어 주세요.</p>
+        <noscript><p class="callout">자동 입력을 사용하려면 브라우저의 JavaScript를 켜 주세요. 또는 메일 제목에 예약 날짜 / 시간 / 성함을 직접 적어 주세요.</p></noscript>
+      </section>
       <section class="card" id="paper-frame-photos" data-photos>
         <p class="eyebrow">선택하신 추가 옵션</p><h2>종이액자 사진 출력 4개</h2>
         <p>종이액자에 출력할 <strong>사진 4장</strong>을 아래 이메일로 보내 주세요.</p>
-        <dl><div><dt>보내실 곳</dt><dd><a href="mailto:seolvidmoa@gmail.com">seolvidmoa@gmail.com</a></dd></div><div><dt>메일 제목</dt><dd>예약 날짜 / 시간 / 성함<br><span class="muted">예: 26-11-20 / 15:00 / 성함</span></dd></div></dl>
+        <dl><div><dt>보내실 곳</dt><dd><a data-guide-mail href="mailto:seolvidmoa@gmail.com">seolvidmoa@gmail.com</a></dd></div><div><dt>메일 제목</dt><dd><span data-mail-subject>예약 날짜 / 시간 / 성함</span></dd></div></dl>
         <p class="callout"><strong>날짜·시간·성함을 꼭 적어 주세요.</strong><br>누락되면 어떤 예약의 사진인지 확인이 어려울 수 있습니다. 문자에 안내된 메일 제목을 그대로 사용해 주세요.</p>
-        <a class="button" href="mailto:seolvidmoa@gmail.com">종이액자 사진 이메일 보내기 ↗</a>
+        <a class="button" data-guide-mail href="mailto:seolvidmoa@gmail.com">종이액자 사진 이메일 보내기 ↗</a>
       </section>
       <section class="card" id="video" data-video>
         <p class="eyebrow">고객님 준비사항</p><h2>영상편지용 사진과 편지</h2><p class="muted">영상편지가 포함된 상품 또는 영상편지를 추가 선택하신 경우에 해당합니다.</p>
-        <dl><div><dt>파일명 &amp; 메일 제목</dt><dd>날짜(26-00-00)_장소_성함</dd></div><div><dt>사진</dt><dd>25~30장</dd></div><div><dt>사진 순서</dt><dd>1.jpg, 2.jpg…<br><span class="muted">번호가 없으면 순서는 랜덤입니다.</span></dd></div><div><dt>편지</dt><dd>A4 용지 1/3 분량<br><span class="muted">약 300자가 가장 적당합니다.</span></dd></div><div><dt>보내실 곳</dt><dd><a href="mailto:seolvidmoa@gmail.com">seolvidmoa@gmail.com</a></dd></div><div><dt>기한</dt><dd><strong>이벤트 7일 전까지</strong><br><span class="muted">문자에 안내된 제출 기한을 확인해 주세요.</span></dd></div></dl>
+        <dl><div><dt>메일 제목</dt><dd><span data-mail-subject>예약 날짜 / 시간 / 성함</span></dd></div><div><dt>파일명</dt><dd>날짜(26-00-00)_장소_성함</dd></div><div><dt>사진</dt><dd>25~30장</dd></div><div><dt>사진 순서</dt><dd>1.jpg, 2.jpg…<br><span class="muted">번호가 없으면 순서는 랜덤입니다.</span></dd></div><div><dt>편지</dt><dd>A4 용지 1/3 분량<br><span class="muted">약 300자가 가장 적당합니다.</span></dd></div><div><dt>보내실 곳</dt><dd><a data-guide-mail href="mailto:seolvidmoa@gmail.com">seolvidmoa@gmail.com</a></dd></div><div><dt>기한</dt><dd><strong>이벤트 7일 전까지</strong><br><span class="muted">문자에 안내된 제출 기한을 확인해 주세요.</span></dd></div></dl>
         <p class="callout"><strong>이벤트까지 7일 이내인 예약</strong><br>자료를 보내기 전에 담당자와 자료 전달 일정 및 제작 가능 여부를 반드시 협의해 주세요.</p>
         <p><strong>영상편지 수정은 오타에 한해 가능합니다.</strong> 보내기 전에 사진과 편지 내용을 꼼꼼히 확인해 주세요.</p>
-        <a class="button" href="mailto:seolvidmoa@gmail.com">영상자료 이메일 보내기 ↗</a>
+        <a class="button" data-guide-mail href="mailto:seolvidmoa@gmail.com">영상자료 이메일 보내기 ↗</a>
       </section>
       <p class="version">안내 버전 1 · 2026.11.14</p>
     </div>
