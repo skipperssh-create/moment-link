@@ -6,7 +6,7 @@ const labels={bouquet:'꽃다발 모두 제외'};
 function choices(r){
  const b=r.communication?.booking||{},excluded=b.excludedOptionIds||[];
  return [...(!b.excludedServices?.includes('bouquet')?[{id:'bouquet',label:labels.bouquet,amount:30000}]:[]),
- ...(r.snapshot?.options||[]).filter(o=>!excluded.includes(o.id)).map(o=>({id:'option:'+o.id,label:o.name+' 취소',amount:o.amount})),
+ ...(r.snapshot?.options||[]).filter(o=>!excluded.includes(o.id)&&!['video-letter','video-letter-usb'].includes(o.id)).map(o=>({id:'option:'+o.id,label:o.name+' 취소',amount:o.amount})),
  ...(b.addOns||[]).map(o=>({id:'addon:'+o.id,label:(o.description||A.catalog.find(x=>x.id===o.id)?.label||o.id)+' 취소',amount:o.quantity*o.unitAmount})),
  {id:'adjustment',label:'기타 금액 차감',amount:null}];
 }
