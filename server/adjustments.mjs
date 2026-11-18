@@ -1,6 +1,9 @@
 import {z} from 'zod';
 import {parse} from './validation.mjs';
 import {fail,audit} from './security.mjs';
+// messages.js captures its pricing dependency at module initialization.
+// Keep cold production startup independent of migration/test import order.
+import '../pricing.js';
 import '../booking-addons.js';
 import '../booking-adjustment.js';
 import '../messages.js';
