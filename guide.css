@@ -8,3 +8,5 @@ nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}nav a{font-size:13px;tex
 @media(max-width:380px){dl>div{grid-template-columns:minmax(0,1fr);gap:3px}.site-header{padding:18px 16px;gap:10px}.card{padding:18px;border-radius:16px}nav a{padding:9px 12px}h2{font-size:21px}}
 @media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
 @media print{body{background:#fff}.site-header,nav,.button,footer{display:none}.card{break-inside:avoid}}
+
+.mail-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.mail-fields label{display:grid;gap:6px;min-width:0;font-size:14px;color:#546575}.mail-fields input{font:inherit;font-size:16px;color:#1d242b;width:100%;min-width:0;min-height:46px;border:1px solid #dce2e8;border-radius:10px;padding:10px;background:#fff}.mail-fields input:focus-visible{outline:3px solid #537dad;outline-offset:2px}[data-mail-subject]{overflow-wrap:anywhere}@media(max-width:520px){.mail-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.mail-fields label:last-child{grid-column:1/-1}}
