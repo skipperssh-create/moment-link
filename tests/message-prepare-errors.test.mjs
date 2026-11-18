@@ -11,7 +11,7 @@ async function harness({failure,patch={},deferred}={}){
  const listeners={},elements={},alerts=[],calls=[];
  const element=()=>({innerHTML:'',outerHTML:'',value:'',contains:()=>true,replaceWith(){},focus(){},scrollIntoView(){},remove(){delete elements[this.id];},setAttribute(key,value){this[key]=value;},addEventListener(){},classList:{add(){}}});
  const document={getElementById:id=>elements[id]??=element(),querySelectorAll:()=>[],querySelector:()=>element(),addEventListener:(name,fn)=>listeners[name]=fn,body:{append(node){elements[node.id]=node;}},createElement:()=>({...element(),querySelector:()=>element(),showModal(){assert.equal(ctx.MomentLinkComposer.isBusy(),false,'busy state is released before the error dialog');alerts.push(this.innerHTML.replace(/<[^>]+>/g,''));}})};
- const ctx=vm.createContext({document,navigator:{userAgent:'Android'},console,Intl,Date,URL});ctx.window=ctx;ctx.globalThis=ctx;
+ const ctx=vm.createContext({document,navigator:{userAgent:'Android'},console,Intl,Date,URL,btoa,TextEncoder,setTimeout,clearTimeout});ctx.window=ctx;ctx.globalThis=ctx;
  ctx.MomentLinkOps={eligible:()=>true,load:async()=>{},fields:()=>'',validate:()=>''};
  for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);
  const item={id:'synthetic-message-error',version:1,status:'confirmed',person:'합성 검수',phone:'01000000000',category:'yacht',product_id:'classic',package_id:'all',snapshot:{product,package:pkg,price:pkg,options:[]},communication:{booking:{...booking,...patch},reservation:{source:'manual'}},integration:{state:'pending'}};
