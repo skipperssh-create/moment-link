@@ -244,10 +244,10 @@ function legacyPreparation(r,b){
 function generate(r,stage,b,deadline=r.communication?.paymentDeadline,now=Date.now()){
  if(stage==='intent')return reservationIntent();
  if(stage==='payment_reminder')return paymentReminder(r);
- const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).map(o=>o.name).join(', ');
+ const selection=[r.snapshot?.product?.name,r.snapshot?.package?.name].filter(Boolean).join(' · '),options=(r.snapshot?.options||[]).filter(o=>!b.excludedOptionIds?.includes(o.id)).map(o=>o.name).join(', ');
  const schedule=b.date+(b.time?' '+b.time:' (시간 협의 중)');
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
- const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
+ const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines,b.adjustmentNote?'변경 안내: '+b.adjustmentNote:''],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
  const details=[hasVideo(r)?videoBrief(b,now):'',guideBlock(r,stage)].filter(Boolean).join('\n\n');
  if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline):'','입금 후 회신 부탁드립니다.',details];

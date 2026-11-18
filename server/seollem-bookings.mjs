@@ -4,7 +4,7 @@ const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Obje
 export const seollemDigest=v=>createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
 export function seollemRequest(job){
  const r=job.desired,b=r.booking,s=r.snapshot||{};
- const options=(s.options||[]).map(o=>o.name||o.label).filter(Boolean);
+ const options=(s.options||[]).filter(o=>!b.excludedOptionIds?.includes(o.id)).map(o=>o.name||o.label).filter(Boolean);
  const extras=(b.addOns||[]).map(o=>(o.description||o.id)+' '+o.quantity+'개');
  const methods={bank:'bank',transfer:'bank',bank_transfer:'bank',cash:'bank',card:'card',naver:'naver','계좌이체':'bank'};
  const method=b.opsPaymentMethod||b.paymentMethod||'bank';
@@ -12,7 +12,8 @@ export function seollemRequest(job){
  return {externalRef:'moment-link:'+r.id,revision:job.revision,receipt:r.receipt,category:r.category,productId:r.productId,packageId:r.packageId,
   productName:[s.product?.name,s.package?.name].filter(Boolean).join(' · '),person:r.person,phone:r.phone.replace(/[^0-9+]/g,''),status:r.status,
   date:b.date,time:b.time,place:b.place,amount:b.amount,receivedAmount:b.receivedAmount,paymentMethod:methods[method],
-  notes:[r.notes,b.extra,options.length?'상품 선택: '+options.join(', '):'',extras.length?'추가 구매: '+extras.join(', '):''].filter(Boolean).join('\n'),
+  ...(b.refundedAmount!==undefined?{refundedAmount:b.refundedAmount,adjustmentNote:b.adjustmentNote||''}:{}),
+  notes:[r.notes,b.extra,b.adjustmentNote,options.length?'상품 선택: '+options.join(', '):'',extras.length?'추가 구매: '+extras.join(', '):''].filter(Boolean).join('\n'),
   calendarId,eventId:job.calendar_event_id||'ml'+r.id.replaceAll('-',''),privacyConsent:r.consent?.privacy===true};
 }
 export function seollemAdapter(env){return {sync:async payload=>{
@@ -52,5 +53,5 @@ export async function seollemStatus(db,id){return (await db.query('SELECT state,
 export async function seollemReadiness(env){
  if(env.SEOLLEM_BOOKING_SYNC_ENABLED!=='true')return {enabled:false,connected:false};
  const url=env.SEOLLEM_BOOKING_SYNC_URL;if(!url||!url.startsWith('https://ops.seollempropose.com/api/integrations/moment-link/bookings'))return {enabled:true,connected:false};
- try{const r=await fetch(url,{headers:{Authorization:'Bearer '+env.SEOLLEM_BOOKING_SYNC_TOKEN},redirect:'error',signal:AbortSignal.timeout(15000)});const d=await r.json();return {enabled:true,connected:r.ok&&d.ready===true&&d.contract==='moment-seollem-v1',contract:d.contract,products:d.products,calendarWriter:d.calendarWriter,backfill:false};}catch{return {enabled:true,connected:false};}
+ try{const r=await fetch(url,{headers:{Authorization:'Bearer '+env.SEOLLEM_BOOKING_SYNC_TOKEN},redirect:'error',signal:AbortSignal.timeout(15000)});const d=await r.json();return {enabled:true,connected:r.ok&&d.ready===true&&d.contract==='moment-seollem-v1',contract:d.contract,products:d.products,calendarWriter:d.calendarWriter,partialRefunds:d.partialRefunds===true,backfill:false};}catch{return {enabled:true,connected:false};}
 }
