@@ -33,11 +33,13 @@ export async function customerGuidePages(){
   let html=filterBlocks(template,'data-for',value=>value.split(' ').includes(v.category));
   html=filterBlocks(html,'data-video',()=>v.video);
   html=filterBlocks(html,'data-photos',()=>v.photos);
+  html=filterBlocks(html,'data-mail-context',()=>v.video||v.photos);
   html=filterBlocks(html,'data-mode',value=>v.category==='trunk'&&value===v.mode);
   html=filterBlocks(html,'data-sailing',()=>v.category==='yacht'&&!v.docked);
   html=filterBlocks(html,'data-docked',()=>v.docked);
   const title=titles[v.category]+(v.docked?' · 미출항':v.category==='trunk'?(v.mode==='visit'?' · 출장':' · 사무실 방문'):'');
   html=html.replaceAll('{{title}}',title).replaceAll('{{yachtPreparation}}',v.docked?'정박 이용 준비':'승선 전 준비');
+  if(v.video||v.photos)html=html.replace('</head>','  <script src="/guide-mail.js" defer></script>\n</head>');
   return [v.file,html];
  }));
 }
