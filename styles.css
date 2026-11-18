@@ -829,3 +829,9 @@ dialog.message-error-dialog::backdrop{background:#0005}
 .message-error-dialog p{font-size:15px;line-height:1.7;white-space:pre-line;overflow-wrap:anywhere;margin:0 0 20px}
 .message-error-dialog .btnrow{display:flex;justify-content:flex-end;margin:0}
 .message-error-dialog button{min-width:88px;min-height:44px}
+/* Compact confirmed-booking adjustment; amounts never clip on a folded phone. */
+.adjustment-panel{margin-top:20px;padding-top:20px;border-top:1px solid var(--line,#e2e5e9)}
+.adjustment-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.adjustment-heading h4{margin:0;font-size:17px}.adjustment-heading p{margin:5px 0}
+.adjustment-panel form{margin-top:16px}.adjustment-panel fieldset{border:0;padding:0;margin:0;min-width:0;display:grid;gap:14px}.adjustment-panel label{display:grid;gap:6px;min-width:0;font-size:14px}.adjustment-panel .inline-check{display:flex;align-items:flex-start;font-size:14px}.adjustment-panel .inline-check input{flex:none}
+.adjustment-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.adjustment-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:16px;background:#f5f7f9;border-radius:14px}.adjustment-summary span{font-size:12px;min-width:0}.adjustment-summary strong{display:block;font-size:20px;white-space:nowrap;margin-top:6px}.adjustment-summary p{grid-column:1/-1}.adjustment-history{margin-top:16px}.adjustment-history p{overflow-wrap:anywhere}
+@media(max-width:480px){.adjustment-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.adjustment-summary strong{font-size:19px}.adjustment-panel .btnrow{display:flex;flex-wrap:wrap}.adjustment-panel .btnrow button{flex:1;min-height:44px}}
