@@ -82,19 +82,21 @@ test('v1 template retains supplied refund, directions, pickup and video policies
 
 test('each published page contains only its booking category and selected preparation, even without JavaScript',()=>{
  const labels={yacht:'요트 프로포즈',visit:'출장 프로포즈',trunk:'트렁크 프로포즈',heli:'헬기 프로포즈'};
- assert.equal(Object.keys(pages).length,14);
+ assert.equal(Object.keys(pages).length,18);
  for(const v of GUIDE_VARIANTS){
   const body=pages[v.file],r=row(v.category,v.video);
   if(v.docked)r.snapshot.product.id='docked';
+  if(v.photos)r.snapshot.options.push({id:'paper-frame-photos',name:'종이액자 사진 출력 4개'});
   if(v.category==='trunk'&&v.mode==='visit')r.snapshot.package.name='부산 출장';
   if(v.region==='busan')r.place='부산광역시 합성 주소';
   assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file.replace('-busan',''));
   assert.match(body,new RegExp('<h1>'+labels[v.category]));
-  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|data-region|\{\{/);
+  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|data-region|data-photos|\{\{/);
   for(const category of Object.keys(labels))assert.equal(body.includes('id="'+category+'"'),category===v.category);
   for(const [category,label] of Object.entries(labels))if(category!==v.category)assert.ok(!body.includes(label),v.file+' has '+label);
   assert.equal(body.includes('id="refund"'),['yacht','visit'].includes(v.category));
-  assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video);
+  assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video||v.photos);
+  assert.equal(body.includes('id="paper-frame-photos"'),v.photos);
   assert.equal(body.includes('id="visit-pickup"'),v.category==='visit');
   if(v.category==='yacht'){
    assert.equal(body.includes('출항 없이 정박된 요트'),v.docked);
@@ -116,7 +118,7 @@ function redirect(query){
 }
 test('previously sent v1 links open exactly the matching static page without a whole-catalog fallback',()=>{
  for(const v of GUIDE_VARIANTS.filter(v=>!v.docked&&!v.region)){
-  const query='?v=1&t='+v.category+(v.video?'&video=1':'')+(v.mode==='visit'?'&mode=visit':'');
+  const query='?v=1&t='+v.category+(v.video?'&video=1':'')+(v.mode==='visit'?'&mode=visit':'')+(v.photos?'&photos=1':'');
   assert.deepEqual(redirect(query),['/'+v.file]);
  }
  for(const query of ['', '?v=1', '?t=all', '?t=unknown', '?t=%3Cscript%3E', '?v=2&t=yacht', '?v=1&t=yacht&t=visit', '?t=yacht&video=1&video=0'])assert.deepEqual(redirect(query),[]);
@@ -179,4 +181,32 @@ test('visit messages no longer require a city and migrate Busan links without ch
  assert.deepEqual(M.prepareDrafts(r,updated,undefined,{...b,place:'서울특별시 합성로 1'}),updated);
  assert.match(saved.confirmed,/visit-busan/);
  assert.deepEqual(r,before);
+});
+
+test('paper-frame selection adds identifying mail instructions only to relevant drafts and guide pages',()=>{
+ const option={id:'paper-frame-photos',name:'종이액자 사진 출력 4개',amount:10000};
+ for(const packageId of ['light','all'])for(const stage of ['receipt','confirmed','reminder','thanks']){
+  const r=row('visit',packageId==='all');r.snapshot.package.id=packageId;r.snapshot.options=[option];
+  r.communication={booking:{...b},events:[{kind:'manual_sent',body:'기존 발송 내용'}]};
+  const before=structuredClone(r),body=M.generate(r,stage,b,undefined,'2099-11-01T03:00:00Z');
+  if(stage==='thanks'){assert.doesNotMatch(body,/종이액자 사진:|메일 제목:/);continue;}
+  assert.match(body,/종이액자 사진: 4장을 seolvidmoa@gmail\.com으로 보내 주세요/);
+  assert.match(body,/메일 제목: 2099-11-21 \/ 20:00 \/ 합성 고객/);
+  assert.match(body,/날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다/);
+  assert.match(body,/540,000원/);assert.match(body,/90,000원/);
+  const url=new URL(body.match(/https:\/\/link\.teamboatn\.com\/guide\/\S+/)[0]);assert.equal(url.search,'');
+  const page=pages[url.pathname.slice(1)];assert.match(page,/id="paper-frame-photos"/);assert.match(page,/예약 날짜 \/ 시간 \/ 성함/);assert.match(page,/누락되면 어떤 예약의 사진인지 확인이 어려울/);
+  const legacy=body.replace(/^종이액자 사진:.*\n메일 제목:.*\n날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다\.\n\n/m,'').replace('-photos-v1.html','-v1.html')+'\n\n담당자 메모 유지';
+  const updated=M.prepareDrafts(r,{[stage]:legacy},undefined,b)[stage];assert.equal((updated.match(/종이액자 사진: /g)||[]).length,1);assert.match(updated,/담당자 메모 유지/);
+  assert.equal(M.prepareDrafts(r,{[stage]:updated},undefined,b)[stage],updated);
+  const changed={...b,date:'2099-11-22',time:'18:30'};
+  assert.match(M.prepareDrafts(r,{[stage]:updated},undefined,changed)[stage],/메일 제목: 2099-11-22 \/ 18:30 \/ 합성 고객/);
+  const excluded={...b,excludedOptionIds:[option.id]},removed=M.prepareDrafts(r,{[stage]:updated},undefined,excluded)[stage];
+  assert.doesNotMatch(removed,/종이액자 사진:|-photos-v1/);assert.match(removed,/담당자 메모 유지/);
+  assert.deepEqual(r,before);
+ }
+ for(const category of ['yacht','visit','trunk','heli']){
+  const r=row(category,false);if(category!=='visit')r.snapshot.options=[option];
+  const body=M.generate(r,'confirmed',b);assert.doesNotMatch(body,/종이액자 사진:|-photos-v1/);
+ }
 });

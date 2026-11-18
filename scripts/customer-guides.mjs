@@ -7,10 +7,10 @@ export const GUIDE_VARIANTS=Object.keys(titles).flatMap(category=>
  (category==='yacht'?[false,true]:[false]).flatMap(docked=>
   (category==='trunk'?['office','visit']:['office']).flatMap(mode=>
    (category==='visit'?['','busan']:['']).flatMap(region=>
-    [false,true].map(video=>({
-     category,docked,mode,region,video,
-     file:`guide/${category}${docked?'-docked':''}${category==='trunk'&&mode==='visit'?'-visit':''}${region?'-'+region:''}${video?'-video':''}-v1.html`
-    }))
+    [false,true].flatMap(video=>(category==='visit'?[false,true]:[false]).map(photos=>({
+     category,docked,mode,region,video,photos,
+     file:`guide/${category}${docked?'-docked':''}${category==='trunk'&&mode==='visit'?'-visit':''}${region?'-'+region:''}${video?'-video':''}${photos?'-photos':''}-v1.html`
+    })))
    )
   )
  )
@@ -32,6 +32,7 @@ export async function customerGuidePages(){
  return Object.fromEntries(GUIDE_VARIANTS.map(v=>{
   let html=filterBlocks(template,'data-for',value=>value.split(' ').includes(v.category));
   html=filterBlocks(html,'data-video',()=>v.video);
+  html=filterBlocks(html,'data-photos',()=>v.photos);
   html=filterBlocks(html,'data-mode',value=>v.category==='trunk'&&value===v.mode);
   html=filterBlocks(html,'data-sailing',()=>v.category==='yacht'&&!v.docked);
   html=filterBlocks(html,'data-docked',()=>v.docked);
