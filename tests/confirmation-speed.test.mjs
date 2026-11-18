@@ -1,0 +1,41 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {ownershipFixture} from './ownership-fixture.mjs';
+import {createApp} from '../server/app.mjs';
+
+test('confirmation returns before slow OPS work; observation is read-only and ready boarding is prepared once',async()=>{
+ const f=await ownershipFixture(),work=[];
+ let release;const gate=new Promise(resolve=>{release=resolve;});
+ try{
+  const b={date:'2099-11-21',time:'18:00',amount:398000,baseAmount:368000,receivedAmount:90000,amountMode:'manual',place:'합성 검수 장소',extra:'',scheduleConfirmed:true,paymentConfirmed:true,opsPax:2,opsPaymentMethod:'transfer',addOns:[{id:'bouquet',quantity:1,unitAmount:30000}]};
+  const r=await f.add({status:'consulting',owner:f.staff['owner-admin'].id});
+  await f.db.query("UPDATE moment_link.consultations SET category='yacht',product_id='classic' WHERE id=$1",[r.id]);
+  const conflict=await f.add({status:'confirmed',owner:f.staff['owner-admin'].id});
+  await f.db.query("INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,state,attempts,error_code,approved_by,booking) VALUES($1,$2,'boatn',$3,'conflict',2,'OPS_RESOURCE_CONFLICT',$4,$5)",[randomUUID(),conflict.id,'moment-link:'+conflict.id,f.staff['owner-admin'].id,JSON.stringify({date:b.date,time:b.time})]);
+  const snapshot=async()=>JSON.stringify((await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[conflict.id])).rows);
+  const before=await snapshot();let lookups=0,metadata=0,creates=0,boardings=0;
+  const origin='https://test.moment-link.invalid';
+  const app=createApp({db:f.db,env:{APP_ORIGIN:origin,OPS_WRITES_ENABLED:'true'},schedule:promise=>work.push(promise),adapters:{ops:{boatn:{
+   safeRetry:true,lookup:async()=>{lookups++;await gate;return null;},
+   metadata:async()=>{metadata++;return {partialPayments:true,addOnPurchases:true};},
+   availability:async()=>({available:true,token:'synthetic-availability'}),
+   create:async()=>{creates++;return {id:'synthetic-fast-boarding'};},
+   boardingPass:async()=>{boardings++;return {id:'synthetic-fast-boarding',url:'https://boarding.boatn.co.kr/boarding/synthetic-fast',context:'a'.repeat(64),recipient:r.phone,departure:'2099-11-21T09:00:00Z',pax:2};}
+  }}}});
+  const call=async(path,method='GET',data)=>{const res=await app(new Request(origin+'/api/admin/consultations/'+r.id+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...f.sessions['owner-admin']},...(data?{body:JSON.stringify(data)}:{})}));return {status:res.status,data:await res.json()};};
+  const start=performance.now();let timer;
+  const result=await Promise.race([call('/reservation','POST',{version:r.version,approved:true,booking:b,drafts:{confirmed:'합성 예약 확정 문자'}}),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('confirmation blocked by OPS')),1500);})]).finally(()=>clearTimeout(timer));
+  assert.equal(result.status,200,JSON.stringify(result.data));assert.equal(result.data.item.status,'confirmed');assert.equal(creates,0);
+  const elapsed=Math.round(performance.now()-start);
+  const observed=await call('?observe=1');assert.equal(observed.status,200);assert.equal(lookups,1);assert.equal(creates,0);
+  release();await Promise.all(work);
+  const ready=await call('?observe=1');assert.equal(ready.data.item.integration.state,'succeeded');
+  assert.equal(metadata,1,'partial payment and extras share one metadata request');assert.equal(creates,1);
+  const prepared=await call('/communications','PUT',{version:ready.data.item.version,booking:b,drafts:ready.data.item.communication.drafts,prepareStage:'confirmed'});
+  assert.equal(prepared.status,200,JSON.stringify(prepared.data));assert.equal(boardings,1);
+  assert.match(prepared.data.item.communication.drafts.confirmed,/boarding\/synthetic-fast/);
+  assert.equal(await snapshot(),before);assert.equal(creates,1);
+  console.log(JSON.stringify({isolatedConfirmationMs:elapsed,metadataRequests:metadata,createdBookings:creates,existingConflictUnchanged:true}));
+ }finally{release();await Promise.allSettled(work);await f.pg.close();}
+});

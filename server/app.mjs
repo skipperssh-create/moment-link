@@ -267,7 +267,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    });
    if(result.adjustmentRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='adjustment' AND booking->>'changeId'=$2",[id,result.adjustmentRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    if(result.collectionRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='payment' AND booking->>'changeId'=$2",[id,result.collectionRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
-   if(!result.collectionRequest&&!result.adjustmentRequest&&!result.messageOnly&&action!=='product'&&(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id))await dispatch(id,result.cancellationQueued||result.restorationQueued||['reservation','addons','payments','adjustments'].includes(action)&&method==='POST');
+   // Reservation registration runs in the durable background worker; status reads never restart it.
+   if(!result.collectionRequest&&!result.adjustmentRequest&&!result.messageOnly&&action!=='product'&&!(method==='GET'&&url.searchParams.get('observe')==='1')&&(method!=='GET'||user.role==='admin'||result.item?.assignee===user.id))await dispatch(id,result.cancellationQueued||result.restorationQueued||['addons','payments','adjustments'].includes(action)&&method==='POST');
    if(result.item){
     if(method!=='GET')await dispatchCalendar(id);
     if(result.cancellationQueued||result.restorationQueued||['reservation','addons','payments','adjustments'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);

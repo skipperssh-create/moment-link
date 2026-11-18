@@ -103,8 +103,10 @@ export async function processIntegration(db,id,env,adapters={}){
   }
   if(!booking?.id){
    if(job.reconcileOnly)throw Object.assign(Error('registration retry limit'),{code:'OPS_REGISTRATION_RETRY_LIMIT'});
-   if(payload.receivedAmount!==undefined&&payload.receivedAmount<payload.amount&&!(await adapter.metadata())?.partialPayments)throw Object.assign(Error('OPS deposit support unavailable'),{code:'OPS_PARTIAL_PAYMENT_UNAVAILABLE',safe:true});
-   if(payload.addOns?.length&&!(await adapter.metadata())?.addOnPurchases)throw Object.assign(Error('OPS extra purchases unavailable'),{code:'OPS_ADDONS_UNAVAILABLE'});
+   const needsPartial=payload.receivedAmount!==undefined&&payload.receivedAmount<payload.amount;
+   const capabilities=needsPartial||payload.addOns?.length?await adapter.metadata():null;
+   if(needsPartial&&!capabilities?.partialPayments)throw Object.assign(Error('OPS deposit support unavailable'),{code:'OPS_PARTIAL_PAYMENT_UNAVAILABLE',safe:true});
+   if(payload.addOns?.length&&!capabilities?.addOnPurchases)throw Object.assign(Error('OPS extra purchases unavailable'),{code:'OPS_ADDONS_UNAVAILABLE'});
    const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[job.consultation_id])).rows[0];
    if(!consultation||['closed','cancelled'].includes(consultation.status)){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='CONSULTATION_CLOSED' WHERE id=$1",[id]);return {state:'conflict'};}
    const availability=await adapter.availability(payload);if(availability?.id){booking=availability;}else{

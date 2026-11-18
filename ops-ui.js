@@ -102,5 +102,5 @@ function mount(r,api,reads=0,failures=0){
  });
  if(!['succeeded','conflict'].includes(r.integration.state)&&Number(r.integration.attempts||0)<2)panelTimer=setTimeout(async()=>{if(!current())return;if(document.hidden){mount(r,api);return;}try{await refresh();}catch{if(current())mount(r,api);}},['pending','checking'].includes(r.integration.state)?5000:15000);
 }
-window.MomentLinkOps={eligible,load,fields,validate,panel,mount};
+window.MomentLinkOps={eligible,load,fields,validate,panel,mount,problem:r=>retryReasons[r.integration?.error_code]||reasons[r.integration?.error_code]||''};
 })();
