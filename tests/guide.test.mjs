@@ -40,7 +40,7 @@ test('restaurant contacts and separate payment terms are present only in yacht g
  }
 });
 
-test('short messages preserve schedule, payment, address and phone while linking details without personal URL data',()=>{
+test('short messages preserve schedule, payment, address and phone while keeping mail context out of server query parameters',()=>{
  for(const category of ['yacht','visit','trunk','heli'])for(const stage of ['receipt','confirmed','reminder'])for(const useDeposit of [false,true]){
   const r=row(category),body=M.generate(r,stage,{...b,useDeposit,requestedDepositAmount:useDeposit?90000:null},'2099-11-01T03:00:00Z');
   for(const value of ['2099-11-21 20:00','540,000원','90,000원','450,000원',b.place,'010-0000-0000'])assert.ok(body.includes(value),value);
@@ -91,12 +91,14 @@ test('each published page contains only its booking category and selected prepar
   if(v.region==='busan')r.place='부산광역시 합성 주소';
   assert.equal(new URL(M.guideURL(r)).pathname,'/'+v.file.replace('-busan',''));
   assert.match(body,new RegExp('<h1>'+labels[v.category]));
-  assert.doesNotMatch(body,/<select|<script|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|data-region|data-photos|\{\{/);
+  assert.doesNotMatch(body,/<select|guideCategory|전체 안내|data-for|data-mode|data-video|data-sailing|data-docked|data-region|data-photos|\{\{/);
   for(const category of Object.keys(labels))assert.equal(body.includes('id="'+category+'"'),category===v.category);
   for(const [category,label] of Object.entries(labels))if(category!==v.category)assert.ok(!body.includes(label),v.file+' has '+label);
   assert.equal(body.includes('id="refund"'),['yacht','visit'].includes(v.category));
   assert.equal(body.includes('id="video"'),v.video);assert.equal(body.includes('seolvidmoa@gmail.com'),v.video||v.photos);
   assert.equal(body.includes('id="paper-frame-photos"'),v.photos);
+  assert.equal(body.includes('<script src="/guide-mail.js" defer></script>'),v.video||v.photos);
+  assert.equal(body.includes('id="guide-mail-form"'),v.video||v.photos);
   assert.equal(body.includes('id="visit-pickup"'),v.category==='visit');
   if(v.category==='yacht'){
    assert.equal(body.includes('출항 없이 정박된 요트'),v.docked);
@@ -136,7 +138,7 @@ test('saved generated guide links upgrade to the booking selection without chang
  assert.deepEqual(M.prepareDrafts(row(),draft,undefined,b),draft);
  const docked={...row(),product_id:'docked'},old={confirmed:'담당자 메모\nhttps://link.teamboatn.com/guide/yacht-video-v1.html'};
  const corrected=M.prepareDrafts(docked,old,undefined,b);
- assert.equal(corrected.confirmed,'담당자 메모\nhttps://link.teamboatn.com/guide/yacht-docked-video-v1.html');assert.deepEqual(M.prepareDrafts(docked,corrected,undefined,b),corrected);
+ assert.equal(corrected.confirmed,'담당자 메모\n'+M.guideURL(docked,b));assert.deepEqual(M.prepareDrafts(docked,corrected,undefined,b),corrected);
 });
 
 test('all visit guides show clearly separated regional pickup terms, including previously shared Busan paths',()=>{
@@ -166,9 +168,9 @@ test('all visit guides show clearly separated regional pickup terms, including p
 test('visit messages no longer require a city and migrate Busan links without changing notes or booking data',()=>{
  const r={...row('visit'),place:'부산 해운대',communication:{booking:{...b},messages:{sent:[{body:'보낸 내용 유지'}]}}};
  const before=structuredClone(r),busan='/guide/visit-busan-video-v1.html',other='/guide/visit-video-v1.html';
- assert.ok(M.guideURL(r).endsWith(other));
+ assert.ok(new URL(M.guideURL(r)).pathname===other);
  for(const place of ['', '합성호텔', '부산광역시 합성로 1', '서울특별시 합성로 1']){
-  assert.ok(M.guideURL(r,{...b,place}).endsWith(other));
+  assert.ok(new URL(M.guideURL(r,{...b,place})).pathname===other);
   for(const stage of ['receipt','confirmed','reminder']){
    const draft=M.generate(r,stage,{...b,place},undefined,'2099-11-01T03:00:00Z');
    assert.ok(draft.includes(other));assert.match(draft,/준비사항·용품 수거/);assert.ok(draft.length<700);
@@ -176,7 +178,7 @@ test('visit messages no longer require a city and migrate Busan links without ch
  }
  const saved={confirmed:'개별 수거 메모 유지\nhttps://link.teamboatn.com'+busan+'\nhttps://external.example/guide/visit-v1.html\nhttps://link.teamboatn.com/guide/visit-v2.html\nhttps://link.teamboatn.com/guide/visit-v1.html?custom=1'};
  const updated=M.prepareDrafts(r,saved,undefined,b);
- assert.equal(updated.confirmed,saved.confirmed.replace(busan,other));
+ assert.equal(updated.confirmed,saved.confirmed.replace('https://link.teamboatn.com'+busan,M.guideURL(r,b)));
  assert.deepEqual(M.prepareDrafts(r,updated,undefined,b),updated);
  assert.deepEqual(M.prepareDrafts(r,updated,undefined,{...b,place:'서울특별시 합성로 1'}),updated);
  assert.match(saved.confirmed,/visit-busan/);
@@ -208,5 +210,35 @@ test('paper-frame selection adds identifying mail instructions only to relevant 
  for(const category of ['yacht','visit','trunk','heli']){
   const r=row(category,false);if(category!=='visit')r.snapshot.options=[option];
   const body=M.generate(r,'confirmed',b);assert.doesNotMatch(body,/종이액자 사진:|-photos-v1/);
+ }
+});
+
+test('mail links carry only date, time and name in a browser-only fragment and refresh draft context',()=>{
+ const r=row('visit',false);r.person='검수 고객 & QA';r.snapshot.options=[{id:'paper-frame-photos'}];
+ const before=structuredClone({r,b});
+ const url=new URL(M.guideURL(r,b));
+ assert.equal(url.search,'');
+ assert.equal(url.hash,'#mail='+(Date.parse('2099-11-21T20:00:00Z')/60000).toString(36)+'.'+Buffer.from(r.person).toString('base64url'));
+ assert.doesNotMatch(url.href,/phone|01000000000|amount|540000|place|token/);
+ for(const stage of ['receipt','confirmed','reminder']){
+  const previous=M.generate(r,stage,b);
+  const changed={...b,date:'2099-11-22',time:'18:30'};
+  const next=M.prepareDrafts(r,{[stage]:previous},undefined,changed)[stage];
+  assert.ok(next.includes(M.guideURL(r,changed)));
+  assert.ok(!next.includes(url.hash));
+  assert.equal(M.prepareDrafts(r,{[stage]:next},undefined,changed)[stage],next);
+  const removed=M.prepareDrafts(r,{[stage]:next},undefined,{...changed,excludedOptionIds:['paper-frame-photos']})[stage];
+  assert.doesNotMatch(removed,/#mail=|종이액자 사진:|-photos-v1/);
+ }
+ assert.deepEqual({r,b},before);
+ for(const booking of [{...b,time:''},{...b,date:'2099-02-30'},{...b,time:'24:30'}])assert.equal(new URL(M.guideURL(r,booking)).hash,'');
+ for(const person of ['', 'x'.repeat(61),'고객\r\nBcc: other@example.test'])assert.equal(new URL(M.guideURL({...r,person},b)).hash,'');
+ for(const category of ['yacht','visit','trunk','heli']){
+  const video=row(category,true),link=M.guideURL(video,b);
+  assert.match(link,/#mail=/);
+  const old=link.split('#')[0],draft={confirmed:'담당자 메모\n'+old};
+  assert.equal(M.prepareDrafts(video,draft,undefined,b).confirmed,'담당자 메모\n'+link);
+  const custom={confirmed:old+'?custom=1\n'+old+'#custom-section'};
+  assert.deepEqual(M.prepareDrafts(video,custom,undefined,b),custom);
  }
 });
