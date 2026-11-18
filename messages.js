@@ -101,8 +101,12 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
    if(hasVideo(r)&&booking)text=text.replace(/^영상자료: (?:제출 기한 \d{4}-\d{2}-\d{2} \(7일 전\)|7일 전까지 제출|7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의)\.$/gm,videoBrief(booking,now));
    // Upgrade only generated v1 URLs; preserve custom URLs and immutable future versions.
    text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\.html\?v=1&t=(?:yacht|visit|trunk|heli|all)(?:&(?:video=1|mode=visit))*(?=\s|$)/g,()=>guideURL(r,booking));
-   if(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked'))text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/yacht(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r,booking));
-   if(r.category==='visit')text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/visit(?:-busan)?(?:-video)?(?:-photos)?-v1\.html(?=\s|$)/g,()=>guideURL(r,booking));
+   text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/(yacht|visit|trunk|heli)(?:-docked|-visit|-busan)?(?:-video)?(?:-photos)?-v1\.html(?:#mail=[^\s?#]+)?(?=\s|$)/g,(url,category)=>{
+    if(category!==r.category)return url;
+    const next=guideURL(r,booking);
+    // A detached saved draft may have no booking object; keep its existing mail context.
+    return !booking&&(hasVideo(r)||hasPaperFramePhotos(r))&&url.includes('#mail=')?next+url.slice(url.indexOf('#mail=')):next;
+   });
    if(detailsMoved&&!/https:\/\/link\.teamboatn\.com\/(?:guide\.html(?:\?|\s|$)|guide\/)/.test(text))text+='\n\n'+guideBlock(r,stage,booking);
    // Refresh our own photo block only; retain staff notes and sent-message history.
    text=text.replace(/^종이액자 사진: 4장을 seolvidmoa@gmail\.com으로 보내 주세요\.\n메일 제목: [^\n]*\n날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다\.(?:\n\n|$)/gm,'');
@@ -226,9 +230,14 @@ function hasPaperFramePhotos(r,b=r.communication?.booking){return r.category==='
 function paperFrameNotice(r,b={}){
  return '종이액자 사진: 4장을 '+receivingEmail+'으로 보내 주세요.\n메일 제목: '+[b.date||'예약 날짜',b.time||'예약 시간',r.person||'성함'].join(' / ')+'\n날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다.';
 }
+function guideMailFragment(r,b){
+ const person=String(r.person||'').trim();
+ if(!(hasVideo(r)||hasPaperFramePhotos(r,b))||!dateOK(b?.date||'')||!timeOK(b?.time||'')||!person||person.length>60||/[\u0000-\u001f\u007f]/.test(person))return '';
+ return '#mail='+(Date.parse(b.date+'T'+b.time+':00Z')/60000).toString(36)+'.'+btoa(String.fromCharCode(...new TextEncoder().encode(person))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
+}
 function guideURL(r,booking=r.communication?.booking){
  if(!['yacht','visit','trunk','heli'].includes(r.category))return 'https://link.teamboatn.com/guide.html';
- return 'https://link.teamboatn.com/guide/'+r.category+(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked')?'-docked':'')+(r.category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'-visit':'')+(hasVideo(r)?'-video':'')+(hasPaperFramePhotos(r,booking)?'-photos':'')+'-v1.html';
+ return 'https://link.teamboatn.com/guide/'+r.category+(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked')?'-docked':'')+(r.category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'-visit':'')+(hasVideo(r)?'-video':'')+(hasPaperFramePhotos(r,booking)?'-photos':'')+'-v1.html'+guideMailFragment(r,booking);
 }
 function guideBlock(r,stage,booking){
  return [stage==='receipt'&&['yacht','visit'].includes(r.category)?'입금 전 취소·환불 규정을 확인해 주세요.':'','상세 안내 · '+(['yacht','visit'].includes(r.category)?'환불·':'')+'준비사항'+(r.category==='visit'?'·용품 수거':''),guideURL(r,booking)].filter(Boolean).join('\n');
