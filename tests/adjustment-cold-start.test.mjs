@@ -13,6 +13,10 @@ test('cold production entry reconciles an already-applied yacht refund without r
   const {processIntegration}=await import('./server/jobs.mjs');
   const f=await ownershipFixture();
   try{
+   const draft=await f.add({status:'consulting'});
+   const draftSave=await f.request('admin/consultations/'+draft.id+'/communications','owner-admin','PUT',{version:draft.version,booking:{date:'2099-11-01',time:'18:00',amount:249000,baseAmount:249000,receivedAmount:null,addOns:[],amountMode:'auto',place:'합성 출장 장소',extra:'',scheduleConfirmed:false,paymentConfirmed:false},drafts:{}});
+   assert.equal(draftSave.status,200,JSON.stringify(draftSave.data));
+   assert.equal(draftSave.data.item.communication.booking.amount,249000);
    const before={date:'2099-10-18',time:'11:00',amount:398000,receivedAmount:398000,baseAmount:368000,addOns:[{id:'bouquet',quantity:1,unitAmount:30000}],amountMode:'manual',scheduleConfirmed:true,paymentConfirmed:true,place:'한국해양대학교 합성 검수 장소',extra:''};
    const r=await f.add({status:'confirmed',communication:{booking:before,reservation:{confirmedAt:'2099-01-01T00:00:00Z'}}});
    const snapshot={product:{id:'classic',name:'합성 요트'},package:{id:'light',name:'라이트',weekday:368000,weekend:368000},price:{weekday:368000,weekend:368000},options:[]};
