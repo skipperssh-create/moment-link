@@ -100,10 +100,16 @@ function prepareDrafts(r,drafts,deadline,booking=r.communication?.booking,now=Da
    }).filter(Boolean).join('\n\n');
    if(hasVideo(r)&&booking)text=text.replace(/^영상자료: (?:제출 기한 \d{4}-\d{2}-\d{2} \(7일 전\)|7일 전까지 제출|7일 이내 일정 · 발송 전 담당자와 일정·제작 가능 여부 협의)\.$/gm,videoBrief(booking,now));
    // Upgrade only generated v1 URLs; preserve custom URLs and immutable future versions.
-   text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\.html\?v=1&t=(?:yacht|visit|trunk|heli|all)(?:&(?:video=1|mode=visit))*(?=\s|$)/g,()=>guideURL(r));
-   if(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked'))text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/yacht(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r));
-   if(r.category==='visit')text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/visit(?:-busan)?(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r));
-   if(detailsMoved&&!/https:\/\/link\.teamboatn\.com\/(?:guide\.html(?:\?|\s|$)|guide\/)/.test(text))text+='\n\n'+guideBlock(r,stage);
+   text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\.html\?v=1&t=(?:yacht|visit|trunk|heli|all)(?:&(?:video=1|mode=visit))*(?=\s|$)/g,()=>guideURL(r,booking));
+   if(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked'))text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/yacht(?:-video)?-v1\.html(?=\s|$)/g,()=>guideURL(r,booking));
+   if(r.category==='visit')text=text.replace(/https:\/\/link\.teamboatn\.com\/guide\/visit(?:-busan)?(?:-video)?(?:-photos)?-v1\.html(?=\s|$)/g,()=>guideURL(r,booking));
+   if(detailsMoved&&!/https:\/\/link\.teamboatn\.com\/(?:guide\.html(?:\?|\s|$)|guide\/)/.test(text))text+='\n\n'+guideBlock(r,stage,booking);
+   // Refresh our own photo block only; retain staff notes and sent-message history.
+   text=text.replace(/^종이액자 사진: 4장을 seolvidmoa@gmail\.com으로 보내 주세요\.\n메일 제목: [^\n]*\n날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다\.(?:\n\n|$)/gm,'');
+   if(hasPaperFramePhotos(r,booking)){
+    const notice=paperFrameNotice(r,booking||{}),guideStart=text.indexOf('상세 안내 · ');
+    text=guideStart>=0?text.slice(0,guideStart)+notice+'\n\n'+text.slice(guideStart):text+'\n\n'+notice;
+   }
    if(r.category==='yacht'&&/^\[모먼트링크 · (?:예약 접수|예약 확정|이벤트 전 안내)\]/.test(text)&&!text.includes(yachtDiningNotice)){
     const guideStart=text.indexOf('상세 안내 · ');
     text=guideStart>=0?text.slice(0,guideStart)+yachtDiningNotice+'\n\n'+text.slice(guideStart):text+'\n\n'+yachtDiningNotice+'\n'+guideURL(r);
@@ -216,12 +222,16 @@ function hasVideo(r){return (r.snapshot?.package?.features||[]).some(x=>/영상\
 const videoHeading='⭐️⭐️고객님 준비사항 ⭐️⭐️';
 const videoFileName='파일명 & 메일 제목: 날짜(26-00-00)_장소_성함';
 const videoFields=['1. 영상편지용 사진과 편지',videoFileName,'사진: 25~30장','사진 순서: 1.jpg, 2.jpg… (번호가 없으면 순서는 랜덤입니다)','편지: A4 용지 1/3 분량 (약 300자가 가장 적당합니다)','보내실 곳: '+receivingEmail];
-function guideURL(r){
- if(!['yacht','visit','trunk','heli'].includes(r.category))return 'https://link.teamboatn.com/guide.html';
- return 'https://link.teamboatn.com/guide/'+r.category+(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked')?'-docked':'')+(r.category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'-visit':'')+(hasVideo(r)?'-video':'')+'-v1.html';
+function hasPaperFramePhotos(r,b=r.communication?.booking){return r.category==='visit'&&(r.snapshot?.options||[]).some(o=>o.id==='paper-frame-photos'&&!b?.excludedOptionIds?.includes(o.id));}
+function paperFrameNotice(r,b={}){
+ return '종이액자 사진: 4장을 '+receivingEmail+'으로 보내 주세요.\n메일 제목: '+[b.date||'예약 날짜',b.time||'예약 시간',r.person||'성함'].join(' / ')+'\n날짜·시간·성함 누락 시 예약 확인이 어려울 수 있습니다.';
 }
-function guideBlock(r,stage){
- return [stage==='receipt'&&['yacht','visit'].includes(r.category)?'입금 전 취소·환불 규정을 확인해 주세요.':'','상세 안내 · '+(['yacht','visit'].includes(r.category)?'환불·':'')+'준비사항'+(r.category==='visit'?'·용품 수거':''),guideURL(r)].filter(Boolean).join('\n');
+function guideURL(r,booking=r.communication?.booking){
+ if(!['yacht','visit','trunk','heli'].includes(r.category))return 'https://link.teamboatn.com/guide.html';
+ return 'https://link.teamboatn.com/guide/'+r.category+(r.category==='yacht'&&(r.product_id==='docked'||r.snapshot?.product?.id==='docked')?'-docked':'')+(r.category==='trunk'&&/부산|출장/.test(r.snapshot?.package?.name||'')?'-visit':'')+(hasVideo(r)?'-video':'')+(hasPaperFramePhotos(r,booking)?'-photos':'')+'-v1.html';
+}
+function guideBlock(r,stage,booking){
+ return [stage==='receipt'&&['yacht','visit'].includes(r.category)?'입금 전 취소·환불 규정을 확인해 주세요.':'','상세 안내 · '+(['yacht','visit'].includes(r.category)?'환불·':'')+'준비사항'+(r.category==='visit'?'·용품 수거':''),guideURL(r,booking)].filter(Boolean).join('\n');
 }
 function videoBrief(b,now=Date.now()){
  const timing=videoTiming(b,now),deadline=/제출 기한: (\d{4}-\d{2}-\d{2})/.exec(timing)?.[1];
@@ -249,7 +259,7 @@ function generate(r,stage,b,deadline=r.communication?.paymentDeadline,now=Date.n
  let extraLines='';if(b.addOns?.length){try{extraLines='추가 구매:\n'+A.lines(b.addOns).join('\n');}catch{extraLines='추가 구매: 수량·판매가 확인 필요';}}
  const summary=[['이벤트 일정: '+schedule,'장소: '+(b.place||'담당자와 협의 후 안내')],['상품: '+selection,options?'추가 선택: '+options:'',extraLines,b.adjustmentNote?'변경 안내: '+b.adjustmentNote:''],(stage==='receipt'?receiptMoney(b):['총 예약금액: '+money(b.amount),...(paymentState(b).received!==null?['입금 확인액: '+money(b.receivedAmount),'남은 잔금: '+money(paymentState(b).balance)]:[])])].map(group=>group.filter(Boolean).join('\n')).join('\n\n');
  let parts=[];
- const details=[hasVideo(r)?videoBrief(b,now):'',guideBlock(r,stage)].filter(Boolean).join('\n\n');
+ const details=[hasVideo(r)?videoBrief(b,now):'',guideBlock(r,stage,b)].filter(Boolean).join('\n\n');
  if(stage==='receipt')parts=[`[모먼트링크 · 예약 접수]\n${r.person}님, 소중한 순간을 함께 준비하겠습니다.`,summary,'입금 안내\n'+bank,receiptNotice(b),(r.category==='yacht'||r.status==='awaiting_payment')?paymentLine(deadline):'','입금 후 회신 부탁드립니다.',details];
  if(stage==='confirmed')parts=[`[모먼트링크 · 예약 확정]\n${r.person}님, ${paymentState(b).partial?'예약금 입금이 확인되어':'입금 확인이 완료되어'} 예약이 확정되었습니다.`,summary,details];
  if(stage==='reminder')parts=[`[모먼트링크 · 이벤트 전 안내]\n${r.person}님, 예정된 프로포즈 일정을 다시 안내드립니다.`,summary,details,'도착 또는 일정 변경 시 담당자에게 연락해 주세요.'];
@@ -271,5 +281,5 @@ function smsURI(phone,body,ua='',platform='',touch=0){
  const ios=/iPhone|iPad|iPod/.test(ua)||(platform==='MacIntel'&&touch>1);
  return 'sms:'+phone+(ios?'&':'?')+'body='+encodeURIComponent(body);
 }
-globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,depositFields,paintDeposit,depositEnabled,receiptMoney,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,guideURL,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
+globalThis.MomentLinkMessages=Object.freeze({stages,templateOnly,defaults,validate,generate,paymentState,paymentProblem,paymentFields,paymentSummary,depositFields,paintDeposit,depositEnabled,receiptMoney,applyFullPayment,paintPayment,fitAddresses,reservationIntent,paymentReminder,smsURI,hasVideo,hasPaperFramePhotos,guideURL,amountError,paymentDeadlineFrom,paymentDeadlineLabel,paymentDeadlineError,prepareDrafts});
 })();
