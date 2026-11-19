@@ -104,3 +104,13 @@ test('new reservation prefetch is read-only, de-duplicated, and stops after two 
  h.init({...r,status:'confirmed',integration:{state:'conflict'}});h.ctx.MomentLinkComposer.openStage('confirmed');await Promise.resolve();
  assert.equal(h.timerCount(),0);assert.equal(previewCalls().length,3);
 });
+
+test('a freshly saved boarding result opens SMS actions without polling; mismatched job cannot',async()=>{
+ const h=await harness({controlledTimers:true});
+ const invitation={bookingId:'synthetic-inline',block:'승선 안내 https://boarding.boatn.co.kr/boarding/synthetic-inline'};
+ const ready={...h.item,version:3,integration:{id:'fresh-job',state:'succeeded',external_id:invitation.bookingId},communication:{...h.item.communication,drafts:{confirmed:'합성 확정\n'+invitation.block},boardingInvitation:invitation,boardingPreparation:{baseVersion:2,jobId:'fresh-job'}}};
+ h.ctx.MomentLinkComposer.acceptConfirmation(ready);
+ assert.match(h.ctx.MomentLinkComposer.html(),/data-message="sms"/);assert.equal(h.timerCount(),0);assert.equal(h.calls.length,0);
+ h.ctx.MomentLinkComposer.acceptConfirmation({...ready,communication:{...ready.communication,boardingPreparation:{baseVersion:2,jobId:'different'}}});
+ assert.doesNotMatch(h.ctx.MomentLinkComposer.html(),/data-message="sms"/);assert.equal(h.timerCount(),1);assert.equal(h.calls.length,0);
+});

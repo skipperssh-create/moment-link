@@ -60,7 +60,7 @@ test('lightweight integration observation avoids locks, history, dispatch and pr
  }finally{await f.pg.close();}
 });
 
-for(const direct of [false,true])test((direct?'first direct: ':'negotiated: ')+'atomic registration prepares boarding in the completion transaction without another OPS read or SMS write',async()=>{
+for(const direct of [false,true])for(const inline of [false,true])test((inline?'inline response: ':'background response: ')+(direct?'first direct: ':'negotiated: ')+'atomic registration prepares boarding in the completion transaction without another OPS read or SMS write',async()=>{
  const f=await ownershipFixture(),work=[];let release;const gate=new Promise(resolve=>{release=resolve;});
  try{
   const b={date:'2099-11-21',time:'18:00',amount:398000,baseAmount:368000,receivedAmount:90000,amountMode:'manual',place:'합성 검수 장소',extra:'',scheduleConfirmed:true,paymentConfirmed:true,opsPax:2,opsPaymentMethod:'transfer',addOns:[{id:'bouquet',quantity:1,unitAmount:30000}]};
@@ -70,11 +70,11 @@ for(const direct of [false,true])test((direct?'first direct: ':'negotiated: ')+'
   let creates=0,lookups=0;const origin='https://test.moment-link.invalid';
   const app=createApp({db:f.db,env:{APP_ORIGIN:origin,OPS_WRITES_ENABLED:'true'},schedule:p=>work.push(p),adapters:{ops:{boatn:{safeRetry:true,directRegistration:direct,supportsAtomicRegistration:()=>true,lookup:async()=>{assert.equal(direct,false);await gate;return null;},metadata:async()=>{throw Error('atomic registration must not perform a redundant metadata request');},register:async()=>{if(direct)await gate;creates++;return {id:info.id,boarding:info};},boardingPass:async()=>{lookups++;return info;}}}}});
   const call=async(path,method='GET',data)=>{const res=await app(new Request(origin+'/api/admin/consultations/'+r.id+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...f.sessions['owner-admin']},...(data?{body:JSON.stringify(data)}:{})}));return {status:res.status,data:await res.json()};};
-  const saved=await call('/reservation','POST',{version:r.version,approved:true,booking:b,drafts:{confirmed:'직접 작성한 합성 확정 안내'}});assert.equal(saved.status,200,JSON.stringify(saved.data));
+  if(inline)release();const saved=await call('/reservation','POST',{version:r.version,approved:true,booking:b,drafts:{confirmed:'직접 작성한 합성 확정 안내'}});assert.equal(saved.status,200,JSON.stringify(saved.data));
   release();await Promise.all(work);
   const observed=await call('?observe=integration');assert.equal(observed.status,200,JSON.stringify(observed.data));
-  const item=observed.data.item;assert.equal(item.integration.state,'succeeded');assert.equal(item.version,saved.data.item.version+1);
-  assert.equal(item.preparedMessage.baseVersion,saved.data.item.version);assert.equal(item.preparedMessage.jobId,item.integration.id);
+  const item=observed.data.item;assert.equal(item.integration.state,'succeeded');assert.equal(item.version,saved.data.item.version+(inline?0:1));
+  assert.equal(item.preparedMessage.baseVersion,saved.data.item.version-(inline?1:0));assert.equal(item.preparedMessage.jobId,item.integration.id);
   assert.match(item.preparedMessage.body,/직접 작성한 합성 확정 안내/);assert.match(item.preparedMessage.body,/boarding\/synthetic-inline/);
   assert.equal(creates,1);assert.equal(lookups,0);assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
   const current=(await f.db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[r.id])).rows[0];assert.equal(current.communication.events?.length||0,0);

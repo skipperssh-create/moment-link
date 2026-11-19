@@ -27,6 +27,10 @@ function stopAutoPreparation(){if(autoTimer!==null)clearTimeout(autoTimer);autoT
 function startAutoPreparation(){
  stopAutoPreparation();
  if(!O.eligible(item)||item.status!=='confirmed'||item.integration?.operation)return;
+ const stored=item.communication,marker=stored?.boardingPreparation,invitation=stored?.boardingInvitation;
+ if(item.integration?.state==='succeeded'&&marker?.jobId===item.integration.id&&item.version===marker.baseVersion+1&&invitation?.bookingId===item.integration.external_id&&invitation?.block&&stored.drafts?.confirmed?.includes(invitation.block)){
+  prepared=true;notice='문자가 준비되었습니다. 보딩패스 링크를 확인하고 문자 열기를 눌러 주세요.';return;
+ }
  const id=item.id,epoch=autoEpoch;autoId=id;
  let reads=0,failures=0;const started=Date.now();
  notice='예약은 저장되었습니다. OPS 등록이 끝나면 보딩패스를 넣어 문자를 자동 준비합니다.';
