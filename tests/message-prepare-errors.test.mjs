@@ -20,7 +20,7 @@ async function harness({failure,patch={},deferred,respond,controlledTimers=false
  const init=row=>ctx.MomentLinkComposer.init(row,api,()=>{});
  init(item);ctx.MomentLinkComposer.openStage('confirmed');
  const click=action=>listeners.click({target:{closest:()=>({dataset:{message:action}})},preventDefault(){}});
- return {ctx,alerts,calls,elements,click,item,init,tick:async()=>{const [id,fn]=[...timers][0];timers.delete(id);await fn();},editBody:value=>listeners.input({target:{id:'messageBody',value,dataset:{}}})};
+ return {ctx,alerts,calls,elements,click,item,init,tick:async()=>{const [id,fn]=[...timers][0];timers.delete(id);await fn();},timerCount:()=>timers.size,editField:(key,value,type='text')=>listeners.input({target:{dataset:{messageField:key},value,type,checked:!!value}}),editBody:value=>listeners.input({target:{id:'messageBody',value,dataset:{}}})};
 }
 
 test('SMS preparation displays the server reason once, retains edited copy, and never retries OPS or opens SMS',async()=>{
@@ -87,4 +87,20 @@ test('automatic draft does not overwrite a concurrent staff edit',async()=>{
  const h=await harness({controlledTimers:true,respond:(path,method,data,item)=>method==='POST'?{item:{...item,version:2,communication:{...item.communication,booking:data.booking,drafts:data.drafts}}}:{item:{id:item.id,version:4,status:'confirmed',integration:{id:'job',state:'succeeded',external_id:'ops'},preparedMessage:{baseVersion:3,jobId:'job',body:'다른 직원의 문자',invitation:{bookingId:'ops',block:'문자'}}}}});
  await h.click('reserve');await h.tick();assert.doesNotMatch(h.ctx.MomentLinkComposer.html(),/data-message="sms"/);
  assert.equal(h.calls.length,2);assert.equal(h.calls.filter(c=>c.method==='PUT').length,0);
+});
+
+test('new reservation prefetch is read-only, de-duplicated, and stops after two failures',async()=>{
+ let fail=false;const h=await harness({controlledTimers:true,respond:async path=>{
+  if(!path.includes('observe=calendar-preview'))return {products:catalog.products||catalog};if(fail)throw Error('synthetic preview failure');
+  return {ready:true,expiresAt:new Date(Date.now()+15000).toISOString()};
+ }});
+ const previewCalls=()=>h.calls.filter(c=>c.path.includes('observe=calendar-preview'));const r={...h.item,status:'consulting',integration:null};h.init(r);h.ctx.MomentLinkComposer.openStage('confirmed');await Promise.resolve();
+ await h.tick();assert.equal(previewCalls().length,1);assert.equal(previewCalls()[0].method,undefined);
+ h.editField('time','18:00');assert.equal(h.timerCount(),0);
+ // A different date is a different bounded prefetch, never an OPS registration.
+ fail=true;h.editField('date','2099-01-03');await h.tick();
+ h.editField('time','19:00');await h.tick();
+ h.editField('time','20:00');assert.equal(h.timerCount(),0);assert.equal(previewCalls().length,3);
+ h.init({...r,status:'confirmed',integration:{state:'conflict'}});h.ctx.MomentLinkComposer.openStage('confirmed');await Promise.resolve();
+ assert.equal(h.timerCount(),0);assert.equal(previewCalls().length,3);
 });

@@ -198,6 +198,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
+   if(!action&&method==='GET'&&url.searchParams.get('observe')==='calendar-preview'){
+    const date=url.searchParams.get('date')||'';
+    if(!validDate(date))fail(400,'DATE','예약 날짜를 확인해 주세요.');
+    const row=(await db.query("SELECT c.category,c.product_id,c.package_id FROM moment_link.consultations c WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3) AND c.status NOT IN ('confirmed','closed','cancelled') AND NOT EXISTS(SELECT 1 FROM moment_link.integration_jobs j WHERE j.consultation_id=c.id)",[id,user.role,user.id])).rows[0];
+    if(!row)fail(404,'NOT_FOUND','사전 확인할 신규 예약을 찾을 수 없습니다.');
+    if(env.OPS_WRITES_ENABLED!=='true'||row.category!=='yacht'||!['classic','premium','signature'].includes(row.product_id)||!['light','all'].includes(row.package_id))return json({ready:false});
+    const adapter=adapters.ops?.boatn||opsAdapter('boatn',env);
+    return json(adapter.calendarPreview?await adapter.calendarPreview(date):{ready:false});
+   }
    // Poll only the owning reservation's state: no row lock, history load or job dispatch.
    if(!action&&method==='GET'&&url.searchParams.get('observe')==='integration'){
     const row=(await db.query(`SELECT c.id,c.version,c.status,
