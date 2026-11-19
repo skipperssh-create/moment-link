@@ -9,6 +9,20 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 let item=null,booking={},drafts={},paymentDeadline='',stage='receipt',prepared=false,pending=false,changed=false,templateDirty={},notice='',api,updated;
 
 let autoTimer=null,autoId='',autoEpoch=0;
+let previewTimer=null,previewPending='',previewReady=new Map(),previewFailures=new Map();
+function previewCalendar(){
+ if(!item||!O.eligible(item)||item.integration||['confirmed','closed','cancelled'].includes(item.status)||!/^\d{4}-\d{2}-\d{2}$/.test(booking.date||''))return;
+ const id=item.id,date=booking.date,key=id+':'+date;
+ if(previewPending===key||(previewReady.get(key)||0)>Date.now()+2000||(previewFailures.get(key)||0)>=2)return;
+ if(previewTimer!==null)clearTimeout(previewTimer);
+ previewTimer=setTimeout(async()=>{
+  previewTimer=null;if(item?.id!==id||booking.date!==date)return;previewPending=key;
+  try{const out=await api('admin/consultations/'+id+'?observe=calendar-preview&date='+encodeURIComponent(date));
+   if(item?.id===id&&booking.date===date&&out.ready)previewReady.set(key,Date.parse(out.expiresAt)||Date.now()+10000);
+  }catch{if(item?.id===id)previewFailures.set(key,(previewFailures.get(key)||0)+1);}
+  finally{if(previewPending===key)previewPending='';}
+ },150);
+}
 function stopAutoPreparation(){if(autoTimer!==null)clearTimeout(autoTimer);autoTimer=null;autoId='';autoEpoch++;}
 function startAutoPreparation(){
  stopAutoPreparation();
@@ -54,7 +68,7 @@ function startAutoPreparation(){
     stopAutoPreparation();feedback((O.problem?.(item)||'예약은 저장되었지만 OPS 등록을 완료하지 못했습니다.')+(code?' 확인 코드: '+code:'')+' 아래 OPS 상태에서 사유를 확인해 주세요. 충돌 건은 자동 재시도하지 않습니다.');render();return;
    }
    if(Date.now()-started>=120000||reads>=80){stopAutoPreparation();feedback('예약은 저장되었습니다. OPS 처리 시간이 길어 자동 확인을 멈췄습니다. OPS 완료 후 문자 준비를 눌러 주세요.');render();return;}
-   autoTimer=setTimeout(check,Date.now()-started<10000?500:2000);
+   autoTimer=setTimeout(check,Date.now()-started<5000?100:Date.now()-started<10000?500:2000);
   }catch(error){
    if(!current())return;
    if(pending||++failures>=2){stopAutoPreparation();pending=false;actionError('save',error);return;}
@@ -117,7 +131,7 @@ const actionIcon=name=>`<svg class="admin-icon" viewBox="0 0 24 24" fill="none" 
 const actionCaptions={bookingSave:'예약 저장',reserve:'예약 확정',autoAmount:'요금 적용',regenerate:'문구 갱신',save:'문자 준비',copy:'문구 복사',sent:'발송 기록'};
 const actionButton=(action,name,label,primary=false)=>`<button type="button" class="admin-icon-button ${primary?'icon-primary':''}" data-message="${action}" aria-label="${esc(label)}" title="${esc(label)}" ${pending?'disabled':''}>${actionIcon(name)}<span class="admin-action-text">${esc(pending?'처리 중':action==='reserve'&&item?.status==='confirmed'?'수정·확정':actionCaptions[action]||label)}</span></button>`;
 function reveal(){const panel=document.getElementById('detailMessages');if(panel)panel.open=true;}
-function reset(){stopAutoPreparation();window.MomentLinkAdjustmentUI?.clear();document.getElementById('messageErrorDialog')?.remove?.();item=null;booking={};drafts={};paymentDeadline='';prepared=false;pending=false;changed=false;templateDirty={};notice='';catalog=null;catalogError='';catalogLoading=false;selection=null;selectionTouched=false;}
+function reset(){if(previewTimer!==null)clearTimeout(previewTimer);previewTimer=null;previewPending='';previewReady=new Map();previewFailures=new Map();stopAutoPreparation();window.MomentLinkAdjustmentUI?.clear();document.getElementById('messageErrorDialog')?.remove?.();item=null;booking={};drafts={};paymentDeadline='';prepared=false;pending=false;changed=false;templateDirty={};notice='';catalog=null;catalogError='';catalogLoading=false;selection=null;selectionTouched=false;}
 function regenerate(){drafts=Object.fromEntries(Object.keys(M.stages).map(s=>[s,M.templateOnly(s)&&drafts[s]!==undefined?drafts[s]:M.generate(record(),s,booking,paymentDeadline)]));}
 function init(r,request,onUpdate,settings={}){
  api=request;updated=onUpdate;
@@ -125,9 +139,9 @@ function init(r,request,onUpdate,settings={}){
  if(item?.id!==r.id){reset();item=r;resetSelection();booking=M.defaults(r,settings);paymentDeadline=r.communication?.paymentDeadline||M.paymentDeadlineFrom();stage='receipt';regenerate();if(['date','time','amount','place'].every(k=>r.communication?.booking?.[k]===booking[k]))drafts=M.prepareDrafts(r,{...drafts,...r.communication?.drafts},paymentDeadline,booking);for(const key of ['intent','payment_reminder']){if(r.communication?.drafts?.[key]!==undefined&&(key!=='payment_reminder'||r.communication.paymentReminderFor===r.awaiting_payment_at))drafts[key]=r.communication.drafts[key];}}
  else item=r;
  if(canChangeProduct()&&(r.product_id||r.snapshot?.product?.id)&&!catalog&&!catalogError&&!catalogLoading)void loadProducts();
- if(O.eligible(r)){booking.opsPax??=2;O.load(api).then(()=>{if(item?.id===r.id){const el=document.getElementById("messageOpsFields");if(el)el.innerHTML=O.fields(record(),booking,"msg",pending);const extras=document.getElementById('messageAddOns');if(extras&&!changed)extras.innerHTML=A?.html(booking,'msg_addon',pending||!!item.integration&&!editableAddOns())||'';}}); }
+ if(O.eligible(r)){booking.opsPax??=2;O.load(api).then(()=>{if(item?.id===r.id){previewCalendar();const el=document.getElementById("messageOpsFields");if(el)el.innerHTML=O.fields(record(),booking,"msg",pending);const extras=document.getElementById('messageAddOns');if(extras&&!changed)extras.innerHTML=A?.html(booking,'msg_addon',pending||!!item.integration&&!editableAddOns())||'';}}); }
 }
-function openStage(next='receipt',message=''){stopAutoPreparation();reveal();if(M.stages[next])stage=next;if(stage==='payment_reminder'&&item.communication?.paymentReminderFor!==item.awaiting_payment_at)drafts[stage]=M.generate(item,stage,booking);prepared=false;notice=message;render();focusSection(message?'workflowBooking':'workflowMessages');}
+function openStage(next='receipt',message=''){previewCalendar();stopAutoPreparation();reveal();if(M.stages[next])stage=next;if(stage==='payment_reminder'&&item.communication?.paymentReminderFor!==item.awaiting_payment_at)drafts[stage]=M.generate(item,stage,booking);prepared=false;notice=message;render();focusSection(message?'workflowBooking':'workflowMessages');}
 function confirmation(){
  if(selectionTouched)throw Error('변경한 상품을 먼저 예약사항 저장해 주세요.');
  const problem=M.validate('confirmed',booking,record())||O.validate(item,booking);if(problem)throw Error(problem);
@@ -241,7 +255,7 @@ document.addEventListener('input',ev=>{
  if(['date','time','place'].includes(key)){booking.scheduleConfirmed=false;document.getElementById('msg_scheduleConfirmed').checked=false;}
  if(['amount','receivedAmount'].includes(key)){booking.paymentConfirmed=false;document.getElementById('msg_paymentConfirmed').checked=false;}
  if(!['scheduleConfirmed','paymentConfirmed'].includes(key)){regenerate();document.getElementById('messageBody').value=drafts[stage];length();}
- syncPaymentReview();if(key==='place')M.fitAddresses(root());
+ syncPaymentReview();if(key==='place')M.fitAddresses(root());previewCalendar();
  invalidate();
 });
 async function log(kind){
@@ -271,7 +285,7 @@ document.addEventListener('click',async ev=>{
  if(action==='stage'){stopAutoPreparation();stage=b.dataset.stage;if(stage==='payment_reminder'&&item.communication?.paymentReminderFor!==item.awaiting_payment_at)drafts[stage]=M.generate(item,stage,booking);prepared=false;notice='';render();return;}
  if(action==='fullPayment'){
   if(item.integration)return;
-  const problem=M.applyFullPayment(booking);if(problem){feedback(problem);render();return;}
+  previewCalendar();const problem=M.applyFullPayment(booking);if(problem){feedback(problem);render();return;}
   regenerate();invalidate();notice='완납 금액을 입력했습니다. 내용을 확인한 뒤 예약사항 저장 또는 예약 확정을 눌러 주세요.';render();return;
  }
  if(action==='autoAmount'){booking.amountMode='auto';booking.baseAmount=P.quote(record(),booking.date).amount;A.recalculate(booking);booking.paymentConfirmed=false;regenerate();invalidate();notice='선택 날짜와 추가 옵션 금액을 반영했습니다. 내용을 확인해 주세요.';render();return;}
@@ -333,3 +347,4 @@ document.addEventListener('click',async ev=>{
 });
 window.MomentLinkComposer={init,html,clear:reset,isDirty:()=>changed||!!window.MomentLinkAdjustmentUI?.isDirty()||Object.values(templateDirty).some(Boolean),isBusy:()=>pending||!!window.MomentLinkAdjustmentUI?.isBusy(),openStage,confirmation,acceptConfirmation,refreshStatus,focusConfirmation(){focusSection('workflowConfirm');},focus(){reveal();focusSection('workflowMessages');}};
 })();
+

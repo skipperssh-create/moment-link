@@ -71,7 +71,7 @@ export function opsAdapter(target,env){
  const origin=new URL(base);if(origin.protocol!=='https:')fail(503,'OPS_URL','HTTPS OPS 주소가 필요합니다.');
  let atomicRegistration=false;
  async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef+(data.requestId?':'+data.requestId:'')}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET'){if(target==='boatn'&&/^bookings\/by-reference\/[^/]+$/.test(path))atomicRegistration=r.headers.get('X-Moment-Registration-Mode')==='atomic-v1';return null;}const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,status:r.status,safe:r.status>=400&&r.status<500});return result;}
- return {supportsAtomicRegistration:()=>atomicRegistration,register:booking=>request('bookings/register','POST',booking),adjustmentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/adjustments/'+encodeURIComponent(id)),adjustBooking:change=>request('bookings/adjustments','POST',change),boardingPass:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/boarding-pass'),paymentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/payments/'+encodeURIComponent(id)),collectPayment:change=>request('bookings/payments','POST',change),addOnsResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/addons/'+encodeURIComponent(id)),updateAddOns:change=>request('bookings/addons','POST',change),safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change),restorationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/restoration/'+encodeURIComponent(id)),restore:change=>request('bookings/restore','POST',change)};
+ return {calendarPreview:date=>request('calendar-preview?date='+encodeURIComponent(date)),directRegistration:target==='boatn',supportsAtomicRegistration:()=>atomicRegistration,register:booking=>request('bookings/register','POST',booking),adjustmentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/adjustments/'+encodeURIComponent(id)),adjustBooking:change=>request('bookings/adjustments','POST',change),boardingPass:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/boarding-pass'),paymentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/payments/'+encodeURIComponent(id)),collectPayment:change=>request('bookings/payments','POST',change),addOnsResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/addons/'+encodeURIComponent(id)),updateAddOns:change=>request('bookings/addons','POST',change),safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change),restorationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/restoration/'+encodeURIComponent(id)),restore:change=>request('bookings/restore','POST',change)};
 }
 export async function processIntegration(db,id,env,adapters={}){
  const job=await db.transaction(async tx=>{const j=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1 FOR UPDATE',[id])).rows[0];if(!j)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
@@ -94,7 +94,8 @@ export async function processIntegration(db,id,env,adapters={}){
   if(job.booking.operation==='restore')return processRestoration(db,job,env,adapter);
   const revised=job.booking.operation==='registration_revision';
   const payload={...Object.fromEntries(['person','phone','productId','packageId','date','time','amount','receivedAmount','place','pax','paymentMethod'].map(key=>[key,job.booking[key]])),...(job.booking.addOns?.length?{addOns:job.booking.addOns}:{}),externalRef:job.external_ref};
-  const prior=await adapter.lookup(job.external_ref);
+  const direct=job.target==='boatn'&&job.state==='pending'&&job.attempts===0&&adapter.directRegistration===true;
+  const prior=direct?null:await adapter.lookup(job.external_ref);
   if(job.state==='uncertain'&&!prior?.id&&!adapter.safeRetry){await db.query("UPDATE moment_link.integration_jobs SET state='uncertain',error_code='RECONCILIATION_REQUIRED' WHERE id=$1",[id]);return {state:'uncertain'};}
   let booking=prior;
   if(revised&&prior?.id){
@@ -106,7 +107,7 @@ export async function processIntegration(db,id,env,adapters={}){
   if(!booking?.id){
    if(job.reconcileOnly)throw Object.assign(Error('registration retry limit'),{code:'OPS_REGISTRATION_RETRY_LIMIT'});
    const needsPartial=payload.receivedAmount!==undefined&&payload.receivedAmount<payload.amount;
-   const atomic=adapter.supportsAtomicRegistration?.()===true;
+   const atomic=direct||adapter.supportsAtomicRegistration?.()===true;
    // atomic-v1 validates payment/add-on support against current OPS settings
    // inside registration. Legacy adapters still require advisory metadata.
    const capabilities=!atomic&&(needsPartial||payload.addOns?.length)?await adapter.metadata():null;
@@ -119,7 +120,18 @@ export async function processIntegration(db,id,env,adapters={}){
    // request; older OPS and all other targets retain the preflight protocol.
    if(atomic){
     if(env.OPS_WRITES_ENABLED!=='true')fail(503,'OPS_WRITES_DISABLED','OPS 쓰기가 중지되었습니다.');
-    creating=true;booking=await adapter.register(payload);
+    creating=true;
+    try{booking=await adapter.register(payload);}
+    catch(error){
+     if(!direct||error.status!==404||error.code!=='NOT_FOUND')throw error;
+     // An explicit missing endpoint proves no write happened. Preserve old
+     // OPS support; ambiguous responses always reconcile by the same reference.
+     creating=false;
+     const check=await adapter.availability(payload);
+     if(check?.id)booking=check;
+     else{if(check?.available!==true||!check.token)throw Object.assign(Error('availability'),{code:'OPS_SCHEDULE_REVIEW_REQUIRED',safe:true});
+      creating=true;booking=await adapter.create({...payload,availabilityToken:check.token});}
+    }
    }else{
     const availability=await adapter.availability(payload);if(availability?.id){booking=availability;}else{
      if(availability?.available!==true||!availability.token){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='AVAILABILITY_UNCONFIRMED' WHERE id=$1",[id]);return {state:'conflict'};}
