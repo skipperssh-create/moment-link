@@ -198,6 +198,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
+   // Poll only the owning reservation's state: no row lock, history load or job dispatch.
+   if(!action&&method==='GET'&&url.searchParams.get('observe')==='integration'){
+    const row=(await db.query(`SELECT c.id,c.version,c.status,
+     CASE WHEN j.id IS NULL THEN NULL ELSE jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'error_code',j.error_code,'external_id',j.external_id,'updated_at',j.updated_at,'operation',j.booking->>'operation') END AS integration
+     FROM moment_link.consultations c LEFT JOIN moment_link.integration_jobs j ON j.consultation_id=c.id
+     WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3)`,[id,user.role,user.id])).rows[0];
+    if(!row)fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    return json({item:row,serverTime:new Date().toISOString()});
+   }
    const result=await db.transaction(async tx=>{
     const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND (delete_after IS NULL OR delete_after>now()) FOR UPDATE',[id])).rows[0];if(!r)fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
     if(action==='claim'&&method==='POST'){const d=parse(z.object({version:z.number().int()}).strict(),await body(request));return {item:await claim(tx,r,user,d.version)};}
@@ -272,13 +281,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    if(result.item){
     if(method!=='GET')await dispatchCalendar(id);
     if(result.cancellationQueued||result.restorationQueued||['reservation','addons','payments','adjustments'].includes(action)&&method==='POST'||method==='GET')result.item=visibleRequest((await db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
-    result.item.calendar=await calendarStatus(db,id);
-    result.item.seollem=await seollemStatus(db,id);
-    result.item.integration=(await db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id])).rows[0]||null;
-    await attachStatusTimelines(db,[result.item]);
+    const [calendar,seollem,integration,,started]=await Promise.all([
+     calendarStatus(db,id),seollemStatus(db,id),
+     db.query("SELECT id,state,attempts,error_code,external_id,updated_at,booking->>'operation' AS operation,jsonb_build_object('date',booking->>'date','time',booking->>'time') AS schedule FROM moment_link.integration_jobs WHERE consultation_id=$1",[id]),
+     attachStatusTimelines(db,[result.item]),
+     db.query("SELECT min(a.created_at) AS at FROM moment_link.audit_logs a WHERE a.entity_id=$1 AND "+consultationStartAudit,[id])
+    ]);
+    Object.assign(result.item,{calendar,seollem,integration:integration.rows[0]||null,consultation_started_at:started.rows[0]?.at||null});
     result.item=present(result.item);
-   }
-   if(result.item||result.note){const started=(await db.query("SELECT min(a.created_at) AS at FROM moment_link.audit_logs a WHERE a.entity_id=$1 AND "+consultationStartAudit,[id])).rows[0]?.at||null;if(result.item)result.item.consultation_started_at=started;if(result.note)result.consultation_started_at=started;}
+   }else if(result.note)result.consultation_started_at=(await db.query("SELECT min(a.created_at) AS at FROM moment_link.audit_logs a WHERE a.entity_id=$1 AND "+consultationStartAudit,[id])).rows[0]?.at||null;
    delete result.adjustmentRequest;delete result.collectionRequest;delete result.messageOnly;result.serverTime=new Date().toISOString();
    return json(result);
   }
