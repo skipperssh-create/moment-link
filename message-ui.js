@@ -14,13 +14,13 @@ function startAutoPreparation(){
  stopAutoPreparation();
  if(!O.eligible(item)||item.status!=='confirmed'||item.integration?.operation)return;
  const id=item.id,epoch=autoEpoch;autoId=id;
- let reads=0,failures=0;
+ let reads=0,failures=0;const started=Date.now();
  notice='예약은 저장되었습니다. OPS 등록이 끝나면 보딩패스를 넣어 문자를 자동 준비합니다.';
  const current=()=>autoId===id&&autoEpoch===epoch&&item?.id===id&&stage==='confirmed'&&!changed;
  async function check(){
   if(!current())return;
   try{
-   const out=await api('admin/consultations/'+id+'?observe=1');
+   const out=await api('admin/consultations/'+id+'?observe=integration');
    if(!current())return;
    failures=0;reads++;
    if(out.item.version!==item.version||out.item.status!=='confirmed'){stopAutoPreparation();feedback('예약 정보가 변경되었습니다. 상담을 다시 열고 문자 내용을 확인해 주세요.');render();return;}
@@ -38,15 +38,15 @@ function startAutoPreparation(){
     const code=item.integration?.error_code;
     stopAutoPreparation();feedback((O.problem?.(item)||'예약은 저장되었지만 OPS 등록을 완료하지 못했습니다.')+(code?' 확인 코드: '+code:'')+' 아래 OPS 상태에서 사유를 확인해 주세요. 충돌 건은 자동 재시도하지 않습니다.');render();return;
    }
-   if(reads>=60){stopAutoPreparation();feedback('예약은 저장되었습니다. OPS 처리 시간이 길어 자동 확인을 멈췄습니다. OPS 완료 후 문자 준비를 눌러 주세요.');render();return;}
-   autoTimer=setTimeout(check,2000);
+   if(Date.now()-started>=120000||reads>=80){stopAutoPreparation();feedback('예약은 저장되었습니다. OPS 처리 시간이 길어 자동 확인을 멈췄습니다. OPS 완료 후 문자 준비를 눌러 주세요.');render();return;}
+   autoTimer=setTimeout(check,Date.now()-started<10000?500:2000);
   }catch(error){
    if(!current())return;
    if(pending||++failures>=2){stopAutoPreparation();pending=false;actionError('save',error);return;}
    autoTimer=setTimeout(check,2000);
   }
  }
- autoTimer=setTimeout(check,500);
+ autoTimer=setTimeout(check,0);
 }
 function paymentChecks(prefix){
  return '<div class="message-checks">'+[['scheduleConfirmed','일정·장소 확정'],['paymentConfirmed','예약금 또는 완납 입금 확인']].map(([key,label])=>'<label class="inline-check"><input type="checkbox" data-message-field="'+key+'" id="'+prefix+'_'+key+'" '+(pending?'disabled':'')+' '+(booking[key]?'checked':'')+'/> '+label+'</label>').join('')+'</div>';
