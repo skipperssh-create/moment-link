@@ -39,3 +39,22 @@ test('confirmation returns before slow OPS work; observation is read-only and re
   console.log(JSON.stringify({isolatedConfirmationMs:elapsed,metadataRequests:metadata,createdBookings:creates,existingConflictUnchanged:true}));
  }finally{release();await Promise.allSettled(work);await f.pg.close();}
 });
+
+test('lightweight integration observation avoids locks, history, dispatch and private data',async()=>{
+ const f=await ownershipFixture(),origin='https://test.moment-link.invalid',queries=[];
+ try{
+  const r=await f.add({owner:f.staff['counselor-a'].id,status:'confirmed'});
+  await f.db.query("INSERT INTO moment_link.integration_jobs(id,consultation_id,target,external_ref,state,attempts,error_code,approved_by,booking) VALUES($1,$2,'boatn',$3,'conflict',1,'OPS_RESOURCE_CONFLICT',$4,'{}')",[randomUUID(),r.id,'moment-link:'+r.id,f.staff['counselor-a'].id]);
+  const spy={query:(sql,args)=>{queries.push(sql);return f.db.query(sql,args);},transaction:()=>{throw Error('observation must not lock or mutate');}};
+  const app=createApp({db:spy,env:{APP_ORIGIN:origin,OPS_WRITES_ENABLED:'true'},schedule:()=>{throw Error('observation must not schedule');}});
+  const observe=async who=>{const response=await app(new Request(origin+'/api/admin/consultations/'+r.id+'?observe=integration',{headers:{Origin:origin,...(f.sessions[who]||{})}}));return {status:response.status,data:await response.json()};};
+  const result=await observe('counselor-a');
+  assert.equal(result.status,200);assert.equal(result.data.item.integration.state,'conflict');assert.equal(result.data.item.integration.attempts,1);
+  assert.deepEqual(Object.keys(result.data.item).sort(),['id','integration','status','version']);
+  assert.equal(queries.filter(sql=>sql.includes('FROM moment_link.consultations')).length,1);
+  assert(!queries.some(sql=>/FOR UPDATE|consultation_notes|audit_logs|event_calendar_jobs|seollem_booking_jobs/.test(sql)));
+  assert.equal((await observe('counselor-b')).status,404);assert.equal((await observe('')).status,401);
+  await f.db.query('UPDATE moment_link.consultations SET deleted_at=now() WHERE id=$1',[r.id]);
+  assert.equal((await observe('counselor-a')).status,404);
+ }finally{await f.pg.close();}
+});
