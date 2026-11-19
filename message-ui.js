@@ -23,6 +23,21 @@ function startAutoPreparation(){
    const out=await api('admin/consultations/'+id+'?observe=integration');
    if(!current())return;
    failures=0;reads++;
+   // The registration job may append the validated boarding block in the same
+   // transaction. Accept only our exact base version; other staff edits stop us.
+   const automatic=out.item.preparedMessage;
+   const invitation=automatic?.invitation;
+   if(out.item.status==='confirmed'&&out.item.integration?.state==='succeeded'&&
+      out.item.version===item.version+1&&automatic?.baseVersion===item.version&&
+      automatic.jobId===out.item.integration.id&&invitation?.bookingId===out.item.integration.external_id&&
+      invitation.block&&automatic.body?.includes(invitation.block)){
+    item={...item,version:out.item.version,integration:out.item.integration,communication:{...item.communication,
+     drafts:{...item.communication.drafts,confirmed:automatic.body},boardingInvitation:invitation,
+     boardingPreparation:{baseVersion:automatic.baseVersion,jobId:automatic.jobId}}};
+    booking={...item.communication.booking};drafts={...item.communication.drafts};changed=false;prepared=true;
+    stopAutoPreparation();pending=false;updated(item);
+    notice='문자가 준비되었습니다. 보딩패스 링크를 확인하고 문자 열기를 눌러 주세요.';render();return;
+   }
    if(out.item.version!==item.version||out.item.status!=='confirmed'){stopAutoPreparation();feedback('예약 정보가 변경되었습니다. 상담을 다시 열고 문자 내용을 확인해 주세요.');render();return;}
    item={...item,integration:out.item.integration};
    const state=item.integration?.state;
