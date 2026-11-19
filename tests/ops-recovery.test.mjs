@@ -45,6 +45,16 @@ test('authorized detail refresh recovers transient OPS jobs after cooldown witho
   assert.equal((await processIntegration(db,job,env,adapters)).state,'conflict');const writes=created,attempts=checks;
   await db.query("UPDATE moment_link.integration_jobs SET updated_at=now()-interval '5 minutes' WHERE id=$1",[job]);
   detail=await req(path);assert.equal(detail.data.item.integration.state,'conflict');assert.equal(created,writes);assert.equal(checks,attempts);
+  // A negotiated atomic call can lose its response after committing. Reconcile
+  // by the same reference, never retry through legacy create or new IDs.
+  remote.clear();failure=null;createFailure=null;let atomicCalls=0;
+  adapter.supportsAtomicRegistration=()=>true;
+  adapter.register=async payload=>{atomicCalls++;const value={id:'synthetic-atomic-ops'};remote.set(payload.externalRef,value);throw Error('synthetic lost response after atomic commit');};
+  await db.query("UPDATE moment_link.integration_jobs SET state='pending',attempts=0 WHERE id=$1",[job]);
+  const legacyChecks=checks,legacyWrites=created;
+  assert.equal((await processIntegration(db,job,env,adapters)).state,'uncertain');
+  assert.equal((await processIntegration(db,job,env,adapters)).state,'succeeded');
+  assert.equal(atomicCalls,1);assert.equal(checks,legacyChecks);assert.equal(created,legacyWrites);
   assert.equal((await db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
  }finally{await pg.close();}
 });
@@ -79,4 +89,19 @@ test('hidden or departed views skip polling and stale replies cannot overwrite a
  h.ops.mount(record(),api);h.document.hidden=true;await h.tick();assert.equal(calls,0);assert.equal(h.timers.size,1);
  h.document.hidden=false;const pending=h.tick();assert.equal(calls,1);h.replace();h.ops.mount(record('checking'),api);resolve({item:record('succeeded')});await pending;assert.equal(h.html.length,0);
  h.leave();await h.tick();assert.equal(calls,1);assert.equal(h.timers.size,0);
+});
+
+test('atomic registration is negotiated only by authenticated BOATN root-reference lookup',async()=>{
+ const original=globalThis.fetch,calls=[];
+ try{
+  globalThis.fetch=async(url,options)=>{calls.push({path:new URL(url).pathname,...options});return options.method==='GET'?new Response('{}',{status:404,headers:{'X-Moment-Registration-Mode':'atomic-v1'}}):Response.json({id:'synthetic-atomic'});};
+  const env={OPS_BOATN_CONTRACT_VERIFIED:'true',OPS_BOATN_BASE_URL:'https://ops.test.invalid/api/',OPS_BOATN_TOKEN:'synthetic',OPS_SEOLLEM_CONTRACT_VERIFIED:'true',OPS_SEOLLEM_BASE_URL:'https://seollem.test.invalid/api/',OPS_SEOLLEM_TOKEN:'synthetic'};
+  const adapter=opsAdapter('boatn',env);assert.equal(adapter.supportsAtomicRegistration(),false);
+  await adapter.boardingPass('moment-link:synthetic');assert.equal(adapter.supportsAtomicRegistration(),false);
+  await adapter.lookup('moment-link:synthetic');assert.equal(adapter.supportsAtomicRegistration(),true);
+  assert.equal((await adapter.register({externalRef:'moment-link:synthetic',person:'synthetic'})).id,'synthetic-atomic');
+  assert.equal(calls.at(-1).path,'/api/bookings/register');assert.equal(calls.at(-1).headers['Idempotency-Key'],'moment-link:synthetic');
+  const seollem=opsAdapter('seollem',env);await seollem.lookup('moment-link:synthetic');assert.equal(seollem.supportsAtomicRegistration(),false);
+  globalThis.fetch=async()=>new Response('{}',{status:404});await adapter.lookup('moment-link:legacy');assert.equal(adapter.supportsAtomicRegistration(),false);
+ }finally{globalThis.fetch=original;}
 });
