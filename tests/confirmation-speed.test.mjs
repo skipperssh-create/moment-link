@@ -1,3 +1,4 @@
+import {prepareRegisteredBoarding} from '../server/boarding-pass.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -57,4 +58,38 @@ test('lightweight integration observation avoids locks, history, dispatch and pr
   await f.db.query('UPDATE moment_link.consultations SET deleted_at=now() WHERE id=$1',[r.id]);
   assert.equal((await observe('counselor-a')).status,404);
  }finally{await f.pg.close();}
+});
+
+test('atomic registration prepares boarding in the completion transaction without another OPS read or SMS write',async()=>{
+ const f=await ownershipFixture(),work=[];let release;const gate=new Promise(resolve=>{release=resolve;});
+ try{
+  const b={date:'2099-11-21',time:'18:00',amount:398000,baseAmount:368000,receivedAmount:90000,amountMode:'manual',place:'합성 검수 장소',extra:'',scheduleConfirmed:true,paymentConfirmed:true,opsPax:2,opsPaymentMethod:'transfer',addOns:[{id:'bouquet',quantity:1,unitAmount:30000}]};
+  const r=await f.add({status:'consulting',owner:f.staff['owner-admin'].id});
+  await f.db.query("UPDATE moment_link.consultations SET category='yacht',product_id='classic',package_id='all' WHERE id=$1",[r.id]);
+  const info={id:'synthetic-inline',url:'https://boarding.boatn.co.kr/boarding/synthetic-inline',context:'b'.repeat(64),recipient:r.phone,departure:'2099-11-21T09:00:00Z',pax:2};
+  let creates=0,lookups=0;const origin='https://test.moment-link.invalid';
+  const app=createApp({db:f.db,env:{APP_ORIGIN:origin,OPS_WRITES_ENABLED:'true'},schedule:p=>work.push(p),adapters:{ops:{boatn:{safeRetry:true,supportsAtomicRegistration:()=>true,lookup:async()=>{await gate;return null;},metadata:async()=>{throw Error('atomic registration must not perform a redundant metadata request');},register:async()=>{creates++;return {id:info.id,boarding:info};},boardingPass:async()=>{lookups++;return info;}}}}});
+  const call=async(path,method='GET',data)=>{const res=await app(new Request(origin+'/api/admin/consultations/'+r.id+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...f.sessions['owner-admin']},...(data?{body:JSON.stringify(data)}:{})}));return {status:res.status,data:await res.json()};};
+  const saved=await call('/reservation','POST',{version:r.version,approved:true,booking:b,drafts:{confirmed:'직접 작성한 합성 확정 안내'}});assert.equal(saved.status,200,JSON.stringify(saved.data));
+  release();await Promise.all(work);
+  const observed=await call('?observe=integration');assert.equal(observed.status,200,JSON.stringify(observed.data));
+  const item=observed.data.item;assert.equal(item.integration.state,'succeeded');assert.equal(item.version,saved.data.item.version+1);
+  assert.equal(item.preparedMessage.baseVersion,saved.data.item.version);assert.equal(item.preparedMessage.jobId,item.integration.id);
+  assert.match(item.preparedMessage.body,/직접 작성한 합성 확정 안내/);assert.match(item.preparedMessage.body,/boarding\/synthetic-inline/);
+  assert.equal(creates,1);assert.equal(lookups,0);assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.outbox')).rows[0].n,0);
+  const current=(await f.db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[r.id])).rows[0];assert.equal(current.communication.events?.length||0,0);
+  // A later edit invalidates the one-version automatic handoff.
+  await f.db.query('UPDATE moment_link.consultations SET version=version+1 WHERE id=$1',[r.id]);
+  assert.equal((await call('?observe=integration')).data.item.preparedMessage,undefined);
+ }finally{release();await Promise.allSettled(work);await f.pg.close();}
+});
+
+test('combined response rejects mismatched boarding data without creating send records',()=>{
+ const row={status:'confirmed',version:7,category:'yacht',product_id:'classic',package_id:'all',phone:'01000000000',communication:{booking:{date:'2099-11-21',time:'18:00',opsPax:2},drafts:{confirmed:'직접 쓴 안내'},events:[]}};
+ const job={id:'job',target:'boatn',external_id:'ops',booking:{pax:2}};
+ const info={id:'ops',recipient:row.phone,departure:'2099-11-21T09:00:00Z',pax:2,context:'b'.repeat(64),url:'https://boarding.boatn.co.kr/boarding/synthetic'};
+ for(const patch of [{id:'other'},{recipient:'01099999999'},{pax:3},{departure:'2099-11-22T09:00:00Z'},{url:'https://invalid.example/boarding/synthetic'}])assert.throws(()=>prepareRegisteredBoarding(row,job,{...info,...patch}),e=>e.code==='BOARDING_MISMATCH');
+ assert.equal(prepareRegisteredBoarding({...row,status:'cancelled'},job,info),null);
+ assert.equal(prepareRegisteredBoarding(row,{...job,target:'seollem'},info),null);
+ const prepared=prepareRegisteredBoarding(row,job,info);assert.equal(prepared.events.length,0);assert.equal(prepared.boardingPreparation.baseVersion,7);assert.equal(row.communication.drafts.confirmed,'직접 쓴 안내');
 });

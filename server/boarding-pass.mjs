@@ -15,6 +15,10 @@ export async function boardingInvitation(tx,r,lookup){
  const job=(await tx.query('SELECT * FROM moment_link.integration_jobs WHERE consultation_id=$1',[r.id])).rows[0];
  if(!job||job.target!=='boatn'||job.state!=='succeeded'||!job.external_id)fail(409,'BOARDING_OPS_PENDING',registrationProblem(job));
  let info;try{info=await lookup(job.external_ref);}catch{fail(503,'BOARDING_LOOKUP_FAILED','OPS 승선신고 링크를 확인하지 못했습니다. 잠시 후 문자 준비를 다시 눌러 주세요.');}
+ return validateBoardingInvitation(r,job,info);
+}
+export function validateBoardingInvitation(r,job,info){
+ const b=r.communication.booking;
  const expectedDate=Date.parse(b.date+'T'+b.time+':00+09:00');
  if(!info||info.id!==job.external_id||info.recipient!==r.phone.replace(/\D/g,'')||Date.parse(info.departure)!==expectedDate||info.pax!==(b.opsPax||job.booking.pax)||!/^[a-f0-9]{64}$/.test(info.context||'')||!/^https:\/\/boarding\.boatn\.co\.kr\/boarding\/[a-zA-Z0-9_-]+$/.test(info.url||''))fail(409,'BOARDING_MISMATCH','OPS 예약의 연락처·일정·인원 또는 승선신고 링크가 다릅니다. 예약 정보를 먼저 확인해 주세요.');
  return info;
@@ -35,4 +39,13 @@ export async function verifyBoardingMessage(tx,r,lookup){
  const current=await boardingInvitation(tx,r,lookup);
  if(current.id!==saved.bookingId||current.context!==saved.context||current.url!==saved.url)fail(409,'BOARDING_CHANGED','OPS 예약이 변경되었습니다. 문자 준비를 다시 눌러 최신 링크를 확인해 주세요.');
  return {bookingId:current.id,context:current.context};
+}
+
+// Only the authenticated registration response may prepare this first draft.
+// It is not a send acknowledgement; opening/sending still checks OPS afresh.
+export function prepareRegisteredBoarding(r,job,info){
+ if(!boardingEligible(r)||r.status!=='confirmed'||r.deleted_at||job.target!=='boatn'||!r.communication?.drafts?.confirmed?.trim())return null;
+ validateBoardingInvitation(r,job,info);
+ const old=r.communication,prepared=attachBoardingMessage(old.drafts.confirmed,info,old.boardingInvitation);
+ return {...old,drafts:{...old.drafts,confirmed:prepared.body},boardingInvitation:prepared.invitation,boardingPreparation:{baseVersion:r.version,jobId:job.id}};
 }

@@ -201,10 +201,16 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    // Poll only the owning reservation's state: no row lock, history load or job dispatch.
    if(!action&&method==='GET'&&url.searchParams.get('observe')==='integration'){
     const row=(await db.query(`SELECT c.id,c.version,c.status,
-     CASE WHEN j.id IS NULL THEN NULL ELSE jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'error_code',j.error_code,'external_id',j.external_id,'updated_at',j.updated_at,'operation',j.booking->>'operation') END AS integration
+     CASE WHEN j.id IS NULL THEN NULL ELSE jsonb_build_object('id',j.id,'state',j.state,'attempts',j.attempts,'error_code',j.error_code,'external_id',j.external_id,'updated_at',j.updated_at,'operation',j.booking->>'operation') END AS integration,
+     CASE WHEN j.state='succeeded' AND c.status='confirmed'
+       AND c.communication->'boardingPreparation'->>'jobId'=j.id::text
+       AND c.communication->'boardingPreparation'->>'baseVersion'=(c.version-1)::text
+     THEN jsonb_build_object('baseVersion',c.version-1,'jobId',j.id,'invitation',c.communication->'boardingInvitation','body',c.communication->'drafts'->>'confirmed')
+     ELSE NULL END AS "preparedMessage"
      FROM moment_link.consultations c LEFT JOIN moment_link.integration_jobs j ON j.consultation_id=c.id
      WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3)`,[id,user.role,user.id])).rows[0];
     if(!row)fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if(!row.preparedMessage)delete row.preparedMessage;
     return json({item:row,serverTime:new Date().toISOString()});
    }
    const result=await db.transaction(async tx=>{

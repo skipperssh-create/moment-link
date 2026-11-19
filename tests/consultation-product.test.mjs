@@ -48,7 +48,7 @@ test('composer exposes purchases, switches yacht/package, blocks premature confi
  const listeners={},elements={},calls=[];let replacedWith;
  const element=()=>({innerHTML:'',outerHTML:'',value:'',contains:()=>true,querySelector:()=>({textContent:'',addEventListener(){},focus(){}}),replaceWith(node){replacedWith=node;},focus(){},scrollIntoView(){},setAttribute(){},remove(){},showModal(){},addEventListener(){}});
  const document={getElementById:id=>elements[id]??=element(),querySelector:()=>element(),createElement:element,body:{append(){}},addEventListener:(name,fn)=>listeners[name]=fn};
- const ctx=vm.createContext({document,navigator:{userAgent:'Android'},window:{},console,Intl,Date,URL});ctx.window=ctx;ctx.globalThis=ctx;
+ const ctx=vm.createContext({document,navigator:{userAgent:'Android'},window:{},console,Intl,Date,URL,btoa,TextEncoder});ctx.window=ctx;ctx.globalThis=ctx;
  ctx.MomentLinkOps={eligible:()=>false,fields:()=>'',validate:()=>''};
  for(const file of ['time-picker.js','pricing.js','booking-addons.js','messages.js','message-ui.js'])vm.runInContext(await readFile(new URL('../'+file,import.meta.url),'utf8'),ctx);
  const catalog=JSON.parse(await readFile(new URL('../catalog.confirmed.json',import.meta.url),'utf8')),products=catalog.products||catalog;

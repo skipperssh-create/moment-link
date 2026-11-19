@@ -1,3 +1,4 @@
+import {prepareRegisteredBoarding} from './boarding-pass.mjs';
 import {processAdjustment} from './adjustments.mjs';
 import {processCollection} from './collections.mjs';
 import {dispatchConsultationAlerts} from './consultation-alerts.mjs';
@@ -105,15 +106,18 @@ export async function processIntegration(db,id,env,adapters={}){
   if(!booking?.id){
    if(job.reconcileOnly)throw Object.assign(Error('registration retry limit'),{code:'OPS_REGISTRATION_RETRY_LIMIT'});
    const needsPartial=payload.receivedAmount!==undefined&&payload.receivedAmount<payload.amount;
-   const capabilities=needsPartial||payload.addOns?.length?await adapter.metadata():null;
-   if(needsPartial&&!capabilities?.partialPayments)throw Object.assign(Error('OPS deposit support unavailable'),{code:'OPS_PARTIAL_PAYMENT_UNAVAILABLE',safe:true});
-   if(payload.addOns?.length&&!capabilities?.addOnPurchases)throw Object.assign(Error('OPS extra purchases unavailable'),{code:'OPS_ADDONS_UNAVAILABLE'});
+   const atomic=adapter.supportsAtomicRegistration?.()===true;
+   // atomic-v1 validates payment/add-on support against current OPS settings
+   // inside registration. Legacy adapters still require advisory metadata.
+   const capabilities=!atomic&&(needsPartial||payload.addOns?.length)?await adapter.metadata():null;
+   if(!atomic&&needsPartial&&!capabilities?.partialPayments)throw Object.assign(Error('OPS deposit support unavailable'),{code:'OPS_PARTIAL_PAYMENT_UNAVAILABLE',safe:true});
+   if(!atomic&&payload.addOns?.length&&!capabilities?.addOnPurchases)throw Object.assign(Error('OPS extra purchases unavailable'),{code:'OPS_ADDONS_UNAVAILABLE'});
    const consultation=(await db.query('SELECT status FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND deleted_at IS NULL',[job.consultation_id])).rows[0];
    if(!consultation||['closed','cancelled'].includes(consultation.status)){await db.query("UPDATE moment_link.integration_jobs SET state='conflict',error_code='CONSULTATION_CLOSED' WHERE id=$1",[id]);return {state:'conflict'};}
    // Only the authenticated BOATN lookup can negotiate this contract. OPS
    // checks fresh capacity and inserts under its existing atomic guards in one
    // request; older OPS and all other targets retain the preflight protocol.
-   if(adapter.supportsAtomicRegistration?.()===true){
+   if(atomic){
     if(env.OPS_WRITES_ENABLED!=='true')fail(503,'OPS_WRITES_DISABLED','OPS 쓰기가 중지되었습니다.');
     creating=true;booking=await adapter.register(payload);
    }else{
@@ -138,7 +142,13 @@ export async function processIntegration(db,id,env,adapters={}){
    });
    return {state:'succeeded',externalId:booking.id};
   }
-  await db.transaction(async tx=>{await tx.query("UPDATE moment_link.integration_jobs SET state='succeeded',external_id=$1,error_code=NULL,updated_at=now() WHERE id=$2",[booking.id,id]);await tx.query("UPDATE moment_link.consultations SET status='confirmed',version=version+1,updated_at=now() WHERE id=$1 AND status NOT IN ('confirmed','closed','cancelled')",[job.consultation_id]);await audit(tx,job.approved_by,'ops.confirmed',job.consultation_id,{jobId:id,target:job.target,externalId:booking.id});});return {state:'succeeded',externalId:booking.id};
+  await db.transaction(async tx=>{await tx.query("UPDATE moment_link.integration_jobs SET state='succeeded',external_id=$1,error_code=NULL,updated_at=now() WHERE id=$2",[booking.id,id]);let prepared=null;
+   if(job.target==='boatn'&&booking.boarding){
+    const row=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 FOR UPDATE',[job.consultation_id])).rows[0];
+    if(row)try{prepared=prepareRegisteredBoarding(row,{...job,state:'succeeded',external_id:booking.id},booking.boarding);}catch{}
+   }
+   if(prepared)await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2',[JSON.stringify(prepared),job.consultation_id]);
+   else await tx.query("UPDATE moment_link.consultations SET status='confirmed',version=version+1,updated_at=now() WHERE id=$1 AND status NOT IN ('confirmed','closed','cancelled')",[job.consultation_id]);await audit(tx,job.approved_by,'ops.confirmed',job.consultation_id,{jobId:id,target:job.target,externalId:booking.id});});return {state:'succeeded',externalId:booking.id};
  }catch(e){const retryable=[408,429].includes(e.status)||['OPS_CALENDAR_SYNC_PENDING','OPS_AVAILABILITY_EXPIRED'].includes(e.code);const state=['OPS_UNCONFIGURED','OPS_DISABLED','OPS_AUTH_REQUIRED'].includes(e.code)?'blocked':e.safe&&!retryable?'conflict':creating||job.state==='uncertain'?'uncertain':'failed';await db.query('UPDATE moment_link.integration_jobs SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'OPS_UNAVAILABLE',id]);return {state};}
 }
 
