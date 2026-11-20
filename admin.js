@@ -285,6 +285,7 @@ function paintSound(){
  status.textContent=!state.supported?'이 브라우저는 음성 알림을 지원하지 않습니다.':state.error||(state.playing?'재생 중…':state.enabled?(state.awaitingInteraction?'음성 알림 켜짐 · 화면을 눌러 소리 활성화':'음성 알림 켜짐 · 자동'):'음성 알림 꺼짐 · 다시 열면 자동으로 켜집니다.');
 }
 function paintLive(){
+ paintDevicePush();
  paintPaymentWindows();
  const bar=$('#inboxLive');if(!bar)return;
  paintSound();
