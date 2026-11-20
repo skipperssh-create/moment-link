@@ -54,12 +54,12 @@ test('client detects absent device registration without prompting; reconnection 
  await device.disable();assert.equal(unsubscribed,1);assert.equal(calls.find(x=>x.method==='DELETE').body.endpointHash,hash(sub.endpoint));
 });
 
-function clientFixture({api=async()=>({enabled:true,configured:true,registered:false,vapidPublicKey:'AQID'}),permission='default',ready,getSubscription,subscribe,permissionRequest,permissionQuery,pushPermissionState,fastTimeout=false}={}){
+function clientFixture({userAgent='',standalone=false,api=async()=>({enabled:true,configured:true,registered:false,vapidPublicKey:'AQID'}),permission='default',ready,getSubscription,subscribe,permissionRequest,permissionQuery,pushPermissionState,fastTimeout=false}={}){
  const Notification={permission,requests:0,requestPermission(){this.requests++;this.permission='granted';return Promise.resolve('granted');}};
  let sub=null;const item={...subscription('reinstall'),toJSON:()=>subscription('reinstall'),unsubscribe:async()=>true};
  if(permissionRequest)Notification.requestPermission=function(){this.requests++;return permissionRequest(this);};
  const reg={pushManager:{permissionState:pushPermissionState,getSubscription:getSubscription||(()=>Promise.resolve(sub)),subscribe:subscribe||(async()=>{sub=item;return item;})}};
- const window={isSecureContext:true,Notification,PushManager:class{}},navigator={permissions:permissionQuery?{query:permissionQuery}:undefined,serviceWorker:{ready:ready||Promise.resolve(reg)}};
+ const window={isSecureContext:true,Notification,PushManager:class{},matchMedia:()=>({matches:standalone})},navigator={userAgent,permissions:permissionQuery?{query:permissionQuery}:undefined,serviceWorker:{ready:ready||Promise.resolve(reg)}};
  return readFile(new URL('../push-device.js',import.meta.url),'utf8').then(source=>{
   vm.runInNewContext(source,{window,navigator,Notification,crypto:webcrypto,TextEncoder,Uint8Array,atob,AbortController,setTimeout:fastTimeout?(fn,ms)=>setTimeout(fn,ms===250?2:ms===1000?5:15):setTimeout,clearTimeout});
   return {device:window.MomentLinkPush(api),Notification};
@@ -155,4 +155,37 @@ test('reset stops permission observation and a late grant cannot connect the nex
 test('status refresh keeps a recovered subscription ready when native push permission is granted',async()=>{
  let sub=null;const f=await clientFixture({permissionRequest:()=>new Promise(()=>{}),permissionQuery:async()=>({state:'granted'}),pushPermissionState:async()=>'granted',getSubscription:async()=>sub,subscribe:async()=>{sub={...subscription('recovered'),toJSON:()=>subscription('recovered')};return sub;},api:async()=>({enabled:true,configured:true,registered:true,vapidPublicKey:'AQID'})});
  await f.device.enable();await f.device.refresh(true);assert.equal(f.device.state().ready,true);
+});
+
+test('phone diagnostics distinguish Samsung Internet and never prompt, subscribe, send or disclose subscription data',async()=>{
+ const calls=[];
+ const f=await clientFixture({userAgent:'Mozilla/5.0 Chrome/140.0.0.0 SamsungBrowser/29.0 Mobile Safari/537.36',standalone:true,permissionQuery:async()=>({state:'granted'}),pushPermissionState:async()=>'prompt',getSubscription:async()=>subscription('private-endpoint'),subscribe:()=>{throw Error('must not subscribe');},api:async(path,method)=>{calls.push({path,method});return {enabled:true,configured:true};}});
+ await f.device.diagnose();
+ const state=f.device.state();
+ assert.equal(state.diagnosing,false);assert.equal(state.busy,false);assert.equal(f.Notification.requests,0);
+ assert.match(state.diagnostic,/실행 브라우저: 삼성 인터넷 29.0/);
+ assert.match(state.diagnostic,/실행 방식: 홈 화면 앱/);
+ assert.match(state.diagnostic,/알림 권한: 미결정/);
+ assert.match(state.diagnostic,/권한 조회: 허용/);
+ assert.match(state.diagnostic,/푸시 권한: 미결정/);
+ assert.match(state.diagnostic,/기기 구독: 있음/);
+ assert.match(state.diagnostic,/알림 서버: 사용 가능/);
+ assert.doesNotMatch(state.diagnostic,/private-endpoint|fcm|synthetic|keys|p256dh|endpoint/);
+ assert.deepEqual(calls,[{path:'admin/push',method:'GET'}]);
+});
+test('one stalled phone diagnostic probe does not hide other results or disable connection',async()=>{
+ const f=await clientFixture({fastTimeout:true,permissionQuery:()=>new Promise(()=>{}),pushPermissionState:async()=>'denied',getSubscription:async()=>null});
+ await f.device.diagnose();
+ assert.match(f.device.state().diagnostic,/권한 조회: 응답 없음/);
+ assert.match(f.device.state().diagnostic,/푸시 권한: 차단/);
+ assert.match(f.device.state().diagnostic,/기기 구독: 없음/);
+ assert.match(f.device.state().diagnostic,/알림 서버: 사용 가능/);
+ assert.equal(f.device.state().diagnosing,false);assert.equal(f.device.state().busy,false);assert.equal(f.Notification.requests,0);
+});
+test('diagnostic reset ignores late reads and server requests are aborted after timeout',async()=>{
+ let signal;
+ const f=await clientFixture({fastTimeout:true,api:(_p,_m,_b,s)=>{signal=s;return new Promise(()=>{});}});
+ await f.device.diagnose();assert.equal(signal.aborted,true);assert.match(f.device.state().diagnostic,/알림 서버: 응답 없음/);
+ const pending=f.device.diagnose();f.device.reset();await pending;
+ assert.equal(f.device.state().diagnostic,'');assert.equal(f.device.state().diagnosing,false);
 });
