@@ -54,13 +54,14 @@ test('client detects absent device registration without prompting; reconnection 
  await device.disable();assert.equal(unsubscribed,1);assert.equal(calls.find(x=>x.method==='DELETE').body.endpointHash,hash(sub.endpoint));
 });
 
-function clientFixture({api=async()=>({enabled:true,configured:true,registered:false,vapidPublicKey:'AQID'}),permission='default',ready,getSubscription,subscribe,fastTimeout=false}={}){
+function clientFixture({api=async()=>({enabled:true,configured:true,registered:false,vapidPublicKey:'AQID'}),permission='default',ready,getSubscription,subscribe,permissionRequest,permissionQuery,pushPermissionState,fastTimeout=false}={}){
  const Notification={permission,requests:0,requestPermission(){this.requests++;this.permission='granted';return Promise.resolve('granted');}};
  let sub=null;const item={...subscription('reinstall'),toJSON:()=>subscription('reinstall'),unsubscribe:async()=>true};
- const reg={pushManager:{getSubscription:getSubscription||(()=>Promise.resolve(sub)),subscribe:subscribe||(async()=>{sub=item;return item;})}};
- const window={isSecureContext:true,Notification,PushManager:class{}},navigator={serviceWorker:{ready:ready||Promise.resolve(reg)}};
+ if(permissionRequest)Notification.requestPermission=function(){this.requests++;return permissionRequest(this);};
+ const reg={pushManager:{permissionState:pushPermissionState,getSubscription:getSubscription||(()=>Promise.resolve(sub)),subscribe:subscribe||(async()=>{sub=item;return item;})}};
+ const window={isSecureContext:true,Notification,PushManager:class{}},navigator={permissions:permissionQuery?{query:permissionQuery}:undefined,serviceWorker:{ready:ready||Promise.resolve(reg)}};
  return readFile(new URL('../push-device.js',import.meta.url),'utf8').then(source=>{
-  vm.runInNewContext(source,{window,navigator,Notification,crypto:webcrypto,TextEncoder,Uint8Array,atob,AbortController,setTimeout:fastTimeout?(fn)=>setTimeout(fn,15):setTimeout,clearTimeout});
+  vm.runInNewContext(source,{window,navigator,Notification,crypto:webcrypto,TextEncoder,Uint8Array,atob,AbortController,setTimeout:fastTimeout?(fn,ms)=>setTimeout(fn,ms===250?2:ms===1000?5:15):setTimeout,clearTimeout});
   return {device:window.MomentLinkPush(api),Notification};
  });
 }
@@ -112,4 +113,46 @@ test('logout/reset during connection cannot save a subscription for the next ses
  const pending=f.device.enable();while(!release)await new Promise(r=>setImmediate(r));f.device.reset();
  release({enabled:true,configured:true,vapidPublicKey:'AQID'});await pending;
  assert.equal(posts,0);assert.equal(f.device.state().ready,false);assert.equal(f.device.state().busy,false);
+});
+
+test('permission grant is observed even when the original permission prompt never resolves',async()=>{
+ let posts=0;const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),api:async(_p,m)=>{if(m==='POST')posts++;return {enabled:true,configured:true,vapidPublicKey:'AQID'};}});
+ const pending=f.device.enable();setTimeout(()=>{f.Notification.permission='granted';},4);await pending;
+ assert.equal(f.Notification.requests,1);assert.equal(posts,1);assert.equal(f.device.state().ready,true);
+});
+test('Permissions API grant recovers a stale default notification getter without prompting twice',async()=>{
+ const f=await clientFixture({permissionRequest:()=>new Promise(()=>{}),permissionQuery:async()=>({state:'granted'})});
+ await f.device.enable();assert.equal(f.Notification.permission,'default');assert.equal(f.Notification.requests,1);assert.equal(f.device.state().ready,true);
+});
+test('push permission grant recovers even when the general permission query is unsupported',async()=>{
+ const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),permissionQuery:async()=>{throw Error('unsupported');},pushPermissionState:async()=>'granted'});
+ await f.device.enable();assert.equal(f.device.state().ready,true);
+});
+test('missing permission response exposes a native reconnect action and never reports success early',async()=>{
+ let subscribed=0,posts=0,inClick=false;
+ const sub={...subscription('repair'),toJSON:()=>subscription('repair')};
+ const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),subscribe:()=>{assert.equal(inClick,true);subscribed++;return Promise.resolve(sub);},api:async(_p,m)=>{if(m==='POST')posts++;return {enabled:true,configured:true,vapidPublicKey:'AQID'};}});
+ await assert.rejects(f.device.enable(),/P01/);
+ assert.equal(f.device.state().busy,false);assert.equal(f.device.state().ready,false);assert.equal(f.device.state().canRepair,true);assert.equal(posts,0);
+ inClick=true;const pending=f.device.repair();inClick=false;await pending;
+ assert.equal(subscribed,1);assert.equal(posts,1);assert.equal(f.Notification.requests,1);assert.equal(f.device.state().ready,true);assert.equal(f.device.state().canRepair,false);
+});
+test('native reconnect respects browser denial and never saves a blocked subscription',async()=>{
+ let posts=0;const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),subscribe:async()=>{const e=Error('denied');e.name='NotAllowedError';throw e;},api:async(_p,m)=>{if(m==='POST')posts++;return {enabled:true,configured:true,vapidPublicKey:'AQID'};}});
+ await assert.rejects(f.device.enable(),/P01/);await assert.rejects(f.device.repair(),/denied/);
+ assert.equal(posts,0);assert.equal(f.device.state().ready,false);assert.equal(f.device.state().busy,false);assert.match(f.device.state().message,/알림이 차단/);
+});
+test('native reconnect timeout is bounded and does not retry or send a notification',async()=>{
+ let calls=0,posts=0;const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),subscribe:()=>{calls++;return new Promise(()=>{});},api:async(_p,m)=>{if(m==='POST')posts++;return {enabled:true,configured:true,vapidPublicKey:'AQID'};}});
+ await assert.rejects(f.device.enable(),/P01/);await assert.rejects(f.device.repair(),/P02/);
+ assert.equal(calls,1);assert.equal(posts,0);assert.equal(f.device.state().busy,false);assert.equal(f.device.state().ready,false);
+});
+test('reset stops permission observation and a late grant cannot connect the next session',async()=>{
+ let posts=0;const f=await clientFixture({fastTimeout:true,permissionRequest:()=>new Promise(()=>{}),api:async(_p,m)=>{if(m==='POST')posts++;return {enabled:true,configured:true,vapidPublicKey:'AQID'};}});
+ const pending=f.device.enable();f.device.reset();f.Notification.permission='granted';await pending;
+ assert.equal(posts,0);assert.equal(f.device.state().ready,false);assert.equal(f.device.state().canRepair,false);
+});
+test('status refresh keeps a recovered subscription ready when native push permission is granted',async()=>{
+ let sub=null;const f=await clientFixture({permissionRequest:()=>new Promise(()=>{}),permissionQuery:async()=>({state:'granted'}),pushPermissionState:async()=>'granted',getSubscription:async()=>sub,subscribe:async()=>{sub={...subscription('recovered'),toJSON:()=>subscription('recovered')};return sub;},api:async()=>({enabled:true,configured:true,registered:true,vapidPublicKey:'AQID'})});
+ await f.device.enable();await f.device.refresh(true);assert.equal(f.device.state().ready,true);
 });

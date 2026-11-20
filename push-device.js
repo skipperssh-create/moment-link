@@ -2,7 +2,7 @@
 (()=>{
 'use strict';
 window.MomentLinkPush=(api,onChange=()=>{})=>{
- const initial=()=>({message:'백그라운드 알림 확인 중…',ready:false,busy:false,checking:false});
+ const initial=()=>({message:'백그라운드 알림 확인 중…',ready:false,busy:false,checking:false,canRepair:false});
  let info=initial(),checked=0,revision=0;
  const supported=()=>window.isSecureContext&&'Notification'in window&&'PushManager'in window&&'serviceWorker'in navigator;
  const notify=patch=>{info={...info,...patch};onChange();};
@@ -17,15 +17,72 @@ window.MomentLinkPush=(api,onChange=()=>{})=>{
  const digest=async endpoint=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(endpoint))),b=>b.toString(16).padStart(2,'0')).join('');
  const subscription=reg=>bounded(reg.pushManager.getSubscription(),'이 기기의 알림 정보를 읽지 못했습니다. 앱을 다시 열고 연결해 주세요.');
  async function current(){const reg=await registration(),sub=await subscription(reg);return {reg,sub,endpointHash:sub?await digest(sub.endpoint):''};}
+
+ let reconnect=null;
+ const remember=(reg,server)=>{if(server.enabled&&server.configured&&server.vapidPublicKey)reconnect={reg,key:Uint8Array.from(atob(server.vapidPublicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0))};};
+ async function prepareReconnect(version){
+  const [reg,server]=await Promise.all([registration(),request('admin/push')]);
+  if(version!==revision)return null;
+  if(!server.enabled||!server.configured)throw Error('문자·알림에서 서버 푸시 사용과 연결 상태를 확인해 주세요.');
+  remember(reg,server);return reconnect;
+ }
+ function waitForPermission(prompt,version){
+  return new Promise((resolve,reject)=>{
+   let done=false,poll,timer,permissionStatus,pushChecked=false;
+   const onChange=()=>read(permissionStatus?.state);
+   const finish=(value,error)=>{if(done)return;done=true;clearTimeout(poll);clearTimeout(timer);permissionStatus?.removeEventListener?.('change',onChange);error?reject(error):resolve(value);};
+   const read=value=>{if(done)return;if(version!==revision){finish('cancelled');return;}if(value==='granted'||value==='denied')finish(value);};
+   const check=()=>{if(done)return;read(Notification.permission);readPush();if(!done)poll=setTimeout(check,250);};
+   timer=setTimeout(()=>{const error=Error('휴대폰의 알림 권한 응답을 받지 못했습니다. 아래 ‘권한 재연결’을 눌러 주세요. [알림 P01]');error.code='PUSH_PERMISSION_PENDING';finish(null,error);},10000);
+   Promise.resolve(prompt).then(value=>{if(value==='default')finish(value);else read(value);},error=>finish(null,error));
+   check();
+   try{Promise.resolve(navigator.permissions?.query({name:'notifications'})).then(status=>{
+    if(done||!status)return;permissionStatus=status;status.addEventListener?.('change',onChange);onChange();
+   }).catch(()=>{});}catch{}
+   // These browser APIs only report permission; the eventual subscribe still enforces it.
+   function readPush(){if(done||pushChecked||!reconnect?.reg.pushManager.permissionState)return;pushChecked=true;try{Promise.resolve(reconnect.reg.pushManager.permissionState({userVisibleOnly:true,applicationServerKey:reconnect.key})).then(read,()=>{});}catch{}}
+  });
+ }
+ async function repair(){
+  if(info.busy)return;const version=++revision;notify({checking:false});
+  try{
+   if(!supported())throw Error('Chrome 또는 설치한 홈 화면 앱에서 알림을 연결해 주세요.');
+   if(!reconnect){
+    notify({busy:true,message:'이 기기의 알림 연결을 준비하고 있습니다…'});
+    await prepareReconnect(version);if(version!==revision)return;
+    notify({canRepair:true,message:'연결 준비가 끝났습니다. 권한 재연결을 한 번 더 눌러 주세요.'});return;
+   }
+   // Alternative browser-native permission path: subscribe in this exact click stack.
+   // Never pretend a pending/denied permission is granted, or alter other devices.
+   const pending=reconnect.reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:reconnect.key});
+   notify({busy:true,message:'이 기기의 알림 권한과 구독을 다시 연결하고 있습니다…'});
+   const sub=await bounded(pending,'기기 알림 구독 응답이 없습니다. Chrome과 모먼트링크 사이의 연결을 확인해야 합니다. [알림 P02]');
+   if(version!==revision)return;
+   await request('admin/push','POST',sub.toJSON());if(version!==revision)return;
+   notify({ready:true,canRepair:false,message:'이 기기 알림을 다시 연결했습니다. 알림 확인을 눌러 수신을 확인해 주세요.'});
+  }catch(error){if(version===revision)notify({ready:false,canRepair:true,message:failure(error)});throw error;}
+  finally{if(version===revision){checked=Date.now();notify({busy:false});}}
+ }
+
+ async function readPermission(reg){
+  if(Notification.permission!=='default')return Notification.permission;
+  const checks=[];
+  try{if(navigator.permissions?.query)checks.push(Promise.resolve(navigator.permissions.query({name:'notifications'})).then(s=>s.state));}catch{}
+  try{if(reg.pushManager.permissionState)checks.push(reg.pushManager.permissionState({userVisibleOnly:true,...(reconnect?.key?{applicationServerKey:reconnect.key}:{})}));}catch{}
+  const values=await Promise.all(checks.map(p=>bounded(p,'',1000).catch(()=>null)));
+  return values.includes('denied')?'denied':values.includes('granted')?'granted':'default';
+ }
+
  async function refresh(force=false){
   if(info.busy||info.checking||!force&&Date.now()-checked<60000)return;checked=Date.now();const version=revision;
   if(!supported()){notify({ready:false,message:'이 브라우저에서는 백그라운드 알림을 지원하지 않습니다. Chrome 또는 설치한 홈 화면 앱에서 확인해 주세요.'});return;}
   // A read-only status check must never disable the permission/connect button.
   notify({checking:true,...(!info.ready?{message:'연결 상태 확인 중… 알림 연결을 눌러 바로 연결할 수 있습니다.'}:{})});
-  try{const {sub,endpointHash}=await current();if(version!==revision)return;
+  try{const {reg,sub,endpointHash}=await current();if(version!==revision)return;
    const server=await request('admin/push'+(endpointHash?'?endpointHash='+endpointHash:''));if(version!==revision)return;
-   const ready=server.enabled&&server.configured&&server.registered&&!!sub&&Notification.permission==='granted';
-   const message=!server.enabled?'서버 새 상담 푸시가 꺼져 있습니다. 문자·알림 설정을 확인해 주세요.':!server.configured?'서버 푸시 연결을 확인해 주세요.':Notification.permission==='denied'?'휴대폰에서 알림이 차단되어 있습니다. 앱·브라우저 설정에서 알림을 허용한 뒤 다시 연결해 주세요.':ready?(server.deliveryProblem?'알림 전송이 2회 실패했습니다. 알림 연결을 다시 눌러 주세요.':server.repeatRunning===false?'푸시 연결됨 · 반복 알림 서버 확인 중':'백그라운드 알림 연결됨 · 새 상담 확인 전까지 2분마다 반복'):'재설치했거나 처음 사용하는 기기는 알림을 다시 연결해야 합니다. 알림 연결을 눌러 허용해 주세요.';
+   remember(reg,server);const permission=await readPermission(reg);if(version!==revision)return;
+   const ready=server.enabled&&server.configured&&server.registered&&!!sub&&permission==='granted';
+   const message=!server.enabled?'서버 새 상담 푸시가 꺼져 있습니다. 문자·알림 설정을 확인해 주세요.':!server.configured?'서버 푸시 연결을 확인해 주세요.':permission==='denied'?'휴대폰에서 알림이 차단되어 있습니다. 앱·브라우저 설정에서 알림을 허용한 뒤 다시 연결해 주세요.':ready?(server.deliveryProblem?'알림 전송이 2회 실패했습니다. 알림 연결을 다시 눌러 주세요.':server.repeatRunning===false?'푸시 연결됨 · 반복 알림 서버 확인 중':'백그라운드 알림 연결됨 · 새 상담 확인 전까지 2분마다 반복'):'재설치했거나 처음 사용하는 기기는 알림을 다시 연결해야 합니다. 알림 연결을 눌러 허용해 주세요.';
    notify({ready,message});
   }catch(error){if(version===revision)notify({message:failure(error)});}
   finally{if(version===revision)notify({checking:false});}
@@ -35,15 +92,16 @@ window.MomentLinkPush=(api,onChange=()=>{})=>{
   notify({checking:false});
   try{
    if(!supported())throw Error('Chrome 또는 설치한 홈 화면 앱에서 알림을 연결해 주세요.');
+   if(Notification.permission==='denied')throw Error('알림이 차단되어 있습니다. 휴대폰 앱·브라우저 설정에서 허용해 주세요.');
    // Invoke synchronously in the click handler, before any network await.
    const permission=Notification.permission==='default'?Notification.requestPermission():Promise.resolve(Notification.permission);
    notify({busy:true,message:'휴대폰의 알림 권한을 확인하고 있습니다. 허용 안내가 나오면 허용해 주세요.'});
-   if(await bounded(permission,'알림 권한 선택을 기다리다 연결을 멈췄습니다. 허용한 뒤 알림 연결을 다시 눌러 주세요.',60000)!=='granted')throw Error('알림이 차단되어 있습니다. 휴대폰 앱·브라우저 설정에서 허용해 주세요.');
+   const prepared=prepareReconnect(version).then(value=>({value}),error=>({error}));
+   if(await waitForPermission(permission,version)!=='granted'&&version===revision)throw Error('알림이 차단되어 있습니다. 휴대폰 앱·브라우저 설정에서 허용해 주세요.');
    if(version!==revision)return;
    notify({message:'이 기기의 백그라운드 알림을 연결하고 있습니다…'});
-   const server=await request('admin/push');if(version!==revision)return;
-   if(!server.enabled||!server.configured)throw Error('문자·알림에서 서버 푸시 사용과 연결 상태를 확인해 주세요.');
-   const reg=await registration(),key=Uint8Array.from(atob(server.vapidPublicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+   const setup=await prepared;if(version!==revision)return;if(setup.error)throw setup.error;
+   const {reg,key}=setup.value;
    let sub=await subscription(reg);if(version!==revision)return;
    const old=sub?.options?.applicationServerKey;
    if(sub&&old&&Array.from(new Uint8Array(old)).join()!==Array.from(key).join()){await bounded(sub.unsubscribe());sub=null;}
@@ -51,8 +109,8 @@ window.MomentLinkPush=(api,onChange=()=>{})=>{
    sub ||= await bounded(reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:key}));
    if(version!==revision)return;
    await request('admin/push','POST',sub.toJSON());if(version!==revision)return;
-   notify({ready:true,message:'이 기기 알림을 연결했습니다. 알림 확인을 눌러 수신을 확인해 주세요. 소리는 휴대폰 알림 설정을 따릅니다.'});
-  }catch(error){if(version===revision)notify({ready:false,message:failure(error)});throw error;}
+   notify({ready:true,canRepair:false,message:'이 기기 알림을 연결했습니다. 알림 확인을 눌러 수신을 확인해 주세요. 소리는 휴대폰 알림 설정을 따릅니다.'});
+  }catch(error){if(version===revision)notify({ready:false,canRepair:error.code==='PUSH_PERMISSION_PENDING',message:failure(error)});throw error;}
   finally{if(version===revision){checked=Date.now();notify({busy:false});}}
  }
  async function test(){
@@ -68,6 +126,6 @@ window.MomentLinkPush=(api,onChange=()=>{})=>{
   catch(error){if(version===revision)notify({message:failure(error)});throw error;}
   finally{if(version===revision){checked=Date.now();notify({busy:false});}}
  }
- return {state:()=>info,refresh,enable,test,disable,reset:()=>{revision++;checked=0;info=initial();}};
+ return {state:()=>info,refresh,enable,repair,test,disable,reset:()=>{revision++;checked=0;reconnect=null;info=initial();}};
 };
 })();
