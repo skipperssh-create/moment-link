@@ -64,13 +64,32 @@ export async function processOutbox(db,id,env,adapters={}){
   await db.query("UPDATE moment_link.outbox SET state='sent',error_code=NULL,updated_at=now() WHERE id=$1",[id]);return {state:'sent',meaning:'provider_accepted'};
  }catch(e){const state=e.safe?'failed':'uncertain';await db.query('UPDATE moment_link.outbox SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'PROVIDER_OUTCOME_UNKNOWN',id]);return {state};}
 }
+
+// Older BOATN versions use OPS_REVIEW_REQUIRED for several distinct HTTP 409s.
+// Translate only known provider messages. Never expose arbitrary response bodies
+// or turn an unknown/resource conflict into a retryable write.
+function boatnRegistrationCode(result,status){
+ const code=/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+status;
+ if(code!=='OPS_REVIEW_REQUIRED')return code;
+ const messages={
+  '다른 직원이 예약 정보를 변경했습니다. 현재 일정을 확인한 뒤 다시 등록해 주세요.':'OPS_REGISTRATION_CHANGED',
+  '상담 일정 등록용 연결 코드 업데이트가 필요합니다. 캘린더 연결 설정을 먼저 확인해 주세요.':'OPS_CALENDAR_SETUP_REQUIRED',
+  '요금 설정이 변경되었습니다. 최신 요금을 불러온 뒤 다시 확인해 주세요.':'OPS_PRICING_CHANGED',
+  '공휴일 자료가 변경되었습니다. 상담 페이지를 새로고침한 뒤 금액을 다시 확인해 주세요.':'OPS_HOLIDAYS_CHANGED',
+  '같은 연락처와 출항시간의 예약이 이미 있습니다. 현재 관리자 설정에서는 추가 예약이 중지되어 있습니다. 기존 예약을 확인해 주세요.':'OPS_DUPLICATE_REVIEW_REQUIRED',
+  '주변 출항의 운항시간을 확인한 뒤 예약해 주세요.':'OPS_SCHEDULE_REVIEW_REQUIRED',
+  '선택한 요트에 운항시간이 겹치는 예약이 있습니다. 출항시간이나 요트를 변경해 주세요.':'OPS_RESOURCE_CONFLICT'
+ };
+ return status===409?messages[result.message]||code:code;
+}
+
 export function opsAdapter(target,env){
  const prefix='OPS_'+target.toUpperCase(),base=env[prefix+'_BASE_URL'],secret=env[prefix+'_TOKEN'];
  // No live endpoint is assumed from a matching name or an existing OPS login session.
  if(env[prefix+'_CONTRACT_VERIFIED']!=='true'||!base||!secret)fail(503,'OPS_UNCONFIGURED','대상 OPS의 독립 API 계약과 인증 연결이 필요합니다.');
  const origin=new URL(base);if(origin.protocol!=='https:')fail(503,'OPS_URL','HTTPS OPS 주소가 필요합니다.');
  let atomicRegistration=false;
- async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef+(data.requestId?':'+data.requestId:'')}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET'){if(target==='boatn'&&/^bookings\/by-reference\/[^/]+$/.test(path))atomicRegistration=r.headers.get('X-Moment-Registration-Mode')==='atomic-v1';return null;}const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,status:r.status,safe:r.status>=400&&r.status<500});return result;}
+ async function request(path,method='GET',data){const r=await fetch(new URL(path,base.endsWith('/')?base:base+'/'),{method,redirect:'error',headers:{Authorization:`Bearer ${secret}`,'Content-Type':'application/json',...(data?.externalRef?{'Idempotency-Key':data.externalRef+(data.requestId?':'+data.requestId:'')}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(45000)});if(r.status===404&&method==='GET'){if(target==='boatn'&&/^bookings\/by-reference\/[^/]+$/.test(path))atomicRegistration=r.headers.get('X-Moment-Registration-Mode')==='atomic-v1';return null;}const result=await r.json();if(!r.ok)throw Object.assign(new Error('OPS request failed'),{code:target==='boatn'?boatnRegistrationCode(result,r.status):/^[A-Z0-9_]{1,80}$/.test(result.code)?result.code:'OPS_HTTP_'+r.status,status:r.status,safe:r.status>=400&&r.status<500});return result;}
  return {calendarPreview:date=>request('calendar-preview?date='+encodeURIComponent(date)),directRegistration:target==='boatn',supportsAtomicRegistration:()=>atomicRegistration,register:booking=>request('bookings/register','POST',booking),adjustmentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/adjustments/'+encodeURIComponent(id)),adjustBooking:change=>request('bookings/adjustments','POST',change),boardingPass:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/boarding-pass'),paymentResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/payments/'+encodeURIComponent(id)),collectPayment:change=>request('bookings/payments','POST',change),addOnsResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/addons/'+encodeURIComponent(id)),updateAddOns:change=>request('bookings/addons','POST',change),safeRetry:target==='boatn',metadata:()=>request('metadata'),lookup:ref=>request('bookings/by-reference/'+encodeURIComponent(ref)),availability:booking=>request('availability','POST',booking),create:booking=>request('bookings','POST',booking),scheduleResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/schedule/'+encodeURIComponent(id)),reschedule:change=>request('bookings/reschedule','POST',change),cancellationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/cancellation/'+encodeURIComponent(id)),cancel:change=>request('bookings/cancel','POST',change),restorationResult:(ref,id)=>request('bookings/by-reference/'+encodeURIComponent(ref)+'/restoration/'+encodeURIComponent(id)),restore:change=>request('bookings/restore','POST',change)};
 }
 export async function processIntegration(db,id,env,adapters={}){
@@ -161,7 +180,7 @@ export async function processIntegration(db,id,env,adapters={}){
    }
    if(prepared)await tx.query('UPDATE moment_link.consultations SET communication=$1,version=version+1,updated_at=now() WHERE id=$2',[JSON.stringify(prepared),job.consultation_id]);
    else await tx.query("UPDATE moment_link.consultations SET status='confirmed',version=version+1,updated_at=now() WHERE id=$1 AND status NOT IN ('confirmed','closed','cancelled')",[job.consultation_id]);await audit(tx,job.approved_by,'ops.confirmed',job.consultation_id,{jobId:id,target:job.target,externalId:booking.id});});return {state:'succeeded',externalId:booking.id};
- }catch(e){const retryable=[408,429].includes(e.status)||['OPS_CALENDAR_SYNC_PENDING','OPS_AVAILABILITY_EXPIRED'].includes(e.code);const state=['OPS_UNCONFIGURED','OPS_DISABLED','OPS_AUTH_REQUIRED'].includes(e.code)?'blocked':e.safe&&!retryable?'conflict':creating||job.state==='uncertain'?'uncertain':'failed';await db.query('UPDATE moment_link.integration_jobs SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'OPS_UNAVAILABLE',id]);return {state};}
+ }catch(e){const retryable=[408,429].includes(e.status)||['OPS_CALENDAR_SYNC_PENDING','OPS_AVAILABILITY_EXPIRED','OPS_REGISTRATION_CHANGED'].includes(e.code);const state=['OPS_UNCONFIGURED','OPS_DISABLED','OPS_AUTH_REQUIRED'].includes(e.code)?'blocked':e.safe&&!retryable?'conflict':creating||job.state==='uncertain'?'uncertain':'failed';await db.query('UPDATE moment_link.integration_jobs SET state=$1,error_code=$2,updated_at=now() WHERE id=$3',[state,e.code||'OPS_UNAVAILABLE',id]);return {state};}
 }
 
 // Durable outbox: retry transient failures on later admin visits; conflict requires review.

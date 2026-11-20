@@ -4,9 +4,9 @@ import {fail} from './security.mjs';
 export const boardingEligible=r=>r.category==='yacht'&&['classic','premium','signature'].includes(r.product_id)&&['light','all'].includes(r.package_id);
 const digest=value=>createHash('sha256').update(value).digest('hex');
 function registrationProblem(job){
- const reasons={OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 캘린더 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 재확인이 필요합니다.',OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 운항이 제한되어 있습니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS에서 운항 일정과 탑승 인원을 확인해야 합니다.',OPS_DUPLICATE_REVIEW_REQUIRED:'같은 고객·시간의 예약이 있어 기존 예약 확인이 필요합니다.',OPS_HTTP_429:'OPS 요청이 많아 등록 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
+ const reasons={OPS_REGISTRATION_CHANGED:'OPS 일정 정보가 등록 도중 갱신되어 중복 방지 검사가 등록을 멈췄습니다.',OPS_CALENDAR_SETUP_REQUIRED:'OPS의 구글 캘린더 등록 연결 코드가 준비되지 않았습니다. OPS 캘린더 연결 설정을 확인해 주세요.',OPS_PRICING_CHANGED:'OPS 요금 설정이 변경되어 등록을 멈췄습니다. 최신 요금을 확인해 주세요.',OPS_HOLIDAYS_CHANGED:'OPS 공휴일 요금 자료가 변경되어 등록을 멈췄습니다. 최신 요금을 확인해 주세요.',OPS_REVIEW_REQUIRED:'OPS가 등록 요청을 거절했습니다. 구체적인 사유가 전달되지 않아 운영 확인이 필요합니다.',OPS_CALENDAR_SYNC_PENDING:'OPS의 최신 캘린더 일정 확인이 지연되고 있습니다.',OPS_AVAILABILITY_EXPIRED:'예약 가능 확인 시간이 지나 재확인이 필요합니다.',OPS_RESOURCE_CONFLICT:'같은 요트의 일정이 겹치거나 운항이 제한되어 있습니다.',OPS_SCHEDULE_REVIEW_REQUIRED:'OPS에서 운항 일정과 탑승 인원을 확인해야 합니다.',OPS_DUPLICATE_REVIEW_REQUIRED:'같은 고객·시간의 예약이 있어 기존 예약 확인이 필요합니다.',OPS_HTTP_429:'OPS 요청이 많아 등록 확인이 지연되고 있습니다.',OPS_HTTP_408:'OPS 응답이 지연되고 있습니다.'};
  const reason=reasons[job?.error_code]||'BOATN OPS 예약 등록이 아직 완료되지 않았습니다.';
- const next=job?.state==='conflict'?'아래 BOATN OPS에서 충돌 사유와 기존 예약을 확인해 주세요. 기존 충돌 건은 재시도하지 않습니다.':Number(job?.attempts||0)>=2?'자동 확인 2회를 마쳤습니다. 아래 BOATN OPS에서 등록 결과를 확인해 주세요.':'아래 BOATN OPS의 등록 상태를 확인하고, 등록 완료 후 문자 준비를 다시 눌러 주세요.';
+ const next=job?.state==='conflict'?'아래 BOATN OPS에서 거절 사유와 기존 예약을 확인해 주세요. 기존 충돌 건은 재시도하지 않습니다.':Number(job?.attempts||0)>=2?'자동 확인 2회를 마쳤습니다. 아래 BOATN OPS에서 등록 결과를 확인해 주세요.':'아래 BOATN OPS의 등록 상태를 확인하고, 등록 완료 후 문자 준비를 다시 눌러 주세요.';
  return reason+'\n승선신고·보딩패스 링크를 준비할 수 없어 문자 준비를 멈췄습니다.\n'+next;
 }
 export async function boardingInvitation(tx,r,lookup){

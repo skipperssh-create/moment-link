@@ -1,0 +1,7 @@
+# OPS registration rejection recovery · 2026-11-20
+
+BOATN previously returned OPS_REVIEW_REQUIRED for distinct HTTP 409 failures. The sender discarded the explanatory provider message and treated every safe 4xx as a terminal conflict. An atomic snapshot change could therefore remain blocked even when the original reservation became available.
+
+The sender now maps exact, known legacy BOATN explanations to stable codes. Only the stale atomic snapshot code is transient. Retries first look up the same external reference and remain limited to two writes. Resource conflicts, unknown review errors and existing terminal jobs remain untouched. Calendar setup and pricing failures are shown separately in the OPS panel and message preparation error. Unknown failures do not imply an unavailable departure or suggest changing the date.
+
+Cloud regression checks cover known/unknown HTTP errors, reconciliation before retry, two-write limit, preservation of unrelated conflict jobs, no SMS outbox, and message preparation guidance. Production recovery used the original reference only after a not-found lookup and a successful availability check. The original booking and payment amounts were preserved; one OPS booking, one Google Calendar event and a matching boarding invitation were verified. No SMS or payment was sent. The first provider response did not retain its detailed rejection reason, so the initial underlying guard cannot be established retrospectively.
