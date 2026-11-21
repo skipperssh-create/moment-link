@@ -16,6 +16,7 @@ import {receiveOpsEvent} from './ops-inbound.mjs';
 import {readOpsConsultationStatuses} from './ops-status.mjs';
 import {consultationStates,reopenedReservation} from './reservation-workflow.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
+import {createLoveHunterConsultation,loveHunterReport,updateLoveHunterCustomer} from './lovehunter.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
 import {hash,token,fail,passwordHash,verifyPassword,audit,rateLimit,sameOrigin,cookie,session,authorize,csrf,SESSION_SECONDS} from './security.mjs';
@@ -146,6 +147,13 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const metadata=await (adapters.ops?.boatn||opsAdapter('boatn',env)).metadata();
    return json({...metadata,enabled:!!metadata?.installed});
   }
+  if(path==='/api/admin/lovehunter/consultations'&&method==='POST'){
+   const result=await createLoveHunterConsultation(db,user,await body(request));
+   return json({...result,...(result.item?{item:present(result.item)}:{})},result.item&&!result.replayed?201:200);
+  }
+  if(path==='/api/admin/lovehunter/report'&&method==='GET'){
+   authorize(user,true);return json(await loveHunterReport(db,url.searchParams.get('month')));
+  }
   if(path==='/api/admin/reservations'&&method==='POST'){
    authorize(user,true);
    const result=await createDirectBooking(db,user,await body(request));
@@ -195,7 +203,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'ops-retry:'+user.id,5,60);
    return json(await processIntegration(db,row.id,env,adapters));
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(customer|product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
    if(!action&&method==='GET'&&url.searchParams.get('observe')==='calendar-preview'){
@@ -230,6 +238,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query("SELECT a.id,a.action,a.detail,a.created_at,a.actor_id,COALESCE(p.data->>'name',u.username,'시스템') AS actor_name FROM moment_link.audit_logs a LEFT JOIN moment_link.admin_users u ON u.id=a.actor_id LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE a.entity_id=$1 ORDER BY a.created_at,a.id",[id])).rows};
     if(['product','addons','payments','adjustments','communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
+    if(action==='customer'&&method==='POST'){const out=await updateLoveHunterCustomer(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='product'&&method==='POST'){const out=await changeConsultationProduct(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='communications'&&['PUT','POST'].includes(method)){const out=await saveCommunication(tx,r,user,method,await body(request),{boarding:ref=>(adapters.ops?.boatn||opsAdapter('boatn',env)).boardingPass(ref)});return {item:visibleRequest(out.item),messageOnly:out.messageOnly};}
     if(action==='adjustments'&&method==='POST'){const data=await body(request),out=await queueAdjustment(tx,r,user,data);return {item:visibleRequest(out.item),adjustmentRequest:data.requestId};}

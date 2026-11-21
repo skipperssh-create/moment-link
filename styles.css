@@ -858,3 +858,19 @@ dialog.message-error-dialog::backdrop{background:#0005}
  .push-device-actions{grid-template-columns:repeat(3,80px);max-width:none}
  .push-device-actions.has-repair{grid-template-columns:repeat(4,80px)}
 }
+
+/* Staff intake: folded phones, tablets and desktop. */
+.lh-intake h2{margin:0}.lh-intake form{display:grid;gap:18px}
+.lh-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.lh-fields>.info{grid-column:1/-1}.lh-fields>div,.lh-name-row>div{min-width:0}
+.lh-fee-notice{line-height:1.7}.lh-feedback:empty{display:none}
+.lh-name-row,.lh-month{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.lh-name-row>div{flex:1 1 200px}.lh-customer{margin:18px 0}
+.lh-customer [role=status]:empty{display:none}.lh-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
+.lh-totals .admin-card{display:grid;gap:8px;margin:0}.lh-totals strong{font-size:1.3rem}
+.lh-report-item{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.lh-report-item>div{min-width:0;overflow-wrap:anywhere}.lh-report-list{display:grid;gap:12px}
+.lh-report-list .admin-card{margin:0}.lh-report .micro{line-height:1.7}
+@media(max-width:599px){.lh-fields,.lh-totals{grid-template-columns:minmax(0,1fr)}.lh-totals .admin-card{display:flex;justify-content:space-between;align-items:center;gap:8px}.lh-report-item{gap:12px}.lh-report-item>div{flex:1 1 100%}.lh-intake .status-top{gap:12px;flex-wrap:wrap}}
+
+.lh-fields .admin-label{margin-top:0}
