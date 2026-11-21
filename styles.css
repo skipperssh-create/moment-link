@@ -842,3 +842,19 @@ dialog.message-error-dialog::backdrop{background:#0005}
 /* Read-only phone notification diagnostics. */
 .push-diagnostics{grid-column:1/-1;min-width:0}
 .push-diagnostics pre{margin:12px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;font-family:inherit}
+
+/* Keep phone notification controls together at the card's available width. */
+.device-push-card{display:block;container-type:inline-size}
+.push-device-main{display:grid;gap:14px;min-width:0}
+.push-device-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;min-width:0;max-width:400px}
+.push-device-actions.has-repair{grid-template-columns:repeat(2,minmax(0,1fr))}
+.push-device-actions>[data-push-repair]:not([hidden]){display:grid;min-width:0}
+.push-device-actions .admin-icon-button{width:100%;min-width:0;min-height:64px;height:100%;padding:9px 6px;align-self:stretch}
+.push-device-actions .admin-action-text{white-space:nowrap}
+.device-push-card .push-diagnostics{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.device-push-card .push-diagnostics pre{margin-top:0}
+@container (min-width:600px){
+ .push-device-main{grid-template-columns:minmax(0,1fr) auto;align-items:start}
+ .push-device-actions{grid-template-columns:repeat(3,80px);max-width:none}
+ .push-device-actions.has-repair{grid-template-columns:repeat(4,80px)}
+}
