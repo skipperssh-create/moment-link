@@ -163,7 +163,7 @@ if(state.step==='welcome')s+=`<section class="hero-card"><div class="eyebrow">PR
 if(state.step==='category')s+=`<h1 class="page-title">어떤 프로포즈를 준비하시나요?</h1><p class="muted">원하시는 이벤트를 선택해 주세요.</p><div class="category-grid">${CATEGORY.map(c=>`<button type="button" class="select-card" data-category="${c.id}"><span class="category-icon">${c.symbol}</span><div class="card-title">${c.label}</div><div class="card-desc">${c.sub}</div></button>`).join('')}</div>`;
 if(state.step==='products'){
 s+=`<button class="back" data-back="category">← 다른 상품 보기</button><h1 class="page-title">${escapeHTML(catName())}</h1><p class="muted">가격과 구성을 비교하고, 마음에 드는 패키지를 눌러주세요.</p>`;
-if(state.category==='yacht')s+=`<div class="choice-head">${[['sail','출항형 프로포즈'],['dock','정박형 프로포즈']].map(([id,n])=>`<button type="button" class="tab ${state.sub===id?'active':''}" data-sub="${id}">${n}</button>`).join('')}</div>`;
+if(state.category==='yacht')s+=`<button type="button" class="secondary yacht-notice-trigger" data-action="yachtNotice"><span>부산항(영도) 출항 · 장소·코스 안내</span><span aria-hidden="true">↗</span></button><div class="choice-head">${[['sail','출항형 프로포즈'],['dock','정박형 프로포즈']].map(([id,n])=>`<button type="button" class="tab ${state.sub===id?'active':''}" data-sub="${id}">${n}</button>`).join('')}</div>`;
 const list=catalog.filter(x=>x.visible&&x.category===state.category&&(state.category!=='yacht'||x.sub===state.sub));
 s+=list.length?`<div class="product-grid ${list.length===1?'single-product':''}">${list.map(productCard).join('')}</div>`:'<div class="empty">현재 선택할 수 있는 상품이 없습니다.</div>';
 if(state.category==='yacht')s+=state.sub==='sail'?`<div class="info"><strong>이용시간 안내</strong><div class="muted">라이트 총 30분(실운항 약 25분), 올인원 총 50분(실운항 약 45분). 총 이용시간에는 출·입항과 승·하선이 포함됩니다.</div></div>`:`<div class="info"><strong>정박형 상품 안내</strong><div class="muted">출항하지 않고 정박한 요트에서 진행합니다. 프리미엄(메가)요트·시그니처(리파리)요트 중 현장 배정되며 승·하선 시간이 포함됩니다.</div></div>`;
@@ -263,7 +263,7 @@ async function submit(){
 document.addEventListener('click',async ev=>{
  if(location.hash.startsWith('#admin'))return;
  const btn=ev.target.closest('button');if(!btn||submitting)return;
- if(btn.dataset.category){state.category=btn.dataset.category;for(const key of ['firstTime','secondTime'])if(!validPreferredTime(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');return;}
+ if(btn.dataset.category){state.category=btn.dataset.category;for(const key of ['firstTime','secondTime'])if(!validPreferredTime(state[key]))state[key]='';state.sub='sail';state.selection=null;state.openDetails=[];state.complete=false;requestKey='';setStep('products');if(state.category==='yacht')window.MomentLinkYachtNotice?.open();return;}
  if(btn.dataset.sub){state.sub=btn.dataset.sub;state.selection=null;state.optionIds=[];rememberStep();render();return;}
  if(btn.dataset.select){const[id,packId]=btn.dataset.select.split(':');state.selection={id,packId};state.optionIds=[];state.complete=false;rememberStep();render();return;}
  if(btn.dataset.back){previousStep(btn.dataset.back);return;}
@@ -274,6 +274,7 @@ document.addEventListener('click',async ev=>{
   if(a==='done'&&state.complete)return setStep('sms');
  }
  const a=btn.dataset.action;
+  if(a==='yachtNotice'){window.MomentLinkYachtNotice?.open(btn);return;}
  if(a==='recommend'){state.selection={id:'recommend',packId:'recommend'};state.optionIds=[];state.complete=false;rememberStep();render();}
  if(a==='clearSecond'||a==='toggleSecond'){capture();state.secondEnabled=a==='toggleSecond'?!state.secondEnabled:false;if(!state.secondEnabled){state.secondDate='';state.secondTime='';}render();}
  if(a==='restart'){Object.assign(state,{step:'category',category:null,selection:null,firstDate:'',secondDate:'',firstTime:'',secondTime:'',name:'',phone:'',place:'',notes:'',consent:false,complete:false,secondEnabled:false,formError:'',receipt:'',submitted:null,openDetails:[]});requestKey='';state.optionIds=[];resetNavigation();}
