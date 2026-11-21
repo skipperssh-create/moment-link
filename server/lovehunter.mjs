@@ -1,3 +1,4 @@
+import {assertUnlinked} from './consultation-links.mjs';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import '../lovehunter.js';
@@ -37,10 +38,11 @@ export async function createLoveHunterConsultation(db,user,input){
   }
   let linked=null;
   if(modern){
-   const matches=(await tx.query("SELECT * FROM moment_link.consultations WHERE regexp_replace(phone,'[^0-9]','','g')=$1 AND deleted_at IS NULL AND expires_at>now() ORDER BY created_at DESC LIMIT 100",[d.phone])).rows;
+   const matches=(await tx.query("SELECT * FROM moment_link.consultations WHERE regexp_replace(phone,'[^0-9]','','g')=$1 AND deleted_at IS NULL AND expires_at>now() AND NOT EXISTS(SELECT 1 FROM moment_link.consultation_links cl WHERE cl.source_id=consultations.id) ORDER BY (status='confirmed') DESC,created_at DESC LIMIT 100",[d.phone])).rows;
    if(d.existingId){linked=matches.find(r=>r.id===d.existingId);if(!linked||!canEdit(linked,user))fail(403,'FORBIDDEN','연결할 상담의 전화번호와 담당 권한을 확인해 주세요.');}
    else if(matches.length&&!d.separate)return {candidates:matches.filter(r=>canEdit(r,user)).map(r=>({id:r.id,person:r.person,status:r.status,date:r.communication?.booking?.date||'',time:r.communication?.booking?.time||'',product:r.snapshot?.product?.name||''})),restrictedCount:matches.filter(r=>!canEdit(r,user)).length};
   }
+  if(linked){linked=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 FOR UPDATE',[linked.id])).rows[0];await assertUnlinked(tx,linked.id);if(!canEdit(linked,user)||linked.deleted_at||new Date(linked.expires_at)<=new Date())fail(409,'CONSULTATION_CHANGED','상담이 변경되었습니다. 다시 선택해 주세요.');}
   let referral=(await tx.query('SELECT * FROM moment_link.lovehunter_referrals WHERE phone_hash=$1 FOR UPDATE',[phoneHash])).rows[0];
   if(!modern&&d.source==='lovehunter'&&referral?.consultation_id){
    const existing=(await tx.query('SELECT id,deleted_at,expires_at FROM moment_link.consultations WHERE id=$1',[referral.consultation_id])).rows[0];

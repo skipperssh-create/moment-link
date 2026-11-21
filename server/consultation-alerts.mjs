@@ -3,7 +3,7 @@ import webpush from 'web-push';
 import {audit,fail} from './security.mjs';
 
 export const ALERT_INTERVAL_SECONDS=120;
-const active="a.acknowledged_at IS NULL AND c.status='new' AND c.read_at IS NULL AND c.deleted_at IS NULL AND c.expires_at>now()";
+const active="a.acknowledged_at IS NULL AND c.status='new' AND c.read_at IS NULL AND c.deleted_at IS NULL AND c.expires_at>now() AND NOT EXISTS(SELECT 1 FROM moment_link.consultation_links cl WHERE cl.source_id=c.id)";
 async function enabled(db,env){return env.PUSH_LIVE_ENABLED==='true'&&!!env.VAPID_PUBLIC_KEY&&!!env.VAPID_PRIVATE_KEY&&(await db.query("SELECT data->>'push' AS enabled FROM moment_link.config WHERE id='settings'")).rows[0]?.enabled==='true';}
 
 // Called only for a newly accepted public consultation with push enabled.
