@@ -57,9 +57,10 @@ export async function linkConsultations(db,user,data){
    if((await tx.query("SELECT 1 FROM moment_link."+table+" WHERE consultation_id=$1 AND state='conflict' LIMIT 1",[to.id])).rows.length)fail(409,'OPS_CONFLICT','연결 대상에 OPS 충돌이 있습니다. 충돌 건은 변경하지 않습니다.');
   }
   await tx.query('INSERT INTO moment_link.consultation_links(source_id,target_id,linked_by,source_version,target_version,request_id) VALUES($1,$2,$3,$4,$5,$6)',[from.id,to.id,user.id,from.version,to.version,d.requestId]);
+  // Older Love Hunter intakes predate consultation_sources; the original fee is authoritative.
+  await tx.query("INSERT INTO moment_link.consultation_sources(consultation_id,source,source_label,received_date,created_by) SELECT $2,COALESCE(s.source,CASE WHEN r.id IS NOT NULL THEN 'lovehunter' WHEN c.communication->'entry'->>'source' IN ('lovehunter','seollem','other') THEN c.communication->'entry'->>'source' END),COALESCE(s.source_label,c.communication->'entry'->>'sourceLabel',''),COALESCE(s.received_date,r.received_date,(c.created_at AT TIME ZONE 'Asia/Seoul')::date),COALESCE(s.created_by,r.created_by,$3) FROM moment_link.consultations c LEFT JOIN moment_link.consultation_sources s ON s.consultation_id=c.id LEFT JOIN moment_link.lovehunter_referrals r ON r.consultation_id=c.id WHERE c.id=$1 AND (s.source IS NOT NULL OR r.id IS NOT NULL OR c.communication->'entry'->>'source' IN ('lovehunter','seollem','other')) ON CONFLICT(consultation_id) DO NOTHING",[from.id,to.id,user.id]);
   await tx.query('UPDATE moment_link.lovehunter_referrals SET consultation_id=$2 WHERE consultation_id=$1',[from.id,to.id]);
   await tx.query('UPDATE moment_link.intake_requests SET consultation_id=$2 WHERE consultation_id=$1',[from.id,to.id]);
-  await tx.query('INSERT INTO moment_link.consultation_sources(consultation_id,source,source_label,received_date,created_by) SELECT $2,source,source_label,received_date,created_by FROM moment_link.consultation_sources WHERE consultation_id=$1 ON CONFLICT(consultation_id) DO NOTHING',[from.id,to.id]);
   await tx.query('UPDATE moment_link.finance_booking_facts SET merged_into=$2 WHERE consultation_id=$1',[from.id,to.id]);
   await audit(tx,user.id,'consultation.duplicate_linked',from.id,{targetId:to.id,sourceVersion:from.version,targetVersion:to.version});
   await audit(tx,user.id,'consultation.duplicate_received',to.id,{sourceId:from.id});

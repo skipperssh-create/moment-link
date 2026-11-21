@@ -9,6 +9,7 @@ test('duplicate linking preserves originals, external jobs, lifetime fee and pri
  const target=await f.add({owner:admin.id,status:'confirmed',communication:{booking:{date:'2026-11-26',time:'21:30',amount:440000,receivedAmount:440000},reservation:{source:'manual'}}});
  const intake={requestId:randomUUID(),source:'lovehunter',sourceLabel:'',phone:'01000000000',person:'합성 중복',memo:'PRIVATE ORIGINAL 300',kind:'general',category:'yacht',receivedDate:'2026-11-01',separate:true};
  const created=await f.request('admin/intake/consultations','owner-admin','POST',intake);assert.equal(created.status,201,JSON.stringify(created.data));const source=created.data.item;
+ await f.db.query('DELETE FROM moment_link.consultation_sources WHERE consultation_id=$1',[source.id]); // legacy intake before source tracking
  const before=(await f.db.query('SELECT * FROM moment_link.consultations ORDER BY id')).rows;
  const feeBefore=(await f.db.query('SELECT * FROM moment_link.lovehunter_referrals')).rows[0];
  const jobsBefore={};for(const table of ['integration_jobs','event_calendar_jobs','seollem_booking_jobs','outbox'])jobsBefore[table]=(await f.db.query('SELECT * FROM moment_link.'+table)).rows;
@@ -36,7 +37,7 @@ test('duplicate linking preserves originals, external jobs, lifetime fee and pri
   const denied=await f.request('admin/consultations/'+source.id+'/notes','owner-admin','POST',{body:'wrong'});assert.equal(denied.status,409);assert.equal(denied.data.error,'CONSULTATION_LINKED');
   const replay=await f.request('admin/intake/consultations','owner-admin','POST',intake);assert.equal(replay.data.item.id,target.id);assert.equal(replay.data.charged,false);
   const found=await f.request('admin/intake/consultations','owner-admin','POST',{...intake,requestId:randomUUID(),separate:false});assert.equal(found.data.candidates.length,1);
-  const finance=(await f.request('admin/finance/report?month=2026-11')).data;assert.equal(finance.metrics.newLeads,1);assert.equal(finance.metrics.sales,440000);assert.equal(finance.metrics.fees,50000);assert.equal(finance.fees[0].status,'confirmed');
+  const finance=(await f.request('admin/finance/report?month=2026-11')).data;assert.equal(finance.metrics.newLeads,1);assert.equal(finance.metrics.sales,440000);assert.equal(finance.metrics.fees,50000);assert.equal(finance.bySource.find(r=>r.source==='lovehunter').sales,440000);assert.equal(finance.fees[0].status,'confirmed');
  });
  await t.test('reserved source, mismatched phone, OPS record or conflict and link chains are blocked',async()=>{
   const fresh=await f.add({owner:admin.id,status:'consulting'});
