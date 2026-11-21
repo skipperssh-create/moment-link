@@ -1,3 +1,5 @@
+import {releaseHistory} from './releases.mjs';
+import {readNaverContract,saveNaverContract,dispatchContractReviews} from './naver-contract.mjs';
 import {publicError,errorDiagnostic} from './errors.mjs';
 import {queueAdjustment} from './adjustments.mjs';
 import {queueCollection,balanceDueSql} from './collections.mjs';
@@ -16,6 +18,7 @@ import {receiveOpsEvent} from './ops-inbound.mjs';
 import {readOpsConsultationStatuses} from './ops-status.mjs';
 import {consultationStates,reopenedReservation} from './reservation-workflow.mjs';
 import {createDirectBooking} from './direct-booking.mjs';
+import {financeReport,saveFinanceMonth,saveFinanceCost} from './finance.mjs';
 import {createLoveHunterConsultation,loveHunterReport,updateLoveHunterCustomer} from './lovehunter.mjs';
 import sharp from 'sharp';
 import {database} from './database.mjs';
@@ -57,7 +60,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   }
   if(path==='/api/integrations/boatn/consultation-statuses')return json(await readOpsConsultationStatuses(request,db,env));
   if(path==='/api/integrations/boatn/events'||path.startsWith('/api/integrations/boatn/events/'))return json(await receiveOpsEvent(request,db,env));
-  const dispatch=async(id,wait=false,fastMs=0)=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=dispatchIntegrations(db,env,adapters,id).catch(()=>{});if(schedule&&!wait){schedule(work);if(fastMs){let timer;try{await Promise.race([work,new Promise(resolve=>{timer=setTimeout(resolve,fastMs);})]);}finally{clearTimeout(timer);}}}else await work;};
+  const dispatch=async(id,wait=false,fastMs=0)=>{if(env.OPS_WRITES_ENABLED!=='true')return;const work=(async()=>{await dispatchIntegrations(db,env,adapters,id);await dispatchContractReviews(db,env,adapters.ops?.boatn||opsAdapter('boatn',env),id);})().catch(()=>{});if(schedule&&!wait){schedule(work);if(fastMs){let timer;try{await Promise.race([work,new Promise(resolve=>{timer=setTimeout(resolve,fastMs);})]);}finally{clearTimeout(timer);}}}else await work;};
   const dispatchCalendar=async id=>{const work=(async()=>{try{await dispatchEventCalendars(db,env,adapters,id);}finally{await dispatchSeollemBookings(db,env,adapters,id);}})().catch(()=>{});if(schedule)schedule(work);else await work;};
   if(path==='/api/cron/retention'&&method==='GET'){
    if(!authorizedCron(request,env.CRON_SECRET))fail(401,'AUTH_REQUIRED','인증이 필요합니다.');
@@ -147,6 +150,15 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const metadata=await (adapters.ops?.boatn||opsAdapter('boatn',env)).metadata();
    return json({...metadata,enabled:!!metadata?.installed});
   }
+  if(path==='/api/admin/releases'&&method==='GET')return json(await releaseHistory(db));
+  if(path==='/api/admin/finance/report'&&method==='GET'){authorize(user,true);return json(await financeReport(db,url.searchParams.get('month')));}
+  if(path==='/api/admin/finance/month'&&method==='POST'){authorize(user,true);return json(await saveFinanceMonth(db,user,await body(request)));}
+  if(path==='/api/admin/finance/cost'&&method==='POST'){authorize(user,true);return json(await saveFinanceCost(db,user,await body(request)));}
+  if(path==='/api/admin/intake/consultations'&&method==='POST'){
+   const input=await body(request);if(!Object.hasOwn(input,'source'))fail(400,'SOURCE_REQUIRED','유입경로를 선택해 주세요.');
+   const result=await createLoveHunterConsultation(db,user,input);
+   return json({...result,...(result.item?{item:present(result.item)}:{})},result.item&&!result.replayed?201:200);
+  }
   if(path==='/api/admin/lovehunter/consultations'&&method==='POST'){
    const result=await createLoveHunterConsultation(db,user,await body(request));
    return json({...result,...(result.item?{item:present(result.item)}:{})},result.item&&!result.replayed?201:200);
@@ -203,7 +215,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await rateLimit(db,'ops-retry:'+user.id,5,60);
    return json(await processIntegration(db,row.id,env,adapters));
   }
-  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(customer|product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
+  const match=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})(?:\/(naver-contract|customer|product|addons|payments|adjustments|confirm|notes|communications|restore-reservation|reservation|restore|permanent|claim))?$/);
   if(match){
    const [,id,action]=match;
    if(!action&&method==='GET'&&url.searchParams.get('observe')==='calendar-preview'){
@@ -236,6 +248,8 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(method!=='GET'&&!canEdit(r,user))fail(403,'NOT_ASSIGNED','담당 상담사만 변경할 수 있습니다. 미배정 상담은 상담 시작을 눌러 주세요.');
     if((method==='DELETE'&&!action)||(action==='restore'&&method==='POST')||(action==='permanent'&&method==='DELETE')){authorize(user,true);return changeTrash(tx,r,user,action||'trash',await body(request));}
     if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
+    if(action==='naver-contract'&&method==='GET')return readNaverContract(tx,r);
+    if(action==='naver-contract'&&method==='POST')return saveNaverContract(tx,r,user,await body(request));
     if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query("SELECT a.id,a.action,a.detail,a.created_at,a.actor_id,COALESCE(p.data->>'name',u.username,'시스템') AS actor_name FROM moment_link.audit_logs a LEFT JOIN moment_link.admin_users u ON u.id=a.actor_id LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE a.entity_id=$1 ORDER BY a.created_at,a.id",[id])).rows};
     if(['product','addons','payments','adjustments','communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
     if(action==='customer'&&method==='POST'){const out=await updateLoveHunterCustomer(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
@@ -298,6 +312,10 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
      const updated=(await tx.query(`UPDATE moment_link.consultations SET status=$1,assignee=$2,contacted=$3,read_at=$4,version=version+1,updated_at=now() WHERE id=$5 RETURNING *`,[cancellationQueued?r.status:confirmedResult?.item.status||d.status||r.status,d.assignee===undefined?r.assignee:d.assignee,d.contacted??r.contacted,d.read?new Date():r.read_at,id])).rows[0];await audit(tx,user.id,'consultation.updated',id,{from:r.status,to:updated.status,assignee:updated.assignee});return {item:visibleRequest(updated),cancellationQueued};
     }fail(405,'METHOD','허용되지 않는 요청입니다.');
    });
+   if(action==='naver-contract'){
+    if(method==='POST'&&env.OPS_WRITES_ENABLED==='true'){const work=dispatchContractReviews(db,env,adapters.ops?.boatn||opsAdapter('boatn',env),id).catch(()=>{});if(schedule)schedule(work);else await work;}
+    return json(result);
+   }
    if(result.adjustmentRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='adjustment' AND booking->>'changeId'=$2",[id,result.adjustmentRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    if(result.collectionRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='payment' AND booking->>'changeId'=$2",[id,result.collectionRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    // Reservation registration runs in the durable background worker; status reads never restart it.

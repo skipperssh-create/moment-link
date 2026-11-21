@@ -1,0 +1,56 @@
+import {purgeExpired} from '../server/retention.mjs';
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {ownershipFixture} from './ownership-fixture.mjs';
+import {dispatchContractReviews} from '../server/naver-contract.mjs';
+import '../contract-payment.js';
+const C=globalThis.MomentLinkContract;
+const raw='계약: 합성 고객 (010-0000-1101)\n471,000원 카드결제 확인되었습니다.\n카드수수료6.5 제외\n리뷰이벤트 폭죽300발';
+test('contract amount and fireworks are unambiguous and integer based',()=>{
+ assert.deepEqual(C.calculate(471000),{gross:471000,fee:30615,expectedNet:440385});
+ assert.equal(C.parse(raw).phone,'01000001101');assert.equal(C.parse(raw).gross,471000);assert.equal(C.parse(raw).fireworksUnits,10);
+ assert.equal(C.parse(raw+'\n500,000원 결제').amountAmbiguous,true);
+ assert.equal(C.parse(raw+'\n010-0000-1102').phone,'');
+ assert.equal(C.parse('리뷰 폭죽 301발').quantityAmbiguous,true);
+ assert.equal(C.calculate(1001).fee,65);
+});
+test('existing contract ledger, separate fees, remittance, ownership and independent OPS sync',async t=>{
+ const f=await ownershipFixture();t.after(()=>f.pg.close());
+ await f.db.query("UPDATE moment_link.config SET data=jsonb_set(data,'{retentionDays}','365') WHERE id='settings'");
+ const intake=await f.request('admin/intake/consultations','owner-admin','POST',{requestId:randomUUID(),source:'lovehunter',sourceLabel:'',phone:'01000001101',person:'합성 계약',memo:'합성 검수',kind:'general',category:'yacht',receivedDate:'2026-11-01'});
+ assert.equal(intake.status,201,JSON.stringify(intake.data));const id=intake.data.item.id;
+ const booking={date:'2026-11-28',time:'18:00',amount:440000,receivedAmount:440000};
+ await f.db.query("UPDATE moment_link.consultations SET status='confirmed',communication=$1 WHERE id=$2",[JSON.stringify({booking,reservation:{confirmedAt:'2026-11-01T00:00:00Z'}}),id]);
+ const original=JSON.stringify((await f.db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]);
+ const d={version:0,raw,phone:'01000001101',gross:471000,paidDate:'2026-11-21',remitted:null,remittedDate:'',reviewText:'리뷰이벤트 폭죽300발',fireworksUnits:10,status:'active',confirmed:true};
+ const post=(data,user='owner-admin')=>f.request('admin/consultations/'+id+'/naver-contract',user,'POST',data);
+ assert.equal((await post({...d,phone:'01000001102'})).status,409);
+ assert.equal((await post(d,'counselor-b')).status,403);
+ let saved=await post(d);assert.equal(saved.status,200,JSON.stringify(saved.data));assert.equal(saved.data.contract.fee,30615);assert.equal(saved.data.contract.expectedNet,440385);assert.equal(saved.data.contract.bookingChanged,false);
+ assert.equal((await post(d)).data.replayed,true);
+ assert.equal((await f.db.query('SELECT count(*)::int n FROM moment_link.naver_contract_history')).rows[0].n,1);
+ assert.equal((await f.db.query('SELECT sum(amount)::int n FROM moment_link.lovehunter_referrals')).rows[0].n,50000);
+ assert.equal(JSON.stringify((await f.db.query('SELECT * FROM moment_link.consultations WHERE id=$1',[id])).rows[0]),original);
+ const report=await f.request('admin/finance/report?month=2026-11');assert.equal(report.status,200,JSON.stringify(report.data));
+ assert.equal(report.data.metrics.sales,471000);assert.equal(report.data.metrics.naverFees,30615);assert.equal(report.data.metrics.costs,80615);assert.equal(report.data.metrics.received,471000);assert.equal(report.data.settlements[0].due,440385);
+ const paid=await post({...d,version:1,raw:'',remitted:440385,remittedDate:'2026-11-21'});assert.equal(paid.status,200,JSON.stringify(paid.data));assert.equal(paid.data.contract.version,2);
+ assert.equal((await post({...d,version:1,gross:472000})).status,409);
+ assert.equal((await post({...d,version:2,remitted:500000,remittedDate:'2026-11-21'})).status,400);
+ await f.db.query("UPDATE moment_link.consultations SET communication=jsonb_set(communication,'{booking,amount}','410000') WHERE id=$1",[id]);
+ const changed=await f.request('admin/finance/report?month=2026-11');assert.equal(changed.data.metrics.contractReview,1);assert.equal(changed.data.metrics.margin,null);
+ const jid=randomUUID();await f.db.query("INSERT INTO moment_link.integration_jobs(id,consultation_id,target,state,external_ref,external_id,booking,approved_by) VALUES($1,$2,'boatn','conflict',$3,'synthetic-ops',$4,$5)",[jid,id,'moment-link:'+id,JSON.stringify(booking),f.staff['owner-admin'].id]);
+ const conflictBefore=JSON.stringify((await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1',[jid])).rows[0]);let calls=0;
+ const adapter={reviewEvent:async d=>{calls++;return {requestId:d.requestId,revision:d.revision};}};
+ await dispatchContractReviews(f.db,{OPS_WRITES_ENABLED:'true'},adapter,id);assert.equal(calls,0);
+ assert.equal(JSON.stringify((await f.db.query('SELECT * FROM moment_link.integration_jobs WHERE id=$1',[jid])).rows[0]),conflictBefore);
+ await f.db.query("UPDATE moment_link.integration_jobs SET state='succeeded' WHERE id=$1",[jid]);
+ await dispatchContractReviews(f.db,{OPS_WRITES_ENABLED:'true'},adapter,id);await dispatchContractReviews(f.db,{OPS_WRITES_ENABLED:'true'},adapter,id);assert.equal(calls,1);
+ assert.equal((await f.request('admin/consultations/'+id+'/naver-contract')).data.contract.syncState,'succeeded');
+ // Repeated failures stop at two; no integration job is changed by this queue.
+ await f.db.query("UPDATE moment_link.naver_contracts SET sync_state='waiting',sync_attempts=0 WHERE consultation_id=$1",[id]);
+ const fails={reviewEvent:async()=>{throw Error('synthetic offline');}};
+ for(let i=0;i<3;i++){await dispatchContractReviews(f.db,{OPS_WRITES_ENABLED:'true'},fails,id);await f.db.query("UPDATE moment_link.naver_contracts SET updated_at=now()-interval '5 minutes' WHERE consultation_id=$1",[id]);}
+ assert.equal((await f.db.query('SELECT sync_attempts FROM moment_link.naver_contracts WHERE consultation_id=$1',[id])).rows[0].sync_attempts,2);
+ await f.db.query("UPDATE moment_link.consultations SET expires_at=now()-interval '1 minute' WHERE id=$1",[id]);await purgeExpired(f.db);const retained=(await f.db.query('SELECT * FROM moment_link.naver_contracts')).rows[0];assert.equal(retained.consultation_id,null);assert.equal(retained.review_text,'');assert.equal(Number(retained.gross),471000);
+});

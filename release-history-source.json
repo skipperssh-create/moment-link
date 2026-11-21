@@ -1,0 +1,1412 @@
+[
+  {
+    "id": "dpl_AaPZwBZ3WbMJFJR9H4nw22tmtZy2",
+    "at": "2026-11-21T08:22:27.834Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f4b6b8be8cfa7d2e94e02a5c22e93e8bb606ffc4",
+    "title": "상담 유입경로 구분과 월별 매출·비용 통계",
+    "changes": [],
+    "original": "Separate intake sources and add integrated monthly management accounts (#20)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_22fbCwKuawwGxXfY43yotjWiiCoG",
+    "at": "2026-11-21T07:59:48.776Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "76ddcc66c68cc468e41d540b09586315c6c1e476",
+    "title": "러브헌터 정산 카드에 상담 상태별 색상 적용",
+    "changes": [],
+    "original": "Match Love Hunter settlement cards to consultation status colors (#19)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GN1KwiUko9tNcegZVKT195P2ppn5",
+    "at": "2026-11-21T07:28:08.245Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7f0aedab0886706fed74804fa7dd5dcb00002aee",
+    "title": "러브헌터 붙여넣기 접수와 월별 문의 수수료 집계",
+    "changes": [],
+    "original": "Add Love Hunter intake and monthly referral accounting (#18)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9MWpaiFdu57DM6QB8Ve283PYvEaw",
+    "at": "2026-11-21T01:30:09.247Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "55658252a41eb573a2e09b87b594a79a617aa693",
+    "title": "알림 연결·확인·진단 버튼 반응형 정렬",
+    "changes": [],
+    "original": "Group notification controls in a responsive action row (#17)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3hUGaavfNpsVYFk13i6ExmZ6kuKE",
+    "at": "2026-11-20T19:02:47.567Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "88c313f98b6d8e27aa5c8e127a5aa730c8d0eeff",
+    "title": "재설치 후 알림 연결 상태 진단",
+    "changes": [],
+    "original": "Add read-only phone push diagnostics for reinstall failures (#16)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9qN3HjnaXWVcU7AzHbJn7i48Q7w9",
+    "at": "2026-11-20T18:42:31.414Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d2baab5bb8439c67682f07b557aaa712e1de2a11",
+    "title": "재설치 후 멈춘 알림 권한 요청 복구",
+    "changes": [],
+    "original": "fix: recover stalled push permission after reinstall (#15)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_G3qSQkHeoGpSpLaSm2bzvnZGArbG",
+    "at": "2026-11-20T17:39:00.219Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "2873c950d27b23f8841d363a08d581d1f300869e",
+    "title": "알림 재연결 버튼 이용 개선",
+    "changes": [],
+    "original": "fix: keep push reconnection available after reinstall (#14)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8wvj86yjEvPctirkGDHCGfBibH7u",
+    "at": "2026-11-20T13:13:19.617Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6af3fcae24a00bc8f6746f0c6a247a9134c164f6",
+    "title": "BOATN OPS 등록 실패 원인과 재시도 제한 안내",
+    "changes": [],
+    "original": "fix: distinguish BOATN registration rejection causes and bounded recovery (#13)",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_E1cNwS38f6T1vmpYSUYjMLDKMxej",
+    "at": "2026-11-19T04:58:42.584Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "1cfaf4d253961fdfc4badb2c593ba1265a9485d9",
+    "title": "확정 후 준비된 보딩패스 문자를 바로 표시",
+    "changes": [],
+    "original": "Merge pull request #12 from skipperssh-create/codex/boarding-ready-response\n\nShow ready boarding instructions directly after confirmation",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_EcF7hWJKghufKQqCcyqnJZSbk3V2",
+    "at": "2026-11-19T04:46:43.988Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "aa6404edd37a71d34fc074430d558fbb7a8cd7f2",
+    "title": "첫 예약의 보딩패스 문자 준비 대기시간 개선",
+    "changes": [],
+    "original": "Merge pull request #11 from skipperssh-create/codex/first-boarding-under-two\n\nReduce first reservation boarding-pass preparation latency",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BCekswURRCnoHWpiucz7CZ8hZBGy",
+    "at": "2026-11-19T03:53:29.417Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6a391a1c98460fe1529993342f54b8eaf1bd668d",
+    "title": "OPS 등록 완료와 함께 보딩패스 문자 준비",
+    "changes": [],
+    "original": "Prepare boarding SMS as OPS registration completes",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CHfuXgHZdHAXLPCwEKBHMY7ro7nd",
+    "at": "2026-11-19T01:50:04.655Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "4988bc8a928fb32beda34c67558c7db3b504b75b",
+    "title": "OPS 예약 등록 단계 간소화",
+    "changes": [],
+    "original": "Use guarded atomic OPS registration to reduce confirmation waits",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8YdyVBngKq1NWryvaq7jKCoKH73h",
+    "at": "2026-11-19T01:13:57.592Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "c7abcccf317025c46a7895202c5b69ca9e549169",
+    "title": "보딩패스 문자 준비 지연 개선",
+    "changes": [],
+    "original": "Reduce delay before boarding messages become ready\n\n* Reduce boarding readiness wait without retrying existing OPS jobs\n\n* Reduce boarding readiness wait without retrying existing OPS jobs\n\n* Reduce boarding readiness wait without retrying existing OPS jobs",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4Dr2JTN7SHAzk8TjQ16FRkmEKhEQ",
+    "at": "2026-11-18T13:16:42.091Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6e129296071fded00e1f193f9c7cca7aa656f492",
+    "title": "문자 준비 옆에 결제 확인 배치",
+    "changes": [],
+    "original": "Keep payment checks close and prepare boarding messages after OPS registration\n\n* Keep payment checks close and prepare boarding SMS after background registration\n\n* Keep payment checks close and prepare boarding SMS after background registration\n\n* Keep payment checks close and prepare boarding ...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8Uj6jPNcHEnWXbnwMdPSkURooET3",
+    "at": "2026-11-18T12:57:30.127Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "274c8b154cbc8f6a2840292158c80ed3160c617f",
+    "title": "안내 링크의 메일 주소·예약 제목 자동 입력",
+    "changes": [],
+    "original": "Prefill guide email recipient and reservation subject\n\n* Prefill customer guide email recipient and reservation subject\n\n* Add browser-only reservation email preparation\n\n* Prefill customer guide email recipient and reservation subject\n\n* Prefill customer guide email recipient and reservation sub...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_35xEdKRexXrpVL92gb7BQdpLwAJA",
+    "at": "2026-11-18T07:29:18.796Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "947f162f784cf13be9a0016d01780a550af12197",
+    "title": "종이액자 사진 제출 메일 안내",
+    "changes": [],
+    "original": "Add paper-frame photo email instructions (#5)\n\n* Add selected paper-frame photo submission instructions\n\n* Add selected paper-frame photo submission instructions\n\n* Add selected paper-frame photo submission instructions\n\n* Add selected paper-frame photo submission instructions\n\n* Add selected pap...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4hbe348KvQhbw25yjKgwJu1VXKTu",
+    "at": "2026-11-18T07:04:18.243Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f2406e6c7076ce5616baa79c2940960fbe87fb95",
+    "title": "예약 저장 실패 시 원인과 확인 방법 표시",
+    "changes": [],
+    "original": "Show actionable booking save errors (#4)\n\n* Explain booking save failures and retain diagnostic references\n\n* Explain booking save failures and retain diagnostic references\n\n* Explain booking save failures and retain diagnostic references\n\n* Explain booking save failures and retain diagnostic ref...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6DVhfYfUx29YLcXAQemEEAEn6UHN",
+    "at": "2026-11-18T06:53:11.980Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8ce9dddd80346165e83457a99e1c820fb138b530",
+    "title": "요트 환불 후 금액 반영 오류 수정",
+    "changes": [],
+    "original": "Fix cold-start yacht refund reconciliation (#3)\n\n* Fix cold-start pricing dependency during refund reconciliation\n\n* Regress yacht refund reconciliation from production startup\n\n* Include cold-start refund regression in test suite",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2PdDeTurfUpA9TKuWanBrhXmepn8",
+    "at": "2026-11-18T05:23:52.268Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "ff98d34c118c5501c3912078aa20b2e6fef4ab1b",
+    "title": "확정 옵션 취소·부분 환불 기록 및 OPS 연동",
+    "changes": [],
+    "original": "Add confirmed option cancellations and recorded refunds across OPS\n\n* Add confirmed option cancellation and recorded partial refunds across OPS\n\n* Clarify unlinked legacy bookings and keep video cancellation out of quick refunds",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GW3QxRbobm5tgSJGe79fan75epGo",
+    "at": "2026-11-17T23:33:08.885Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e57c1be509c4cbc2441566dcee13cb5ffd5bab1c",
+    "title": "설치 앱 화면 회전 정책 갱신 개선",
+    "changes": [],
+    "original": "Avoid stale installed-app rotation policy during PWA updates",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2Uxu27VbQWxG1pmSdx5it1N3JExU",
+    "at": "2026-11-17T12:41:47.252Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "751a21cf6241d31dfcde2bfe9f112bc86562a51c",
+    "title": "문자 준비가 막혔을 때 오류 안내",
+    "changes": [],
+    "original": "Show actionable errors when SMS preparation is blocked",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8vhuH2YPcHUeaVEgAfPFhZhd8nMa",
+    "at": "2026-11-17T08:04:17.201Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "9a31a11dee6913d43fbe30b630387e1d79e2bdf0",
+    "title": "출장·트렁크 확정 예약의 설렘 OPS 자동 등록",
+    "changes": [],
+    "original": "Sync new visit and trunk confirmations to Seollem OPS with bounded retries",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_HGZuFTYt8eWWgjWPAjZVHqBKME5d",
+    "at": "2026-11-17T06:53:26.014Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0b6f3b81b8e635b13ac1512c336862fca63bdeaa",
+    "title": "요트 식사의 직접 예약·별도 결제 안내",
+    "changes": [],
+    "original": "Clarify optional self-booked dining for yacht events",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8ejSJ2hspUkxB4LYtNo6c9oCe7tL",
+    "at": "2026-11-16T14:33:39.976Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8c01cc1a3daf3dd1c36d8a2d30ecdd1dc2e84a86",
+    "title": "출장 예약에 부산·타지역 수거 안내",
+    "changes": [],
+    "original": "Show regional pickup terms for all visit proposal bookings",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8yp95oAGsecBmXc6GWvKdN9MjkJF",
+    "at": "2026-11-16T12:34:01.865Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f162e5a104c15caff37b9820e1f6517b41d2c262",
+    "title": "부산 출장 용품 수거 안내",
+    "changes": [],
+    "original": "Add Busan-only pickup guidance for visit proposals",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BHYWR8Atr6AA6Pt8g9J6syj3n53j",
+    "at": "2026-11-15T09:58:19.715Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "9e25198c1026b92ba0f89382cab5f630ad06352e",
+    "title": "헬기 프로포즈 사진 갤러리 확장",
+    "changes": [],
+    "original": "Support expanded helicopter proposal gallery with up to 20 photos",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7zaHzMWWMGdzTvX2MMg5ocrB8umj",
+    "at": "2026-11-15T07:35:15.544Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0697872da27c4cce3dbda2c7554a22ac86d8c52c",
+    "title": "예약 확정 오류 표시와 완납 입력",
+    "changes": [],
+    "original": "Fix inline reservation confirmation feedback and full payment entry",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8DyDXVUmXuyYBScuHDVPrBGizEU3",
+    "at": "2026-11-15T07:09:47.390Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "426948096b9444c4f1eefd6d3ecb3cfc1b1a2948",
+    "title": "출장·트렁크 확정 예약의 전용 캘린더 연동",
+    "changes": [],
+    "original": "Sync confirmed visit and trunk reservations to dedicated calendar",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6FW8W5r2pTcKbjHxWoEaZkxFmkoy",
+    "at": "2026-11-15T00:44:18.958Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "eddc5f9221db5aa4369869f8c7dad1c0d191b387",
+    "title": "고객 희망 일정 1·2순위와 시간 무관 선택",
+    "changes": [],
+    "original": "Make ranked customer dates and times explicit with optional flexible-time choice",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FvFTqQDWVSTMyD9d8D7xmHJctK7u",
+    "at": "2026-11-14T21:39:03.176Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "2bdbbdc7c8d1d63a0a4d7752c6ae353a028e778a",
+    "title": "설치 앱에서 기기 화면 회전 설정 반영",
+    "changes": [],
+    "original": "Respect device orientation preferences in installed Moment Link",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_5J4vcHLGt4sg1ffyKUZzWxiNHKiH",
+    "at": "2026-11-14T15:06:05.490Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "82445f858a1812e364a364ac708e382849d832aa",
+    "title": "미확인 새 상담 알림을 2분마다 반복",
+    "changes": [],
+    "original": "Repeat unread consultation push every two minutes until detail acknowledgment",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_H8wJi1BtaP8TR8cFPf68vWHAfws7",
+    "at": "2026-11-14T12:29:20.014Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "1283ebe12ee9e1b328ffced6604eba1b48050f6b",
+    "title": "정박형 요트에 맞는 전용 이용 안내 분리",
+    "changes": [],
+    "original": "Separate docked yacht guidance found during production guide review",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BFGfc7xYaNJVde8J27ZDgW5DSuMK",
+    "at": "2026-11-14T12:11:08.979Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3cde93fa95c9ed1f0d37053b45a13918d2377ee4",
+    "title": "예약 상품에 해당하는 안내만 링크에 표시",
+    "changes": [],
+    "original": "Show only each booking category in dedicated customer guide pages",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_TaxfD3cqnY6LJP9TVCH6W6DQe8eN",
+    "at": "2026-11-14T11:59:07.435Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7b41555ce008fc6f6d8ce95c35588319403c589e",
+    "title": "예약 문자는 간결하게, 상세 안내는 링크로 제공",
+    "changes": [],
+    "original": "Shorten reservation SMS and link public versioned customer guidance",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FfPqw83avCr1yLjGYJjy2a7stucs",
+    "at": "2026-11-12T06:49:44.930Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "5dae468f74633f0c324659caa1b681a18a56d4e6",
+    "title": "영상편지 자료 제출 양식과 수신 메일 적용",
+    "changes": [],
+    "original": "Apply customer video preparation template with seolvidmoa receiving address",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BM1gg9sgR8Ym2QWRQmGppWH9dmxE",
+    "at": "2026-11-12T06:44:19.217Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "02740c78b01b05aa62e9baee31f56c30fdd8108b",
+    "title": "영상 자료 제출 기한과 기기별 백그라운드 알림 확인",
+    "changes": [],
+    "original": "Clarify video material deadlines and add device-scoped background push checks",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GqSfJLqCXsrAZbDbftXAHxrcAroP",
+    "at": "2026-11-11T06:29:24.958Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f71c604b4d0f2faec10f8af97665d2f6142236da",
+    "title": "예약 확정 문자에 보딩패스 포함 및 발송 기록 연동",
+    "changes": [],
+    "original": "Include OPS boarding invitation in confirmation SMS and reflect staff send acknowledgement",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_DhQV9WVTxYHH1TXeD9w37Fq5rNL2",
+    "at": "2026-11-10T09:11:25.192Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d20d8bf5ac89941d8fb48dc06800dfd0d3c0cc2a",
+    "title": "출장 라이트·올인원에 종이액자 사진 4개 옵션 추가",
+    "changes": [],
+    "original": "Add optional four paper-frame photo prints for visit light and all-in-one packages",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_V7NnEFVUAev4wMS4nWra4jT2crHX",
+    "at": "2026-11-10T06:53:38.918Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "85164d75b9f76625e687d27ae918135634a35f9d",
+    "title": "예약금을 선택하지 않으면 전액 결제로 안내",
+    "changes": [],
+    "original": "Require explicit deposit selection and default payment guidance to full payment",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8667tpvTBT2NMHednwWkd62Xhy8f",
+    "at": "2026-11-10T03:42:13.478Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8016892b13fa4b5a6ca7a44a74a69f645df0faf7",
+    "title": "예약금 요청액과 실제 입금액·잔금 구분",
+    "changes": [],
+    "original": "Separate requested booking deposit from receipts and show deposit balance in payment guidance",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CWZkSSm7hjWWdJMhoex9XVeRw6mj",
+    "at": "2026-11-10T03:14:23.138Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "cd60e4fd35e794bdf6bce8bf985e7b1c9e191674",
+    "title": "예약 문자 내용을 항목별로 정리하고 고객 연락처 표시",
+    "changes": [],
+    "original": "Group reservation SMS details and keep customer contact with the greeting",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3S5a8jAHfUjMacy4AWKNKtCWuyCu",
+    "at": "2026-11-10T02:58:37.597Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "38a394564bd45b52ad13943cabe6023876d53e20",
+    "title": "확정 일정은 유지하면서 상담 상태로 다시 열기",
+    "changes": [],
+    "original": "Allow confirmed reservations to reopen consultation while preserving OPS schedules",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_JCpnsLU1KsripUNT1GL2oMSB3ihe",
+    "at": "2026-11-09T03:53:26.027Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "c255e17c0c71c24f9ce234f0e6d32882ab180dad",
+    "title": "예약 문자에 고객 연락처·완납 총액 표시",
+    "changes": [],
+    "original": "Include customer contact in reservation messages and fill full payment totals",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CnvJDn8ktdiKCZXYX458pbuiJ3Ji",
+    "at": "2026-11-09T02:17:08.118Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "63be923b42e3b88c0067d7130b4826b6c1cc85e7",
+    "title": "상태·담당자 선택 메뉴가 화면 밖으로 나가지 않도록 개선",
+    "changes": [],
+    "original": "Keep status and assignee menus inside responsive viewports",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FXiMDwAkDQuPgqFwj7ehqsHPfJy3",
+    "at": "2026-11-08T16:30:35.200Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "5955604167deb7a09cccafe290e37e116d0ee47a",
+    "title": "모바일 상담 상태 필터 간격 축소",
+    "changes": [],
+    "original": "Make consultation status filters compact on mobile",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2uG5aHVGkrssSQr7ymkBurBUZA3h",
+    "at": "2026-11-08T10:45:54.998Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e4d578f11269c61aeb83eb3fe9fa03ea5432561d",
+    "title": "상담 필터를 간결한 아이콘 형태로 정리",
+    "changes": [],
+    "original": "Make consultation filters compact icon tiles\n\nUse thin icons with one-line labels and small counts, preserve pastel status colors and existing filters, and compact owner/reminder controls. Verify 37 inbox/ownership/PWA checks plus synthetic filter and keyboard flows at seven folded/unfolded viewp...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CHLgKhJTWrT3NnUr3CgdfZUjFfXj",
+    "at": "2026-11-08T07:54:55.400Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "aed03754b76bf4735d75173621a4ce67eb464010",
+    "title": "영상 자료 제출 메일을 seolvidmoa@gmail.com으로 변경",
+    "changes": [],
+    "original": "Use seolvidmoa@gmail.com for video material submissions\n\nUpdate new guidance and legacy drafts during preparation without changing message history. Refresh the PWA shell cache. Validated 17 messaging/PWA checks and production build.",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_HMFzK8zL7R6gtR2jPoChq23uUqmU",
+    "at": "2026-11-08T00:43:40.227Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6a7e4d2418f2cbda120dc1a97dfbe5d598a5e2c3",
+    "title": "목록에서 잔금 입금 확인 및 OPS 금액 연동",
+    "changes": [],
+    "original": "Collect outstanding reservation balances from the list and sync OPS\n\nAdd a balance-due filter with owner/search/pagination counts, inline actual receipt confirmation, partial collection and full settlement. Record each request once; retain prior totals until OPS returns a matching durable receipt...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Ai2mi5TRvDpQnLgRhwVTnQhm7R1t",
+    "at": "2026-11-07T08:50:45.363Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6183a0ef7bd82baaecafdb1bdbb06cecb731e6fd",
+    "title": "예약 카드에 입금액과 잔금 함께 표시",
+    "changes": [],
+    "original": "Show deposit and balance together on reservation cards\n\nGroup total, received payment and remaining balance in a responsive summary. Highlight outstanding balances in soft amber, distinguish verified full payment and missing payment records, and keep cancelled reservations separate. Preserve full...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_AWQdiC5PtkARmFeBYwea5WdomcsF",
+    "at": "2026-11-07T05:35:15.767Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7321adaba2b0cce26c54fcad3fe4b7428934cd95",
+    "title": "모바일 상담·직접 예약 입력 화면 개선",
+    "changes": [],
+    "original": "Make consultation and direct booking forms readable on phones\n\nPlace full-width, automatically sized addresses below the schedule. Group total, received deposit and balance, compact supporting fields and actions, and adapt columns to the available form width. Keep entered values and the existing ...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GM1GFU4hbWoiqWWubpKeoidCumhK",
+    "at": "2026-11-07T04:19:11.506Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f317a6b345234ac412005564a34e039a2ab9c580",
+    "title": "작은 화면에서 빠른 예약 확정 화면 개선",
+    "changes": [],
+    "original": "Make quick reservation confirmation readable on small screens\n\nShow the complete address in an automatically sized multiline field. Group total, received payment, and balance; compact OPS fields and checks; adapt columns to card width and expand the active confirmation card. Preserve booking valu...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9ZHvUmp6niXxkoBP2kX2UzLZcLYX",
+    "at": "2026-11-07T04:08:13.622Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8e4a98a577d6f9513fc8de943078d54f98c83fc6",
+    "title": "예약금 입금으로 확정하고 남은 잔금 관리",
+    "changes": [],
+    "original": "Confirm reservations with deposits and track remaining balances\n\nRecord actual received amounts separately from the booking total in consultation, quick confirmation, and direct entry. Gate partial OPS payments on advertised capability, preserve deposits through option changes, and include balanc...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6r6W7dosostvbExNrdnmHLyEhiuk",
+    "at": "2026-11-07T03:23:57.883Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e5860f7a04b28f8b97a115016fb01091c7fce755",
+    "title": "메모·문자 안내 버튼 크기 통일",
+    "changes": [],
+    "original": "Match memo and message guide buttons to contact button size\n\nKeep consultation card actions at 48px square with single-line labels. Verify five responsive viewports and the memo saved state; bump the public shell cache.",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Gu1PZanddFa7wZNXZkK6D11QaQBh",
+    "at": "2026-11-07T03:19:16.989Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d88a89b0d0a9d24702c94ddb432ac50a4ee0e8cf",
+    "title": "상담 상태별 색상과 2시간 입금 기한 안내",
+    "changes": [],
+    "original": "Show pastel consultation states and two-hour payment reminders\n\nUse audited status transition times for payment deadlines, show minute-level history, and prepare overdue reminders through the existing message guide. Preserve OPS conflicts and unsaved booking details.\n\nValidation: 155 tests passed...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GesXqCNutxLz69yfaBFvBuxPbavu",
+    "at": "2026-11-07T02:57:56.997Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "b7f9c878e6ca740540c2349d45c10a8b5894a6fc",
+    "title": "기존 문자 안내에 예약 의사 확인 기능 통합",
+    "changes": [],
+    "original": "feat: integrate booking intent into existing message guidance",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BEv3rUnCEZBHx7nLhYtvFkbruxpQ",
+    "at": "2026-11-07T02:43:13.219Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "b64ef72bc09af37b633b5c664a5120d4a4c3c97d",
+    "title": "상담 카드 간소화 및 상담 활동 날짜 표시",
+    "changes": [],
+    "original": "feat: add compact clickable consultation cards with activity dates",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2CPRTdJPUyRfT32GgMChuJ5iY8Vb",
+    "at": "2026-11-07T02:31:11.979Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8cb79d8a0ccc3974174f3c3b44357d65a932be52",
+    "title": "상담 목록에서 예약 의사 확인 문자 준비",
+    "changes": [],
+    "original": "feat: add one-tap booking intent SMS to consultations",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6STuhb7ftxGuYsrjrGjnK5QzZDkV",
+    "at": "2026-11-07T02:21:18.779Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0f18580da939189c158130a6e65daefb3f9f5531",
+    "title": "예약 시간 선택을 영업시간 범위로 제한",
+    "changes": [],
+    "original": "fix: limit staff booking time choices to business hours",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_F8ZEGGEoihzrrSXmokZWAvW6oZT2",
+    "at": "2026-11-07T02:11:37.301Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8da0d2f7152051083e91deaa1322b8204515daee",
+    "title": "로그인할 때 음성 알림 자동 활성화",
+    "changes": [],
+    "original": "fix: enable voice alerts automatically for each admin session",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GBfKTUrNtovHn5EqJuwF4zDi2rsd",
+    "at": "2026-11-07T01:58:47.864Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "98916817d6db0934001b3dce3650818890c12574",
+    "title": "예약 시간을 10분 단위로 선택하고 구매 총액 표시",
+    "changes": [],
+    "original": "feat: select booking times by ten minutes and surface purchase totals",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_K3LiJrD8R77f6G6pXRUnL9FQuJPw",
+    "at": "2026-11-07T01:45:00.267Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "83b00cef8e7bc6977bfee43735d99e69c1f82d3c",
+    "title": "상담 상품 변경 및 예약 중 추가 구매 선택",
+    "changes": [],
+    "original": "feat: edit consultation products and expose purchases in booking workflow",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2Ak2JsfPT2nE7HJy231RwRziTrVq",
+    "at": "2026-11-06T14:06:41.524Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "30de15b4725bef60ba8a4a870aec76df05da30a2",
+    "title": "확정 예약의 추가 구매 변경과 OPS 총액 연동",
+    "changes": [],
+    "original": "feat: edit confirmed booking purchases and sync OPS totals safely",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6ry23PPm6yaKHiXWuEWrQNkYscvR",
+    "at": "2026-11-06T12:43:10.771Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "14bc6fe95ddcb6da0607b054d4672058ff733c24",
+    "title": "추가 구매 금액을 포함한 직접 예약 초안 저장",
+    "changes": [],
+    "original": "feat: save direct booking drafts with priced extra purchases",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_HiFUVqtFRrwPZRPwb41Ppd97jy7p",
+    "at": "2026-11-06T12:01:33.445Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "59ad6599ebf923f5158489d73873fc8cc081955b",
+    "title": "예약 초안 저장과 추가 구매의 BOATN OPS 연동",
+    "changes": [],
+    "original": "feat: save booking drafts and sync priced extras to BOATN OPS",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6cPPcBTdSHAdEDA7RUBghsUv3atD",
+    "at": "2026-11-05T12:22:54.317Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "725c36f5c3775a55c646e792859a6f36ee428f9e",
+    "title": "접수함 버튼 정렬과 리마인드 문구 개선",
+    "changes": [],
+    "original": "fix: align inbox controls and keep reminder labels readable",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_hbVXV3qA5Bk9A3S528CuyDVuuGiH",
+    "at": "2026-11-05T08:37:36.304Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d273c439119f09496b1f8c572599474b7fcc9d06",
+    "title": "상담 담당자 배정과 공동 상담 조회 기능",
+    "changes": [],
+    "original": "Add accountable counselor ownership and shared consultation views\n\nStaff can claim unassigned consultations, filter their own or a colleague's work, and read the shared inbox. Only the assigned counselor or an administrator can make changes; administrator handovers require a reason and retain an ...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_91CJzyPsBPKcWVQAYsKkMa5sAZvb",
+    "at": "2026-11-05T07:52:04.712Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "b9ae48d4c2c646ca15bd6a08a141a9b2db1c578e",
+    "title": "고객의 두 희망 날짜별 요금 표시",
+    "changes": [],
+    "original": "Show separate prices for both requested consultation dates\n\nLabel each requested date and its applicable rate in customer summaries and SMS. Preserve single-date pricing, apply options and overrides independently, and refresh the quote when either date changes or the second choice is removed.",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_2Hbs2dsRa9iisDdebaEKQXUYD419",
+    "at": "2026-11-05T06:58:03.901Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3320d0f8968d39aab520e76026782917628de752",
+    "title": "고객 요약과 문자에 선택한 날짜의 요금만 표시",
+    "changes": [],
+    "original": "Show only the selected date price in customer summaries and SMS\n\nUse the shared calendar pricing rules for the first requested date, including options and date overrides. Refresh the visible price immediately on date entry, label first-choice pricing when a second date is supplied, and preserve s...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_JCj4zzfvogdrexQqvnsBkDhaPDiU",
+    "at": "2026-11-05T06:16:33.942Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "b42d96dffb98cf227e7d06740e854a1038d8f180",
+    "title": "트렁크 세팅 용품 수거와 늦은 반납 안내",
+    "changes": [],
+    "original": "Add trunk setup pickup and late return guidance\n\nExplain same-day pickup after a two-hour wait or next-day pickup before 11am, office return versus on-site collection, and a KRW 30,000 hourly late fee. Include the same guidance in reservation message templates and preserve saved customer drafts.",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7m8cWWd1iKHW9wWstnrFH8wbrzNj",
+    "at": "2026-11-05T05:45:21.953Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7adcd98cfbffd6b1323eaca49763fbd908994d9a",
+    "title": "OPS에 미등록된 충돌 예약의 새 일정 선택 지원",
+    "changes": [],
+    "original": "Allow a new schedule after an unregistered OPS booking conflict\n\nExpose 수정·확정 for rejected initial registrations, identify the date behind saved errors, and register only an explicitly changed schedule. Preserve prior failures and unrelated conflicts, apply the new local schedule only after OPS a...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CJPzthspchbJKS5Xh3qGg2ELKRyS",
+    "at": "2026-11-05T05:26:35.856Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "06665a46044c95002f50e01ccbfe6c2850e2ca7e",
+    "title": "OPS 일정 변경·취소·복원을 모먼트링크에 반영",
+    "changes": [],
+    "original": "Sync OPS schedule changes, cancellations and restorations into Moment Link\n\nAuthenticate inbound events, apply ordered changes atomically with receipts, preserve existing conflicts and reservation details, and refresh open views without discarding edits. Prevent callbacks from creating echo jobs;...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FrBCPE2znKDBHEzHqasAGPbNwJLg",
+    "at": "2026-11-05T05:01:42.468Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "9b989a7754464aa02b9689165303e2fd572fd250",
+    "title": "취소 예약 복원을 BOATN OPS와 연동",
+    "changes": [],
+    "original": "Restore cancelled reservations in linked BOATN OPS\n\nAdd explicit restore actions to the list and consultation detail. Mark reservations confirmed only after OPS acknowledges the same booking, preserve payment and message history, and cap restoration writes at two with read-only reconciliation. Ke...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Ep5fhtK4K2jNAKNnoV6meP6naCGj",
+    "at": "2026-11-04T10:50:07.809Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "92bea631b162875a73be85286115ecbb5e94a140",
+    "title": "예약 취소를 BOATN OPS에 반영",
+    "changes": [],
+    "original": "Sync reservation cancellations to BOATN OPS\n\nCancel the linked OPS booking from list or detail status controls and mark the local reservation cancelled only after OPS acknowledgement. Reconcile lost responses, cap cancellation writes at two attempts, and preserve existing conflicts. Add cancellat...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4QnWDqmVLb8JDvpiCyMLSwc3o8VA",
+    "at": "2026-11-04T10:09:16.607Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "a8cd28caa886c422b92bcb528309ff2680249403",
+    "title": "확정 예약의 시간 변경을 BOATN OPS에 반영",
+    "changes": [],
+    "original": "Sync confirmed reservation time changes to BOATN OPS\n\nShow 수정·확정 for linked reservations and apply the local schedule only after OPS acknowledges it. Reconcile lost responses, limit schedule writes to two attempts, and leave existing conflicts untouched. Add API, idempotency, conflict, and UI reg...",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_97zAncmvAqfUdwKyZhSmMX2KvYqJ",
+    "at": "2026-11-04T07:41:40.123Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0d7e2f042ef35bcd8a98d023ba47eb83456bf0e8",
+    "title": "OPS 연동 작업을 간결한 카드와 이름 있는 버튼으로 표시",
+    "changes": [],
+    "original": "Restyle OPS job display with compact cards and labelled icon actions",
+    "redeployed": true
+  },
+  {
+    "id": "dpl_6K7caYsKHWajxQYmrzdPtA6axFjp",
+    "at": "2026-11-04T07:26:24.406Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0d7e2f042ef35bcd8a98d023ba47eb83456bf0e8",
+    "title": "OPS 연동 작업을 간결한 카드와 이름 있는 버튼으로 표시",
+    "changes": [],
+    "original": "Restyle OPS job display with compact cards and labelled icon actions",
+    "redeployed": true
+  },
+  {
+    "id": "dpl_BcNaK2z5AjDp1AeC3ZcoEYPp1mFa",
+    "at": "2026-11-04T07:23:25.437Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0d7e2f042ef35bcd8a98d023ba47eb83456bf0e8",
+    "title": "OPS 연동 작업을 간결한 카드와 이름 있는 버튼으로 표시",
+    "changes": [],
+    "original": "Restyle OPS job display with compact cards and labelled icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3LjwzPPnLkJz18ugCXm73pULvf5k",
+    "at": "2026-11-04T06:03:18.976Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "4b1991f28b10cf4a0f9d2700ebc2033792c3e994",
+    "title": "직원 계정 화면과 작업 버튼 간소화",
+    "changes": [],
+    "original": "Simplify staff accounts with compact cards and labelled icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7jdegusDzPePsZsopzErWCDi3hhZ",
+    "at": "2026-11-04T05:54:11.473Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "bfe0924d3d75ce06a3376c7ba7ad1d0ee30538e4",
+    "title": "접수·개인정보 설정 화면과 버튼 정리",
+    "changes": [],
+    "original": "Simplify intake and privacy settings with labelled icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CQ17pDvxHDhka7BYAZEfAm6nXxVM",
+    "at": "2026-11-04T05:40:54.723Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "5c0e42df42776b65f217bebb158428d2f55d93f5",
+    "title": "장소 관리 목록과 작업 버튼 간소화",
+    "changes": [],
+    "original": "Simplify location management with compact cards and labelled icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7YkfpgJWbDSy5bvjk6v4vEvtSPDt",
+    "at": "2026-11-04T05:15:59.759Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e022955d437ea1553f7471c6b5af4feefe48aef3",
+    "title": "문자·알림 설정 화면과 버튼 정리",
+    "changes": [],
+    "original": "Simplify message and notification settings with labelled icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_EAhcZSjufhANHUnMP35kPbwi5LGF",
+    "at": "2026-11-04T04:39:28.433Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "a5882cb3292afeb4584025a63da0f1a09716cbf2",
+    "title": "상품 관리 버튼과 수정 화면 간소화",
+    "changes": [],
+    "original": "Simplify product management with labelled icon actions and compact editors",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6kfExkEyw4QTuyaEdpjpwuvy1G2J",
+    "at": "2026-11-04T04:11:02.517Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8d8c226e8bafd007f1d01dc9a3d0bbfab80fa22b",
+    "title": "이름 있는 작업 버튼과 직접 예약 입력 개선",
+    "changes": [],
+    "original": "Add labelled action tiles and simplify direct reservation entry",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4NAkYo6J3hXrouo6kTVaXpDAeSWi",
+    "at": "2026-11-04T03:56:03.771Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "284f2f870fd5f78a96583b4e92783e18d3f286c2",
+    "title": "확정 예약을 요약 카드와 작업 버튼으로 정리",
+    "changes": [],
+    "original": "Simplify confirmed reservations with booking summaries and icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8yvxXccZ2Mui9UyZYtcfUEoSjn5Q",
+    "at": "2026-11-04T02:47:20.837Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3ed9805d05cf286a0693159f66c186b7e662242b",
+    "title": "상담 상세 화면과 접근성 있는 작업 버튼 정리",
+    "changes": [],
+    "original": "Simplify consultation details and add accessible icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_5mh4QLbjqkfqW8ULhFUtjt1PmgGK",
+    "at": "2026-11-04T02:29:42.263Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3ef824df64d8398ff315113840316e40a2daac54",
+    "title": "상담 카드에 전화번호와 작업 버튼 표시",
+    "changes": [],
+    "original": "Simplify consultation cards with visible phones and icon actions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FATb7h7S4NLPFhh3Jb8HRrXSChoT",
+    "at": "2026-11-04T02:17:17.039Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "c55585cd01e702e62b7a069d673504f8dc190098",
+    "title": "상담 목록에서 메모 입력 및 연락 상태 순서 정리",
+    "changes": [],
+    "original": "Add inline consultation memos and ordered contact statuses",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_86sMeDzLpa7DoCXMpJTDhhcuuJW8",
+    "at": "2026-11-04T00:18:30.050Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3773592bc7fef738c75b54c0a47ff0c1303dead7",
+    "title": "상담 목록에서 상태 변경과 고객 메모 저장",
+    "changes": [],
+    "original": "Enable consultation list status changes and persistent customer notes",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7biFNgUWwUUimocVbm2QMRxoAXQt",
+    "at": "2026-11-03T18:55:24.095Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "0ba6e43760f77b6f0eaa7bf86a0d9abad796b316",
+    "title": "관리자 로고를 누르면 접수함으로 이동·갱신",
+    "changes": [],
+    "original": "Make admin brand return to and refresh the consultation inbox",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_YGHMk4TLKNiUTKTyRqiPDzgXmyHA",
+    "at": "2026-11-03T18:21:23.056Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "ac11712d49299a28b1690b4d8f9f681bd15267e9",
+    "title": "상담 목록에서 빈 문자 작성창 열기 수정",
+    "changes": [],
+    "original": "fix: open blank SMS composer from consultation list",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Ca8BGg9iU3j94gBFogq34Vo2nK9T",
+    "at": "2026-11-03T07:31:40.640Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "42f05e5a3785b9062a3e0dc701f73fa1768cba3b",
+    "title": "빠른 예약 확정과 상태 분류 오류 수정",
+    "changes": [],
+    "original": "Fix quick reservation confirmation and status classification",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_5XFvwNuy4PH4Sst58BDG7WtjgCUA",
+    "at": "2026-11-03T04:51:35.454Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "fca333cd28c36ea4a793d99c54fab8776f9bae44",
+    "title": "고객 연락 버튼에서 전화·문자 앱 열기",
+    "changes": [],
+    "original": "Make customer contact actions open phone and SMS apps",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_AFZAepjpHiZjAtNS46XjbyRib9Vz",
+    "at": "2026-11-03T04:00:27.522Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "3da58cfbacf75917fc52b37f23bdb7b2d6713d00",
+    "title": "빠른 상담 상태 메뉴와 관리자 작업 아이콘 추가",
+    "changes": [],
+    "original": "Add quick status menu and minimal admin action icons",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9aUAsYUGCfkRwMC4G3zVywWvzzTe",
+    "at": "2026-11-03T00:06:36.757Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "02befa9f808edb3db4fc91fb36eb7078c5b44947",
+    "title": "일시적인 OPS 등록 확인 실패 복구와 상태 갱신",
+    "changes": [],
+    "original": "fix: recover transient OPS registration checks and refresh status",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_36VYLmQGtZ1ibs6De61XNwjtpdDU",
+    "at": "2026-11-02T12:34:52.771Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "b99de103b1e4ec79209685e2245a6fe296311ac9",
+    "title": "확정 요트 예약의 BOATN OPS 자동 등록",
+    "changes": [],
+    "original": "Register confirmed yacht reservations automatically in BOATN OPS",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_29TKn65RFp2qZi1KLeu7RxuCgZYc",
+    "at": "2026-11-02T08:31:16.103Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "82db3d63f71dc6a6d1efe6fb38f86671bff6f376",
+    "title": "입금대기 상태와 필수 확인 후 예약 확정 기능",
+    "changes": [],
+    "original": "Add payment waiting and validated reservation confirmation to status menu",
+    "redeployed": true
+  },
+  {
+    "id": "dpl_xq5qHjiQMWUV5Lorye3z8nPh4pvz",
+    "at": "2026-11-02T08:22:01.391Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "82db3d63f71dc6a6d1efe6fb38f86671bff6f376",
+    "title": "입금대기 상태와 필수 확인 후 예약 확정 기능",
+    "changes": [],
+    "original": "Add payment waiting and validated reservation confirmation to status menu",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_5Srb7TsHpm6bnuxM2jpJJ7XLgzNX",
+    "at": "2026-11-02T07:17:50.143Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "a11eaefbad3f6e4ff52ee1edc859123d10c7cb23",
+    "title": "영상편지 자료 제출 기한 문구 명확화",
+    "changes": [],
+    "original": "Clarify video letter submission deadline wording",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Efu7KEzFW1XVnMExXoKhQsnp1Wi7",
+    "at": "2026-11-02T06:56:37.470Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "efdcfeed1b8c40b1c1e51fb480b3f1d27f41ca27",
+    "title": "상담 상태 저장 결과를 화면에 표시",
+    "changes": [],
+    "original": "Show clear inline feedback when saving consultation status",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_96xZnHvy9u2X3nLD9SmSuXbRAumC",
+    "at": "2026-11-02T06:15:44.587Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d82f8ab1c57507b035b322a0ca7e2358538dded8",
+    "title": "새 상담 알림에 자연스러운 한국어 음성 적용",
+    "changes": [],
+    "original": "Use a natural Korean voice clip for new consultation alerts",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_A2Dm8cs3negYHEk2LSZ2wjsi1Y5s",
+    "at": "2026-11-02T05:15:43.562Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "cbb3ca2df6994102d62dd69a28dad2d538c09ca9",
+    "title": "헬기 상품 비교표의 포함·미포함 표시 통일",
+    "changes": [],
+    "original": "Unify helicopter comparison inclusion and exclusion marks",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_5mCHYfa9SfyQNTuD2qVR8N78kw8i",
+    "at": "2026-11-02T05:03:08.199Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "5a0c56d786de23e26be83a17a2e6611674db3481",
+    "title": "상담 상태 이름과 선택 항목 정리",
+    "changes": [],
+    "original": "Rename consultation status and remove closed choice",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_tLfgFXxguoWdrKcZ9SwNuCcu6MXB",
+    "at": "2026-11-02T04:44:14.589Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "de91fd8e713b08cbd02e276a30f8f3468cde0968",
+    "title": "선택형 새 상담 음성 알림과 문자 버튼 정렬",
+    "changes": [],
+    "original": "Add opt-in branded inquiry voice alerts and align message buttons",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_S8m3h2CHmxTir6d5x7rB6mFhYTH2",
+    "at": "2026-11-02T03:32:56.670Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "defd6376090d7024f9216404fc2973cbea5de71a",
+    "title": "관리자의 직접 예약 등록·확정·문자 안내 기능",
+    "changes": [],
+    "original": "Add administrator direct booking entry with confirmation and message workflow",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_74R3cfayaDQ2CRoUrb9EwJEWipJD",
+    "at": "2026-11-02T02:26:04.591Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f6b4780096cd4fdbb158a5ba92456e4fee1f999c",
+    "title": "출장 패키지의 미포함 항목 표시 통일",
+    "changes": [],
+    "original": "Show unavailable visit package services consistently with yacht comparison",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_vfMyurqgLdoBbizpvfisJzqzFkAG",
+    "at": "2026-11-02T01:26:08.777Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "36f17be9a5f6a53882d0f41db7349116e759f06a",
+    "title": "새 상담 건수 표시와 접수함 자동 갱신",
+    "changes": [],
+    "original": "Add live inquiry counts and safe automatic inbox refresh",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4C92mGAD8kiJT5rbPRemByHMSUrC",
+    "at": "2026-11-02T00:13:28.346Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "c2432e3272441ecefc976cc1d903ba951f083f92",
+    "title": "출장 패키지 포함 항목을 체크 표시로 정리",
+    "changes": [],
+    "original": "Use yacht-style checkmarks for included visit package features",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7rjwvabadZG3vfhRF3DVunpfeBT7",
+    "at": "2026-11-02T00:05:43.552Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "20a1ac71e4dc2ff141c07cee45e775fc50f8375e",
+    "title": "출장 패키지 비교 문구와 옵션 순서 정리",
+    "changes": [],
+    "original": "Clarify visit package comparison labels and option order",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FTcQn2inehncCN6SbViemVB5Am19",
+    "at": "2026-11-01T23:45:31.329Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e384502a8b12c30951aaff766a3c4c7492f54eb3",
+    "title": "헬기 상품 갤러리의 원본 사진 9장 교체",
+    "changes": [],
+    "original": "Replace helicopter gallery with nine lightly color-corrected original photos",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6zbTkeC2dY13jcTvHKoSSwoupaDD",
+    "at": "2026-11-01T23:15:09.775Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "bed673e0fdda423eb8afe1493bd35b779d068883",
+    "title": "담당자 선택 메뉴를 다시 누르거나 바깥을 누르면 닫기",
+    "changes": [],
+    "original": "Make assignee dropdown close on repeated tap and outside interaction",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9X8hsJ2ywGCryjKDcUjACJYM8fng",
+    "at": "2026-11-01T23:03:54.767Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "9c9ea5972fbbd9569d516f7bab50c9fb0b0ded83",
+    "title": "상담 메뉴에 휴지통 배치",
+    "changes": [],
+    "original": "Move trash into consultation status menu",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_282At7mqFUXkTrgpFXBXQoLrn2qy",
+    "at": "2026-11-01T22:55:07.987Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d07af02102655648d400b0ad477820c92747b8e3",
+    "title": "기기에서 관리자 로그인 상태 유지 개선",
+    "changes": [],
+    "original": "Keep administrator sessions signed in with rolling device expiry",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8qhjcZ1o9vMLhjYM9RmsvNDxBWtG",
+    "at": "2026-11-01T22:42:11.416Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "62d13dd60ff8a495fda38751447bf92ecf4c9717",
+    "title": "상담 상태 메뉴·복구 가능한 휴지통과 영상·USB 가격 구분",
+    "changes": [],
+    "original": "Add consultation status menus and recoverable trash; separate video creation and keepsake USB pricing",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_9xDw9khWaKHwGdKwBDzrsz78ybk6",
+    "at": "2026-11-01T15:06:21.638Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "53ad0b3b57bc9b8d4b8d620ce5b01e949015231d",
+    "title": "요트 문자 준비 시 2시간 입금 기한 계산",
+    "changes": [],
+    "original": "Calculate a two-hour payment deadline when preparing yacht messages and use event wording",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_FxaiqUr3PMmUJP7kwHtSo3xVpRJZ",
+    "at": "2026-11-01T13:47:30.059Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "4891423da51f81cba0e77fce1626f8a757525c6c",
+    "title": "행사 날짜별 요트 요금 계산과 집결지 안내 설정",
+    "changes": [],
+    "original": "Calculate yacht guidance prices by event date and set university pickup address",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4GoDytacr6BXL1ExwNeZoYUXFnc3",
+    "at": "2026-11-01T13:16:08.007Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f38b76a2a7cfc0a64a3712fefc71fcc5e7e6fe8a",
+    "title": "요트 상품명을 한글 이름·선박 모델로 정리",
+    "changes": [],
+    "original": "Rename yacht products to Korean names with vessel models",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Gyh3cQE8pZMTtFvatyDx6svLkiHT",
+    "at": "2026-11-01T12:30:05.279Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "d324959cb7cc498e3228bd71d228cfb0ed811bf0",
+    "title": "수동 예약 확정·확정 예약 목록·검색 개선",
+    "changes": [],
+    "original": "Add manual reservation confirmation, dedicated booking lists and clearer search controls",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3DbXbJTbgNZ2ETUXgxrCwxkJcqrL",
+    "at": "2026-11-01T11:58:28.106Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "a8d5c015fe71f45e3876947f51bc8ebb1126b1df",
+    "title": "고객별 단계별 안내 문자 작성과 수동 발송 기록",
+    "changes": [],
+    "original": "Add private per-customer staged proposal SMS composer and manual send tracking",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_AVPtBL724xaXdbKbaexXst9JFRo5",
+    "at": "2026-11-01T11:29:05.667Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "fc6d64d122f1541bd320aa954b6644bd04db7793",
+    "title": "모먼트링크 홈 화면 앱 설치와 기본 오프라인 화면 지원",
+    "changes": [],
+    "original": "Add optional PWA installation with MOMENT icons and offline shell",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CjCM7pkap9KfRvbEvzD3FDXX5maz",
+    "at": "2026-11-01T10:55:10.574Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "09b96ef1121f3b120f531a3c5fe0c11f91c2f954",
+    "title": "트렁크 프로포즈 방문·부산 출장 요금 적용",
+    "changes": [],
+    "original": "Set trunk proposal pricing for office visits and Busan on-site service",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_DP4L6P33R9u9SebNAtSfVEFhNnbj",
+    "at": "2026-11-01T10:19:12.933Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "f7f785a2ad18cd968a06ef255a3fa49f0e548acc",
+    "title": "접수함 검색 버튼과 상담 카드 간격 정리",
+    "changes": [],
+    "original": "Align inbox search controls and consultation card spacing",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3jM2CuMZZqy1GmYFfo4YuCihWGmL",
+    "at": "2026-11-01T10:09:56.237Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "8676e9126ed623e8a4d2dd4cdf7e3f0560c7ad0a",
+    "title": "출장 상품에 꽃다발·영상편지 선택 옵션 추가",
+    "changes": [],
+    "original": "Add bouquet and exclusive video letter options to visit packages",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_GHqE9kLNb4zMQxPKtoYcbgAh4UFj",
+    "at": "2026-11-01T09:50:47.333Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7621cd9d5094e378931c80b92ef5b896d3c1d163",
+    "title": "숨긴 상품 복구와 관리자 상품 분류 오류 수정",
+    "changes": [],
+    "original": "Fix archived product recovery and category filtering in admin",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_DMg4h2ZManJHztfBenxW8XZQADvL",
+    "at": "2026-11-01T09:35:04.481Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "18101a6b1f1de55770809463b69d5e9d4b14a7c4",
+    "title": "프리미엄 요트에 케이크·꽃다발 포함 구성 적용",
+    "changes": [],
+    "original": "Include cake and bouquet for premium yachts and remove card badges",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_HXcU4cjbXQMopnyBTbxfX8tXoeeD",
+    "at": "2026-11-01T07:46:43.828Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "7e0a2d2dd00df888ee7dc2ba8d448e20247e4f91",
+    "title": "마케팅 촬영 동의에 따른 요트 촬영 안내",
+    "changes": [],
+    "original": "Include yacht filming conditional on marketing consent",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_Epts54KHpQy6KwUGoji37dxxfnaC",
+    "at": "2026-11-01T07:38:47.664Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "e50cbf55d8a576efdd0925303cd704eff19c5ee9",
+    "title": "요트 구성 비교표와 미포함 항목 정리",
+    "changes": [],
+    "original": "Match yacht inclusion tables to owner reference and store explicit exclusions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_F6vyQqXgquWi3Pyj8163gptxbFsW",
+    "at": "2026-11-01T07:31:56.785Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "6d578d1838614122396602535ab2bc5b85bfd03c",
+    "title": "고객 화면 하단의 비상업용 문구 제거",
+    "changes": [],
+    "original": "Remove noncommercial label from customer footer",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8tdiVRCBZhByx8sEvykWZaVCN564",
+    "at": "2026-11-01T06:59:29.469Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "91494ad24effa91be26b8d35062fa516f083a02c",
+    "title": "요트 패키지 비교표와 패키지별 가격 표시",
+    "changes": [],
+    "original": "Add yacht-wide package comparison tables and per-package prices",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6C6gawDtNHF2ityBWxE62JH2VNvB",
+    "at": "2026-11-01T06:40:23.239Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "1f6a0ec47d1cd5eebd8ca836cf47e5371cf399e4",
+    "title": "헬기 상품 사진과 대표 이미지 배치 개선",
+    "changes": [],
+    "original": "Add helicopter photography and center product cover framing",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CvoNdhwg4hDWzkpB7qHqBHSxZ4R5",
+    "at": "2026-11-01T06:26:55.856Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "24c09c09bce9791d65e01ab050fdf7884f22fd43",
+    "title": "고객 상담 단계 뒤로가기와 상품 구성 비교 지원",
+    "changes": [],
+    "original": "Support browser back through consultation steps and compare package inclusions",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_3jtQo23sYmdJ9DAonDzSPRa7bM4Q",
+    "at": "2026-11-01T06:14:13.290Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "28b04c11acdec0636735ce356e0c8e7b817aab84",
+    "title": "요트 사진의 반응형 대표 이미지·전체 사진 보기 개선",
+    "changes": [],
+    "original": "Fit provided yacht photography to responsive covers and uncropped galleries",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_A6hEA7BxTmb6E5pS1TexDkmQWfJ6",
+    "at": "2026-11-01T05:24:55.418Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "59afaafa74bf713fa145540983802779b14c4a28",
+    "title": "헬기 희망 시간을 주간 시간대로 제한",
+    "changes": [],
+    "original": "Limit helicopter consultation preferences to daytime and remove evening selection",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_DMVUa6kQtfXGG2csubj8raJPSKy2",
+    "at": "2026-11-01T05:21:00.062Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "18a746d8683295e9ebc4312815eede41cb505e5d",
+    "title": "신규 직원·비밀번호 변경의 최소 길이 기준 통일",
+    "changes": [],
+    "original": "Use the same eight-character minimum for new staff and password changes",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_7sEqJLAWpD65tVun5vGXfFftnJai",
+    "at": "2026-11-01T05:11:34.700Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "10213a63288041ab510ec2949acf61f1eabda127",
+    "title": "로그인 계정명·비밀번호 변경과 기존 세션 정리",
+    "changes": [],
+    "original": "Support authenticated account rename and eight-character passwords with session revocation",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_CokCrYmGEpb94S5jq35eLDyvCMnn",
+    "at": "2026-11-01T04:57:09.939Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "fe8841e75f98ab0c210b5181c730c1577d89c071",
+    "title": "공개 도메인·실제 상담 접수 및 연동 진행 상태 기록",
+    "changes": [],
+    "original": "Record verified public domain, live intake and remaining provider integration limits",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_8JoyLiqV2JFhmD7KNwnAFFuWSPsX",
+    "at": "2026-11-01T04:51:13.414Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "a773d71546938bdcff61164cf85d08a7b41db672",
+    "title": "개인정보 보유기간·안내문·유료 옵션을 포함한 사이트 공개",
+    "changes": [],
+    "original": "Launch public noncommercial site with retention, privacy notice and priced options",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_6JqbaapXFMpUeYKRHnKBSzTXtsfY",
+    "at": "2026-11-01T04:32:43.714Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "52b31fc6055bb5f5dfa91ca658df304cc1515306",
+    "title": "데이터베이스 보안 연결 검증과 직원 비밀번호 관리",
+    "changes": [],
+    "original": "Verify database TLS explicitly and expose staff account password controls",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_A5t76q2hLyrcpqs8pBCJ5PxiKWRv",
+    "at": "2026-11-01T04:30:07.062Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "df15c3f78690acb0d30c8f4ce406c6ad0e8eea57",
+    "title": "알림 복구와 관리자 상품 관리 기능 보강",
+    "changes": [],
+    "original": "Harden notification recovery and admin catalog controls; document verified deployment gates",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_BtigUB8TSFKHGRrAn8UpqUnPHeWb",
+    "at": "2026-11-01T04:13:37.224Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "96c2d1cd6f5d756d1dc09882a69b4c156994549c",
+    "title": "전용 데이터베이스·관리자 인증·상담 저장 기능 구축",
+    "changes": [],
+    "original": "Add isolated PostgreSQL, authenticated admin and durable consultation workflows",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_4edgYSecX6vJUg83vDExKMcfWLwP",
+    "at": "2026-11-01T03:59:02.060Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "57b0bcc31e73270908eaf247c0f06df0a660dd2a",
+    "title": "Git 기반 배포 빌드 설정 오류 수정",
+    "changes": [],
+    "original": "Fix Git builds by preserving robots.txt and pinning Node 24",
+    "redeployed": false
+  },
+  {
+    "id": "dpl_71WwKHodXzeFtEiQdfUDXTGoHJqB",
+    "at": "2026-11-01T03:44:42.124Z",
+    "dateBasis": "운영 배포 기록",
+    "commit": "",
+    "title": "초기 운영 배포 기록",
+    "changes": [],
+    "original": "배포 기록에 상세 변경 설명이 없습니다.",
+    "redeployed": false
+  }
+]
