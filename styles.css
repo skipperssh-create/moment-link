@@ -893,7 +893,72 @@ dialog.message-error-dialog::backdrop{background:#0005}
 .finance-kpis span,.finance-kpis small{word-break:keep-all;overflow-wrap:normal}
 
 /* Contract payment and release history */
-.naver-contract{margin:20px 0;padding:20px}.contract-heading,.contract-actions{display:flex;gap:12px;align-items:center;justify-content:space-between}.contract-heading h3{margin:0}.contract-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:18px 0}.naver-contract label{display:block;min-width:0;font-weight:600}.naver-contract label input,.naver-contract label textarea{margin:8px 0 14px}.naver-contract .inline-check{display:flex;align-items:flex-start;gap:10px}.naver-contract .inline-check input{flex:0 0 auto;margin:4px 0}.contract-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:16px;background:#f5f5f7;border-radius:16px;margin:16px 0}.contract-totals strong,.contract-totals span{display:block;overflow-wrap:anywhere}.contract-totals p{grid-column:1/-1}.contract-history{margin-top:20px}.naver-contract button{white-space:normal;min-height:48px}.naver-contract form>label{margin-top:14px}@media(max-width:600px){.contract-heading{align-items:stretch;flex-direction:column}.contract-fields{grid-template-columns:1fr}.contract-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.contract-actions{flex-wrap:wrap}.contract-actions button{flex:1 1 140px}}
+/* Contract entry keeps every label above its full-width control. */
+.naver-contract{container:contract / inline-size;margin:20px 0;padding:20px}
+.contract-heading{display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.naver-contract .contract-heading h3{margin:0 0 6px;font-size:18px}
+.contract-heading>div{min-width:0}
+.naver-contract button{white-space:normal;min-height:48px}
+.contract-heading>button{flex:0 0 auto}
+.naver-contract #contractEditor[hidden]{display:none}
+.contract-step{padding:24px 0;border-bottom:1px solid var(--line)}
+.contract-step-heading{display:flex;gap:12px;align-items:flex-start;margin-bottom:18px}
+.contract-step-number{display:grid;place-items:center;flex:0 0 28px;height:28px;border-radius:9px;background:#f0f0f3;color:#585860;font-size:13px;font-weight:650}
+.contract-step-heading h4{font-size:16px;line-height:1.6;margin:0;font-weight:700}
+.contract-step-heading p,.contract-heading p{margin:0}
+.naver-contract .contract-field{display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:8px;min-width:0}
+.naver-contract .contract-field>label{display:block;margin:0;font-size:14px;line-height:1.6;font-weight:650;word-break:keep-all}
+.naver-contract .contract-field :is(input,select,textarea){display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;margin:0;font-size:16px;font-weight:400;border:1px solid #dcdce2;border-radius:11px;padding:11px 12px;line-height:1.5;background:#fff;color:var(--ink);min-height:48px}
+.naver-contract .contract-field textarea{resize:vertical;min-height:118px;line-height:1.75}
+.naver-contract #nc_raw{min-height:156px}
+.naver-contract .contract-field>p{margin:0}
+.naver-contract .contract-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 16px;margin:0}
+.contract-parse-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.contract-parse-actions p{margin:0;flex:1 1 220px}
+.contract-feedback{margin:12px 0 0;padding:12px 14px;border-radius:10px;background:#f5f5f7;font-size:13px;line-height:1.75;word-break:keep-all;overflow-wrap:anywhere}
+.contract-feedback[hidden]{display:none}
+.naver-contract .contract-totals{display:block;background:#f5f5f7;border-radius:14px;padding:18px;margin:20px 0 12px}
+.contract-money-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0}
+.contract-money-grid>div{display:grid;grid-template-rows:minmax(44px,auto) auto auto;gap:6px;min-width:0;align-content:start}
+.contract-money-grid dt{font-size:13px;color:#585860;font-weight:600;line-height:1.6;word-break:keep-all}
+.contract-money-grid dd{margin:0;font-size:clamp(18px,2.5cqi,24px);font-weight:700;letter-spacing:-.4px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.contract-money-grid small{font-size:12px;color:var(--muted);line-height:1.6;word-break:keep-all}
+.contract-comparison{display:flex;flex-wrap:wrap;gap:8px 20px;border-top:1px solid #e1e1e6;padding-top:14px;margin-top:16px;font-size:13px}
+.contract-comparison strong{font-variant-numeric:tabular-nums;white-space:nowrap}
+.contract-totals>p{margin:10px 0 0}
+.contract-totals .contract-empty{margin:0;font-size:14px;line-height:1.8}
+.contract-fee-note{margin:0}
+.contract-disclosure{border:1px solid var(--line);border-radius:12px;padding:0 16px;margin:0}
+.contract-disclosure>summary{min-height:60px;font-size:14px;font-weight:650;padding:14px 0}
+.contract-disclosure summary small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:3px}
+.contract-disclosure-body{display:grid;gap:16px;padding:4px 0 18px}
+.contract-disclosure-body>p{margin:0}
+.contract-review{margin-top:24px}
+.contract-quantity{font-size:14px;font-weight:650;font-variant-numeric:tabular-nums}
+.contract-alert{padding:14px;border:1px solid #d7b98a;background:#fbf8f2;border-radius:10px;font-size:13px;line-height:1.8;margin:16px 0}
+.contract-save{margin-top:24px}
+.naver-contract .contract-save .inline-check{display:flex;align-items:flex-start;gap:10px;font-weight:400;margin:0 0 12px}
+.naver-contract .inline-check input{flex:0 0 20px;width:20px;min-width:20px;height:20px;margin:4px 0}
+.contract-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:stretch}
+.contract-history{margin-top:20px}
+.contract-history article{padding:16px 0;border-top:1px solid var(--line)}
+.contract-history article p{margin:0 0 6px;font-size:13px}
+.contract-history dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0 0;font-size:13px}
+.contract-history dl>div{min-width:0}.contract-history dt{color:var(--muted)}.contract-history dd{margin:0;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+@container contract (max-width:560px){
+ .naver-contract .contract-fields,.contract-money-grid{grid-template-columns:minmax(0,1fr)}
+ .contract-money-grid>div{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto auto;gap:4px 12px;align-items:center}
+ .contract-money-grid dd{font-size:20px}.contract-money-grid small{grid-column:1/-1}
+ .contract-money-grid dt{min-width:0}.contract-heading{flex-direction:column;align-items:stretch}
+ .contract-actions{grid-template-columns:minmax(0,1fr)}.contract-history dl{grid-template-columns:minmax(0,1fr)}
+}
+@container contract (max-width:320px){
+ .contract-money-grid>div{grid-template-columns:minmax(0,1fr)}
+ .contract-money-grid dd{font-size:20px}.contract-disclosure{padding:0 12px}
+ .contract-totals{padding:14px}.contract-parse-actions>button{width:100%}
+}
+@media(max-width:600px){.naver-contract{padding:14px}.contract-step{padding:20px 0}.contract-heading{flex-direction:column;align-items:stretch}.naver-contract .contract-fields{grid-template-columns:minmax(0,1fr)}.contract-actions{grid-template-columns:minmax(0,1fr)}}
+
 
 .release-dialog{width:min(760px,calc(100vw - 28px));max-width:calc(100vw - 28px);max-height:calc(100dvh - 36px);box-sizing:border-box;border:1px solid #e5e5e9;border-radius:24px;padding:24px;background:white;color:#1d1d1f;overflow:auto}.release-dialog::backdrop{background:rgba(0,0,0,.4)}.release-dialog header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.release-dialog h2{margin:0}.release-dialog button{min-height:48px;flex:0 0 auto}.release-search{display:block;margin-top:16px}.release-search input{margin-top:8px;width:100%}.release-item{border-top:1px solid #e5e5e9;padding:20px 0}.release-item h3{font-size:18px;line-height:1.5;margin:10px 0}.release-item li{margin:8px 0;white-space:pre-line;overflow-wrap:anywhere}.release-item ul{padding-left:20px}.release-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:#6e6e73}.release-item small{color:#6e6e73}@media(max-width:480px){.release-dialog{padding:18px;border-radius:18px}.release-dialog header h2{font-size:21px}.release-item h3{font-size:17px}}
 
