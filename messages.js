@@ -202,6 +202,7 @@ function validate(stage,b,r){
  if(!stages[stage])return '안내 단계를 선택해 주세요.';
  if(!/^01[016789]\d{7,8}$/.test(r.phone||''))return '고객 휴대전화 번호를 확인해 주세요.';
  if(stage==='intent')return '';
+ if(r.communication?.entry?.source==='lovehunter'&&r.product_id==='recommend')return '상담할 상품과 패키지를 선택하고 예약사항을 먼저 저장해 주세요.';
  if(stage==='payment_reminder'){
   if(r.status!=='awaiting_payment')return '입금대기 상태에서만 입금 리마인드를 보낼 수 있습니다.';
   const wait=globalThis.MomentLinkOwnership?.paymentWait(r);

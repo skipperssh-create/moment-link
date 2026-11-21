@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { APP_ICON_FILES, writeAppIcons } from './app-icons.mjs';
 import { writeCustomerGuides } from './customer-guides.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const allowed = ['index.html','app.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','booking-adjustment.js','adjustment-ui.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml','guide.html','guide.css','guide.js','guide-mail.js'];
+const allowed = ['index.html','app.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','booking-adjustment.js','adjustment-ui.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','lovehunter.js','lovehunter-ui.js','pwa.js','styles.css','sw.js','manifest.webmanifest','assets/icon.svg','robots.txt','404.html','privacy.html','privacy.js','sitemap.xml','guide.html','guide.css','guide.js','guide-mail.js'];
 const binaryAllowed = ['assets/moment-new-consultation.mp3'];
 const out = path.join(root, 'dist');
 const exists = async (p) => access(p).then(()=>true,()=>false);
