@@ -944,3 +944,18 @@ dialog.message-error-dialog::backdrop{background:#0005}
  .yacht-notice-foot{padding:8px 18px}
  .yacht-notice-body{padding:16px 18px}
 }
+
+/* Duplicate consultation review: scroll the content, keep the heading visible. */
+.duplicate-dialog{width:min(660px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:0;border:1px solid #ddd;border-radius:20px;color:inherit;background:#fff;overflow:auto}
+.duplicate-dialog::backdrop{background:rgba(0,0,0,.35)}
+.duplicate-dialog>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;background:#fff;position:sticky;top:0;border-bottom:1px solid #eee;z-index:1}
+.duplicate-dialog h2{font-size:20px;margin:0;overflow-wrap:anywhere}
+.duplicate-body{padding:20px;overflow-wrap:anywhere}
+.duplicate-option{display:flex;align-items:flex-start;gap:12px;border:1px solid #ddd;border-radius:12px;padding:14px;margin:12px 0;line-height:1.65}
+.duplicate-option input{flex:0 0 20px;width:20px;height:20px;margin-top:4px}
+.duplicate-option span,.duplicate-option>div{min-width:0;overflow-wrap:anywhere}
+.duplicate-body>.primary{width:100%;margin-top:12px}
+.duplicate-section{margin:16px 0}
+.duplicate-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.duplicate-note{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:380px){.duplicate-body{padding:14px}.duplicate-dialog>header{padding:14px}.duplicate-option{padding:12px}}

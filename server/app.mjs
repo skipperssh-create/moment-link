@@ -1,3 +1,4 @@
+import {matchingConsultations,linkConsultations,linkedDetails,linkedArchive,assertUnlinked,unlinked} from './consultation-links.mjs';
 import {releaseHistory} from './releases.mjs';
 import {readNaverContract,saveNaverContract,dispatchContractReviews} from './naver-contract.mjs';
 import {publicError,errorDiagnostic} from './errors.mjs';
@@ -123,7 +124,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    await audit(db,u.id,'auth.login',u.id);return json({user:userPublic(u),csrf:anti},200,{'Set-Cookie':cookie(raw,env)});
   }
   const user=await session(db,request,raw=>{renewedCookie=cookie(raw,env);});
-  const present=r=>({...visibleRequest(r),can_edit:canEdit(r,user),can_claim:canClaim(r),followup:MomentLinkOwnership.reminder(r)});
+  const present=r=>({...visibleRequest(r),can_edit:!r.mergedInto&&canEdit(r,user),can_claim:!r.mergedInto&&canClaim(r),followup:MomentLinkOwnership.reminder(r)});
   if(path==='/api/auth/session'&&method==='GET')return json({user:userPublic(user),csrf:user?.csrf});
   if(path==='/api/auth/logout'&&method==='POST'){csrf(request,user);await db.query('DELETE FROM moment_link.sessions WHERE token_hash=$1',[user.token_hash]);return json({ok:true},200,{'Set-Cookie':cookie('',env,0)});}
   if(path==='/api/auth/password'&&method==='POST'){
@@ -154,6 +155,9 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(path==='/api/admin/finance/report'&&method==='GET'){authorize(user,true);return json(await financeReport(db,url.searchParams.get('month')));}
   if(path==='/api/admin/finance/month'&&method==='POST'){authorize(user,true);return json(await saveFinanceMonth(db,user,await body(request)));}
   if(path==='/api/admin/finance/cost'&&method==='POST'){authorize(user,true);return json(await saveFinanceCost(db,user,await body(request)));}
+  if(path==='/api/admin/intake/candidates'&&method==='GET')return json(await matchingConsultations(db,user,url.searchParams.get('phone')));
+  if(path==='/api/admin/consultation-links'&&method==='GET')return json(await linkedArchive(db,user));
+  if(path==='/api/admin/consultation-links'&&method==='POST')return json(await linkConsultations(db,user,await body(request)));
   if(path==='/api/admin/intake/consultations'&&method==='POST'){
    const input=await body(request);if(!Object.hasOwn(input,'source'))fail(400,'SOURCE_REQUIRED','유입경로를 선택해 주세요.');
    const result=await createLoveHunterConsultation(db,user,input);
@@ -184,7 +188,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     max(created_at) AS latest_at
     FROM moment_link.consultations
     WHERE deleted_at IS NULL AND expires_at>now() AND ($1='admin' OR assignee=$2 OR assignee IS NULL)
-    AND COALESCE(communication->'entry'->>'source','')<>'admin_direct'`,[user.role,user.id,since]);
+    AND NOT EXISTS(SELECT 1 FROM moment_link.consultation_links cl WHERE cl.source_id=consultations.id) AND COALESCE(communication->'entry'->>'source','')<>'admin_direct'`,[user.role,user.id,since]);
    const row=result.rows[0];return json({checkedAt:new Date(row.checked_at).toISOString(),pending:row.pending,arrivals:row.arrivals,latestAt:row.latest_at?new Date(row.latest_at).toISOString():null,...await consultationAlertSummary(db,user)});
   }
   if(path==='/api/admin/consultations'&&method==='GET'){
@@ -195,7 +199,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    const owner=parse(z.union([z.enum(['all','mine','unassigned']),z.string().uuid()]),url.searchParams.get('owner')||(user.role==='admin'?'all':'mine'));
    const followup=parse(z.enum(['all','reminder']),url.searchParams.get('followup')||'all');
    const scope="c.expires_at>now() AND ($1='all' OR ($1='unassigned' AND c.assignee IS NULL) OR c.assignee=$2::uuid) AND ($3='' OR c.person ILIKE $4 OR c.phone ILIKE $4 OR c.receipt ILIKE $4)";
-   const active=view==='trash'?'c.deleted_at IS NOT NULL AND c.delete_after>now()':'c.deleted_at IS NULL';
+   const active=view==='trash'?'c.deleted_at IS NOT NULL AND c.delete_after>now()':'c.deleted_at IS NULL AND '+unlinked();
    const filter=(view==='inbox'?' AND NOT '+reserved:view==='reservations'?' AND '+reserved:'')+(followup==='reminder'?' AND '+reminderDueSql:'');
    const order=view==='trash'?'c.deleted_at DESC':view==='reservations'?"COALESCE(c.communication->'booking'->>'date',c.preferences->0->>'date') ASC, COALESCE(c.communication->'booking'->>'time','') ASC,c.created_at DESC":'c.created_at DESC';
    const trashBefore=new Date().toISOString(),args=[owner,owner==='mine'?user.id:['all','unassigned'].includes(owner)?null:owner,search,'%'+search+'%'];
@@ -210,6 +214,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
   if(alertMatch&&method==='POST')return json(await acknowledgeConsultationAlert(db,user,alertMatch[1]));
   const retryMatch=path.match(/^\/api\/admin\/consultations\/([a-f0-9-]{36})\/integration$/);
   if(retryMatch&&method==='POST'){
+   await assertUnlinked(db,retryMatch[1]);
    const row=(await db.query("SELECT j.id FROM moment_link.integration_jobs j JOIN moment_link.consultations c ON c.id=j.consultation_id WHERE c.id=$1 AND c.deleted_at IS NULL AND c.expires_at>now() AND ($2='admin' OR c.assignee=$3)",[retryMatch[1],user.role,user.id])).rows[0];
    if(!row)fail(404,'NOT_FOUND','연동 작업을 찾을 수 없습니다.');
    await rateLimit(db,'ops-retry:'+user.id,5,60);
@@ -244,13 +249,14 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
    }
    const result=await db.transaction(async tx=>{
     const r=(await tx.query('SELECT * FROM moment_link.consultations WHERE id=$1 AND expires_at>now() AND (delete_after IS NULL OR delete_after>now()) FOR UPDATE',[id])).rows[0];if(!r)fail(404,'NOT_FOUND','접수건을 찾을 수 없습니다.');
+    if(method!=='GET')await assertUnlinked(tx,id);
     if(action==='claim'&&method==='POST'){const d=parse(z.object({version:z.number().int()}).strict(),await body(request));return {item:await claim(tx,r,user,d.version)};}
     if(method!=='GET'&&!canEdit(r,user))fail(403,'NOT_ASSIGNED','담당 상담사만 변경할 수 있습니다. 미배정 상담은 상담 시작을 눌러 주세요.');
     if((method==='DELETE'&&!action)||(action==='restore'&&method==='POST')||(action==='permanent'&&method==='DELETE')){authorize(user,true);return changeTrash(tx,r,user,action||'trash',await body(request));}
     if(r.deleted_at)fail(404,'NOT_FOUND','휴지통에 있는 상담입니다. 복원 후 확인해 주세요.');
     if(action==='naver-contract'&&method==='GET')return readNaverContract(tx,r);
     if(action==='naver-contract'&&method==='POST')return saveNaverContract(tx,r,user,await body(request));
-    if(method==='GET')return {item:visibleRequest(r),notes:(await tx.query('SELECT * FROM moment_link.consultation_notes WHERE consultation_id=$1 ORDER BY created_at',[id])).rows,history:(await tx.query("SELECT a.id,a.action,a.detail,a.created_at,a.actor_id,COALESCE(p.data->>'name',u.username,'시스템') AS actor_name FROM moment_link.audit_logs a LEFT JOIN moment_link.admin_users u ON u.id=a.actor_id LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE a.entity_id=$1 ORDER BY a.created_at,a.id",[id])).rows};
+    if(method==='GET')return {item:visibleRequest(r),...await linkedDetails(tx,id),history:(await tx.query("SELECT a.id,a.action,a.detail,a.created_at,a.actor_id,COALESCE(p.data->>'name',u.username,'시스템') AS actor_name FROM moment_link.audit_logs a LEFT JOIN moment_link.admin_users u ON u.id=a.actor_id LEFT JOIN moment_link.config p ON p.id='staff:'||u.id::text WHERE a.entity_id=$1 ORDER BY a.created_at,a.id",[id])).rows};
     if(['product','addons','payments','adjustments','communications','reservation','notes','confirm'].includes(action)&&writeMethods.includes(method))await acquireForWork(tx,r,user);
     if(action==='customer'&&method==='POST'){const out=await updateLoveHunterCustomer(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
     if(action==='product'&&method==='POST'){const out=await changeConsultationProduct(tx,r,user,await body(request));return {item:visibleRequest(out.item)};}
@@ -316,6 +322,7 @@ export function createApp({db:givenDb,env=process.env,adapters={},schedule}={}){
     if(method==='POST'&&env.OPS_WRITES_ENABLED==='true'){const work=dispatchContractReviews(db,env,adapters.ops?.boatn||opsAdapter('boatn',env),id).catch(()=>{});if(schedule)schedule(work);else await work;}
     return json(result);
    }
+   if(result.mergedInto){result.item=present({...result.item,mergedInto:result.mergedInto});return json(result);}
    if(result.adjustmentRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='adjustment' AND booking->>'changeId'=$2",[id,result.adjustmentRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    if(result.collectionRequest){const job=(await db.query("SELECT id FROM moment_link.integration_jobs WHERE consultation_id=$1 AND booking->>'operation'='payment' AND booking->>'changeId'=$2",[id,result.collectionRequest])).rows[0];if(job)await processIntegration(db,job.id,env,adapters);}
    // Reservation registration runs in the durable background worker; status reads never restart it.

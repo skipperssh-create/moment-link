@@ -18,7 +18,7 @@ function fact(r){
  return {...r,received_date:String(r.received_date).slice(0,10),amount:net,received,refund,reductions:contract?0:reductions,gross:net===null?null:net+(contract?0:reductions),contractChanged,naverFee:contract?Number(contract.fee):0,bookingAmount:amount(f.amount),due:net===null||received===null?null:Math.max(0,net-received),overpaid:net!==null&&received!==null?Math.max(0,received-net):0,eligible:r.reserved&&['confirmed','closed'].includes(r.status),adjustments};
 }
 export function buildFinanceReport(month,raw,fees,months,costs,history=[]){
- const all=raw.map(fact),setting=months.find(r=>r.month===month),settings={version:setting?.version||0,advertisingAmount:dbMoney(setting?.advertising_amount),advertisingPaid:dbMoney(setting?.advertising_paid),referralPaid:dbMoney(setting?.referral_paid),note:setting?.note||''};
+ const all=raw.filter(r=>!r.merged_into).map(fact),setting=months.find(r=>r.month===month),settings={version:setting?.version||0,advertisingAmount:dbMoney(setting?.advertising_amount),advertisingPaid:dbMoney(setting?.advertising_paid),referralPaid:dbMoney(setting?.referral_paid),note:setting?.note||''};
  const bookings=all.filter(r=>r.event_date?.slice(0,7)===month&&r.reserved),active=bookings.filter(r=>r.eligible),leads=all.filter(r=>r.received_date.slice(0,7)===month);
  const charges=fees.filter(r=>r.received_date.slice(0,7)===month),feeTotal=total(charges,'amount');
  const entries=costs.filter(r=>r.month===month).map(r=>({...r,amount:dbMoney(r.amount),paid:dbMoney(r.paid),vat:dbMoney(r.vat)})),validCosts=entries.filter(r=>!r.voided),otherCosts=total(validCosts,'amount');
