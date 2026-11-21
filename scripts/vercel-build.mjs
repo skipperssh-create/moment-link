@@ -10,7 +10,7 @@ if(process.env.RUN_DB_MIGRATIONS==='true'){
 if(process.env.VERCEL_ENV==='production'){
  if(process.env.MOMENT_LINK_DATABASE!=='true')throw Error('Contact status migration requires the dedicated MOMENT LINK database');
  const {database,closeDatabase}=await import('../server/database.mjs');
- try{const db=database();for(const file of ['008_contact_status.sql','010_consultation_alerts.sql','011_event_calendar.sql','012_seollem_booking_sync.sql','013_lovehunter_referrals.sql','014_intake_finance.sql']){const sql=await readFile(new URL('../db/'+file,import.meta.url),'utf8');await db.transaction(tx=>tx.query(sql));}console.log('Contact, notification, event calendar and referral schemas ready. Existing consultation data preserved.');}
+ try{const db=database();for(const file of ['008_contact_status.sql','010_consultation_alerts.sql','011_event_calendar.sql','012_seollem_booking_sync.sql','013_lovehunter_referrals.sql','014_intake_finance.sql','015_naver_contracts.sql']){const sql=await readFile(new URL('../db/'+file,import.meta.url),'utf8');await db.transaction(tx=>tx.query(sql));}console.log('Contact, notification, event calendar and referral schemas ready. Existing consultation data preserved.');}
  finally{await closeDatabase();}
 }
 await import('./build.mjs');
