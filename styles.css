@@ -869,6 +869,10 @@ dialog.message-error-dialog::backdrop{background:#0005}
 .lh-customer [role=status]:empty{display:none}.lh-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px}
 .lh-totals .admin-card{display:grid;gap:8px;margin:0}.lh-totals strong{font-size:1.3rem}
 .lh-report-item{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.lh-report-item[data-status]{background:var(--status-wash,#fff);border-color:var(--status-border,var(--line));border-left-width:3px}
+.lh-report-item[data-status]:focus-within{background:var(--status-bg,#f9fafb)}
+.lh-report-heading{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:4px}
+.lh-status-badge{display:inline-flex;flex:none;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:600;line-height:1.5;white-space:nowrap;background:var(--status-bg,#ececef);color:var(--status-ink,#62626d)}
 .lh-report-item>div{min-width:0;overflow-wrap:anywhere}.lh-report-list{display:grid;gap:12px}
 .lh-report-list .admin-card{margin:0}.lh-report .micro{line-height:1.7}
 @media(max-width:599px){.lh-fields,.lh-totals{grid-template-columns:minmax(0,1fr)}.lh-totals .admin-card{display:flex;justify-content:space-between;align-items:center;gap:8px}.lh-report-item{gap:12px}.lh-report-item>div{flex:1 1 100%}.lh-intake .status-top{gap:12px;flex-wrap:wrap}}
