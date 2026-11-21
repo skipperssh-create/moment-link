@@ -878,3 +878,16 @@ dialog.message-error-dialog::backdrop{background:#0005}
 @media(max-width:599px){.lh-fields,.lh-totals{grid-template-columns:minmax(0,1fr)}.lh-totals .admin-card{display:flex;justify-content:space-between;align-items:center;gap:8px}.lh-report-item{gap:12px}.lh-report-item>div{flex:1 1 100%}.lh-intake .status-top{gap:12px;flex-wrap:wrap}}
 
 .lh-fields .admin-label{margin-top:0}
+
+/* Staff finance workspace follows the same compact card layout. */
+.lh-matches{padding:14px;border:1px solid var(--line);border-radius:14px;margin:14px 0}.lh-matches .inline-check{align-items:flex-start}
+.finance-report{min-width:0}.finance-actions{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:14px 0}.finance-actions label{min-width:160px;flex:1 1 180px;max-width:280px}
+.finance-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}.finance-fields label{min-width:0;font-size:13px;display:grid;gap:6px}
+.finance-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.finance-kpis .admin-card{margin:0;min-width:0;padding:16px}.finance-kpis span,.finance-kpis small{display:block;color:var(--muted);font-size:12px}.finance-kpis strong{display:block;font-size:22px;margin:8px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.finance-section{border:1px solid var(--line);border-radius:16px;padding:18px;margin:18px 0;min-width:0}.finance-section>summary{cursor:pointer;font-weight:650;min-height:32px}.finance-section[open]>summary{margin-bottom:14px}
+.finance-table-wrap{max-width:100%;overflow-x:auto;margin:12px 0;overscroll-behavior-x:contain}.finance-table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}.finance-table caption{text-align:left;font-weight:600;padding:8px 0}.finance-table th,.finance-table td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;min-width:85px}.finance-table th{background:var(--bg);white-space:nowrap}.finance-table td{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.finance-table td:nth-child(2){max-width:210px}
+.finance-history{padding:14px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.finance-history>span{display:block;font-size:12px;color:var(--muted)}.finance-history ul{font-size:13px;margin:6px 0}
+@media(max-width:1000px){.finance-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:599px){.finance-fields{grid-template-columns:1fr}.finance-kpis{gap:8px}.finance-kpis .admin-card{padding:12px}.finance-kpis strong{font-size:19px}.finance-section{padding:12px}.finance-actions label{max-width:none;flex-basis:100%}.finance-actions button{flex:1 1 130px}.finance-table-wrap:before{content:"표는 좌우로 밀어 볼 수 있습니다.";display:block;font-size:11px;color:var(--muted);margin-bottom:8px}}
+
+.finance-kpis span,.finance-kpis small{word-break:keep-all;overflow-wrap:normal}
