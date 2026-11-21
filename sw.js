@@ -1,8 +1,8 @@
 /* Public shell only. No API, private pages, or remote photos are cached. */
-const CACHE='moment-link-shell-v143';
+const CACHE='moment-link-shell-v144';
 // Installed Android apps keep their own manifest. Never replay an old orientation
 // policy from the offline shell when the browser checks for an app update.
-const FILES=['index.html','app.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','booking-adjustment.js','adjustment-ui.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','lovehunter.js','lovehunter-ui.js','pwa.js','styles.css','guide.html','guide.css','guide.js','assets/moment-new-consultation.mp3','assets/icon.svg','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png','assets/apple-touch-icon.png','assets/notification-badge.png','assets/favicon-32.png'];
+const FILES=['index.html','app.js','yacht-notice.js','admin.js','ownership.js','notification-sound.js','push-device.js','pricing.js','booking-addons.js','booking-adjustment.js','adjustment-ui.js','messages.js','ops-ui.js','time-picker.js','message-ui.js','booking-ui.js','lovehunter.js','lovehunter-ui.js','pwa.js','styles.css','guide.html','guide.css','guide.js','assets/moment-new-consultation.mp3','assets/icon.svg','assets/icon-192.png','assets/icon-512.png','assets/icon-maskable-512.png','assets/apple-touch-icon.png','assets/notification-badge.png','assets/favicon-32.png'];
 const urls=FILES.map(p=>new URL(p,self.registration.scope).href);
 const rootURL=new URL('./',self.registration.scope).href;
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(urls)).then(()=>self.skipWaiting())));
